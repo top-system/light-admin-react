@@ -1,0 +1,84 @@
+package middlewares
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/top-system/light-admin/lib"
+	"github.com/labstack/echo/v4"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+// ZapMiddleware middleware for logger
+type ZapMiddleware struct {
+	handler lib.HttpHandler
+	logger  lib.Logger
+}
+
+// NewZapMiddleware creates new zap middleware
+func NewZapMiddleware(handler lib.HttpHandler, logger lib.Logger) ZapMiddleware {
+	return ZapMiddleware{
+		handler: handler,
+		logger:  logger,
+	}
+}
+
+func (a ZapMiddleware) core() echo.MiddlewareFunc {
+	logger := a.logger.DesugarZap.With(zap.String("module", "log-mw"))
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(ctx echo.Context) error {
+			// 跳过 WebSocket 请求，WebSocket 会劫持响应
+			if ctx.Request().URL.Path == "/ws" {
+				return next(ctx)
+			}
+
+			start := time.Now()
+
+			// 使用局部变量避免污染闭包外的 logger
+			reqLogger := logger
+			if err := next(ctx); err != nil {
+				reqLogger = reqLogger.With(zap.Error(err))
+				ctx.Error(err)
+			}
+
+			request := ctx.Request()
+			response := ctx.Response()
+
+			fields := []zapcore.Field{
+				zap.String("remote_ip", ctx.RealIP()),
+				zap.String("time", time.Since(start).String()),
+				zap.String("host", request.Host),
+				zap.String("request", fmt.Sprintf("%s %s", request.Method, request.RequestURI)),
+				zap.Int("status", response.Status),
+				zap.Int64("size", response.Size),
+				zap.String("user_agent", request.UserAgent()),
+			}
+
+			id := request.Header.Get(echo.HeaderXRequestID)
+			if id == "" {
+				id = response.Header().Get(echo.HeaderXRequestID)
+				fields = append(fields, zap.String("request_id", id))
+			}
+
+			n := response.Status
+			switch {
+			case n >= 500:
+				reqLogger.Error("Server error", fields...)
+			case n >= 400:
+				reqLogger.Warn("Client error", fields...)
+			case n >= 300:
+				reqLogger.Info("Redirection", fields...)
+			default:
+				reqLogger.Info("Success", fields...)
+			}
+
+			return nil
+		}
+	}
+}
+
+func (a ZapMiddleware) Setup() {
+	a.handler.Engine.Use(a.core())
+}

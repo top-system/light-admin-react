@@ -1,0 +1,42 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# IDE
+*.idea
+
+# LOG
+*.log
+
+# Gzip
+*.gz
+
+# Zip
+*.zip
+
+# other files
+build.sh
+
+# CONFIG
+config/config.yaml
+config/extras.yaml
+config/menu.yaml
+
+# BUILD
+*./build
+*./bindata
+
+.claude
+.git
+uploads
+data
+

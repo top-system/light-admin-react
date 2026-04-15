@@ -1,0 +1,17 @@
+# Root publish repo
+.DS_Store
+Thumbs.db
+
+# Frontend
+light-admin-ui/node_modules/
+light-admin-ui/dist/
+light-admin-ui/.turbopack/
+
+# Backend
+light-admin-server/build/
+light-admin-server/logs/
+light-admin-server/uploads/
+light-admin-server/data/
+
+# IDE
+light-admin-server/.idea/
