@@ -257,6 +257,7 @@ func (a *MultiTenantConfig) IsEnabled() bool {
 }
 
 // ResolverHeaderName 返回租户码请求头名，默认 X-Tenant-Code
+// 仅在 Resolver == "header" 时有意义。
 func (a *MultiTenantConfig) ResolverHeaderName() string {
 	if a == nil || a.HeaderName == "" {
 		return "X-Tenant-Code"
