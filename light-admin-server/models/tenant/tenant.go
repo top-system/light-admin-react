@@ -6,8 +6,8 @@ import "github.com/top-system/light-admin/models/dto"
 // Status: 1-正常 0-禁用
 type Tenant struct {
 	ID         string       `gorm:"primaryKey;type:char(32)" json:"id"`
-	Code       string       `gorm:"column:code;size:64;uniqueIndex:uniq_tenant_code" json:"code"`
-	Name       string       `gorm:"column:name;size:128" json:"name"`
+	Code       string       `gorm:"column:code;size:64;not null;uniqueIndex:uniq_tenant_code" json:"code"`
+	Name       string       `gorm:"column:name;size:128;not null" json:"name"`
 	Status     int          `gorm:"column:status;default:1" json:"status"`
 	CreateTime dto.DateTime `gorm:"column:create_time;autoCreateTime" json:"createTime"`
 	CreateBy   string       `gorm:"column:create_by" json:"createBy"`

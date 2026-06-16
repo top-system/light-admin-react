@@ -10,7 +10,7 @@ type Member struct {
 	Username      string       `gorm:"column:username;size:64;uniqueIndex:uniq_tenant_username,priority:2" json:"username"`
 	Email         string       `gorm:"column:email;size:128;uniqueIndex:uniq_tenant_email,priority:2" json:"email"`
 	Mobile        string       `gorm:"column:mobile;size:20" json:"mobile"`
-	Password      string       `gorm:"column:password;size:100" json:"-"`
+	Password      string       `gorm:"column:password;size:100" json:"-"` // json:"-" 是主要防护(永不序列化)；CleanSecure 仅作内存层二次清零
 	Nickname      string       `gorm:"column:nickname;size:64" json:"nickname"`
 	Avatar        string       `gorm:"column:avatar;size:255" json:"avatar"`
 	Gender        int          `gorm:"column:gender;default:0" json:"gender"`
