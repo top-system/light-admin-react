@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -49,12 +48,12 @@ func (a NoticeService) Query(param *system.NoticeQueryParam) (*system.NoticeQuer
 }
 
 // Get 获取通知公告
-func (a NoticeService) Get(id uint64) (*system.Notice, error) {
+func (a NoticeService) Get(id string) (*system.Notice, error) {
 	return a.noticeRepository.Get(id)
 }
 
 // GetForm 获取通知公告表单数据
-func (a NoticeService) GetForm(id uint64) (*system.NoticeForm, error) {
+func (a NoticeService) GetForm(id string) (*system.NoticeForm, error) {
 	notice, err := a.noticeRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -77,7 +76,7 @@ func (a NoticeService) GetForm(id uint64) (*system.NoticeForm, error) {
 }
 
 // GetDetail 获取通知公告详情并标记为已读
-func (a NoticeService) GetDetail(id uint64, userID uint64) (*system.NoticeDetailVO, error) {
+func (a NoticeService) GetDetail(id string, userID string) (*system.NoticeDetailVO, error) {
 	notice, err := a.noticeRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -88,7 +87,7 @@ func (a NoticeService) GetDetail(id uint64, userID uint64) (*system.NoticeDetail
 
 	// 获取发布人信息
 	var publisherName string
-	if notice.PublisherId > 0 {
+	if notice.PublisherId != "" {
 		publisher, err := a.userRepository.Get(notice.PublisherId)
 		if err == nil && publisher != nil {
 			publisherName = publisher.Nickname
@@ -108,7 +107,7 @@ func (a NoticeService) GetDetail(id uint64, userID uint64) (*system.NoticeDetail
 }
 
 // Create 创建通知公告
-func (a NoticeService) Create(form *system.NoticeForm, createdBy uint64) error {
+func (a NoticeService) Create(form *system.NoticeForm, createdBy string) error {
 	// 如果目标类型是指定用户，则必须填写目标用户
 	if form.TargetType == 2 && len(form.TargetUserIds) == 0 {
 		return errors.New("推送指定用户不能为空")
@@ -130,7 +129,7 @@ func (a NoticeService) Create(form *system.NoticeForm, createdBy uint64) error {
 }
 
 // Update 更新通知公告
-func (a NoticeService) Update(id uint64, form *system.NoticeForm, updatedBy uint64) error {
+func (a NoticeService) Update(id string, form *system.NoticeForm, updatedBy string) error {
 	// 检查通知是否存在
 	_, err := a.noticeRepository.Get(id)
 	if err != nil {
@@ -157,16 +156,16 @@ func (a NoticeService) Update(id uint64, form *system.NoticeForm, updatedBy uint
 }
 
 // Delete 删除通知公告
-func (a NoticeService) Delete(ids string, deletedBy uint64) error {
+func (a NoticeService) Delete(ids string, deletedBy string) error {
 	if ids == "" {
 		return errors.New("删除的通知公告数据为空")
 	}
 
 	idStrs := strings.Split(ids, ",")
-	idList := make([]uint64, 0, len(idStrs))
+	idList := make([]string, 0, len(idStrs))
 	for _, idStr := range idStrs {
-		id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
-		if err != nil {
+		id := strings.TrimSpace(idStr)
+		if id == "" {
 			continue
 		}
 		idList = append(idList, id)
@@ -186,7 +185,7 @@ func (a NoticeService) Delete(ids string, deletedBy uint64) error {
 }
 
 // Publish 发布通知公告
-func (a NoticeService) Publish(id uint64, publisherId uint64) error {
+func (a NoticeService) Publish(id string, publisherId string) error {
 	notice, err := a.noticeRepository.Get(id)
 	if err != nil {
 		return err
@@ -220,10 +219,10 @@ func (a NoticeService) Publish(id uint64, publisherId uint64) error {
 	} else {
 		// 指定用户
 		targetUserIds := strings.Split(notice.TargetUserIds, ",")
-		userIds := make([]uint64, 0, len(targetUserIds))
+		userIds := make([]string, 0, len(targetUserIds))
 		for _, idStr := range targetUserIds {
-			id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
-			if err != nil {
+			id := strings.TrimSpace(idStr)
+			if id == "" {
 				continue
 			}
 			userIds = append(userIds, id)
@@ -261,7 +260,7 @@ func (a NoticeService) Publish(id uint64, publisherId uint64) error {
 }
 
 // Revoke 撤回通知公告
-func (a NoticeService) Revoke(id uint64, updatedBy uint64) error {
+func (a NoticeService) Revoke(id string, updatedBy string) error {
 	notice, err := a.noticeRepository.Get(id)
 	if err != nil {
 		return err
@@ -286,6 +285,6 @@ func (a NoticeService) GetMyNoticePage(param *system.NoticeQueryParam) ([]system
 }
 
 // ReadAll 全部标记为已读
-func (a NoticeService) ReadAll(userID uint64) error {
+func (a NoticeService) ReadAll(userID string) error {
 	return a.userNoticeRepository.MarkAllAsRead(userID)
 }

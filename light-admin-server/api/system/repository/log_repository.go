@@ -71,7 +71,7 @@ func (a LogRepository) Query(param *system.LogQueryParam) (*system.LogQueryResul
 }
 
 // Get 获取日志详情
-func (a LogRepository) Get(id uint64) (*system.Log, error) {
+func (a LogRepository) Get(id string) (*system.Log, error) {
 	log := new(system.Log)
 
 	if ok, err := QueryOne(a.db.ORM.Model(log).Where("id=?", id), log); err != nil {
@@ -94,7 +94,7 @@ func (a LogRepository) Create(log *system.Log) error {
 }
 
 // Delete 删除日志
-func (a LogRepository) Delete(id uint64) error {
+func (a LogRepository) Delete(id string) error {
 	result := a.db.ORM.Where("id=?", id).Delete(&system.Log{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
@@ -104,7 +104,7 @@ func (a LogRepository) Delete(id uint64) error {
 }
 
 // BatchDelete 批量删除日志
-func (a LogRepository) BatchDelete(ids []uint64) error {
+func (a LogRepository) BatchDelete(ids []string) error {
 	result := a.db.ORM.Where("id IN ?", ids).Delete(&system.Log{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())

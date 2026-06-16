@@ -6,8 +6,8 @@ import (
 
 // RoleMenu 角色菜单关联模型
 type RoleMenu struct {
-	RoleID uint64 `gorm:"column:role_id;not null;uniqueIndex:uk_roleid_menuid" json:"roleId"`
-	MenuID uint64 `gorm:"column:menu_id;not null;uniqueIndex:uk_roleid_menuid" json:"menuId"`
+	RoleID string `gorm:"column:role_id;type:char(32);not null;uniqueIndex:uk_roleid_menuid" json:"roleId"`
+	MenuID string `gorm:"column:menu_id;type:char(32);not null;uniqueIndex:uk_roleid_menuid" json:"menuId"`
 }
 
 // TableName 指定表名
@@ -21,8 +21,8 @@ type RoleMenuQueryParam struct {
 	dto.PaginationParam
 	dto.OrderParam
 
-	RoleID  uint64
-	RoleIDs []uint64
+	RoleID  string
+	RoleIDs []string
 }
 
 type RoleMenuQueryResult struct {
@@ -30,25 +30,25 @@ type RoleMenuQueryResult struct {
 	Pagination *dto.Pagination `json:"pagination"`
 }
 
-func (a RoleMenus) ToMap() map[uint64]*RoleMenu {
-	m := make(map[uint64]*RoleMenu)
+func (a RoleMenus) ToMap() map[string]*RoleMenu {
+	m := make(map[string]*RoleMenu)
 	for _, item := range a {
 		m[item.MenuID] = item
 	}
 	return m
 }
 
-func (a RoleMenus) ToRoleIDMap() map[uint64]RoleMenus {
-	m := make(map[uint64]RoleMenus)
+func (a RoleMenus) ToRoleIDMap() map[string]RoleMenus {
+	m := make(map[string]RoleMenus)
 	for _, item := range a {
 		m[item.RoleID] = append(m[item.RoleID], item)
 	}
 	return m
 }
 
-func (a RoleMenus) ToMenuIDs() []uint64 {
-	var idList []uint64
-	m := make(map[uint64]struct{})
+func (a RoleMenus) ToMenuIDs() []string {
+	var idList []string
+	m := make(map[string]struct{})
 
 	for _, item := range a {
 		if _, ok := m[item.MenuID]; ok {

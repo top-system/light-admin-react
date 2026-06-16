@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"sort"
 
 	"gorm.io/gorm"
@@ -60,28 +59,28 @@ func (a MenuService) Query(param *system.MenuQueryParam) (*system.MenuQueryResul
 	return a.menuRepository.Query(param)
 }
 
-func (a MenuService) Get(id uint64) (*system.Menu, error) {
+func (a MenuService) Get(id string) (*system.Menu, error) {
 	return a.menuRepository.Get(id)
 }
 
-func (a MenuService) Create(menu *system.Menu) (uint64, error) {
+func (a MenuService) Create(menu *system.Menu) (string, error) {
 	if err := a.Check(menu); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	var err error
 	if menu.TreePath, err = a.GetTreePath(menu.ParentID); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	if err = a.menuRepository.Create(menu); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	return menu.ID, nil
 }
 
-func (a MenuService) CreateMenus(parentID uint64, mTrees system.MenuTrees) error {
+func (a MenuService) CreateMenus(parentID string, mTrees system.MenuTrees) error {
 	for _, mTree := range mTrees {
 		// 处理 visible 字段：nil 时默认为 1（按钮除外），显式设置时使用设置的值
 		visible := 1
@@ -133,7 +132,7 @@ func (a MenuService) CreateMenus(parentID uint64, mTrees system.MenuTrees) error
 	return nil
 }
 
-func (a MenuService) FindByNameAndParent(name string, parentID uint64) (*system.Menu, error) {
+func (a MenuService) FindByNameAndParent(name string, parentID string) (*system.Menu, error) {
 	result, err := a.menuRepository.Query(&system.MenuQueryParam{
 		Name:     name,
 		ParentID: &parentID,
@@ -147,7 +146,7 @@ func (a MenuService) FindByNameAndParent(name string, parentID uint64) (*system.
 	return result.List[0], nil
 }
 
-func (a MenuService) Update(id uint64, menu *system.Menu) error {
+func (a MenuService) Update(id string, menu *system.Menu) error {
 	if id == menu.ParentID {
 		return errors.MenuInvalidParent
 	}
@@ -187,7 +186,7 @@ func (a MenuService) Update(id uint64, menu *system.Menu) error {
 	return nil
 }
 
-func (a MenuService) Delete(id uint64) error {
+func (a MenuService) Delete(id string) error {
 	_, err := a.menuRepository.Get(id)
 	if err != nil {
 		return err
@@ -215,7 +214,7 @@ func (a MenuService) Delete(id uint64) error {
 	return nil
 }
 
-func (a MenuService) UpdateVisible(id uint64, visible int) error {
+func (a MenuService) UpdateVisible(id string, visible int) error {
 	_, err := a.menuRepository.Get(id)
 	if err != nil {
 		return err
@@ -224,8 +223,8 @@ func (a MenuService) UpdateVisible(id uint64, visible int) error {
 	return a.menuRepository.UpdateVisible(id, visible)
 }
 
-func (a MenuService) GetTreePath(parentID uint64) (string, error) {
-	if parentID == 0 {
+func (a MenuService) GetTreePath(parentID string) (string, error) {
+	if parentID == "" {
 		return "", nil
 	}
 
@@ -237,8 +236,8 @@ func (a MenuService) GetTreePath(parentID uint64) (string, error) {
 	return a.JoinTreePath(parentMenu.TreePath, parentMenu.ID), nil
 }
 
-func (a MenuService) JoinTreePath(parent string, id uint64) string {
-	idStr := fmt.Sprintf("%d", id)
+func (a MenuService) JoinTreePath(parent string, id string) string {
+	idStr := id
 	if parent != "" {
 		return parent + "," + idStr
 	}
@@ -297,19 +296,19 @@ func (a MenuService) ListMenuOptions(onlyParent bool) ([]dto.MenuOption, error) 
 
 	// 预构建 parentID -> children 映射（O(n) 复杂度）
 	childMap := buildMenuChildMap(menus)
-	return buildMenuOptions(0, childMap), nil
+	return buildMenuOptions("", childMap), nil
 }
 
 // buildMenuChildMap 预构建 parentID -> children 映射
-func buildMenuChildMap(menus system.Menus) map[uint64][]*system.Menu {
-	childMap := make(map[uint64][]*system.Menu, len(menus))
+func buildMenuChildMap(menus system.Menus) map[string][]*system.Menu {
+	childMap := make(map[string][]*system.Menu, len(menus))
 	for _, menu := range menus {
 		childMap[menu.ParentID] = append(childMap[menu.ParentID], menu)
 	}
 	return childMap
 }
 
-func buildMenuOptions(parentID uint64, childMap map[uint64][]*system.Menu) []dto.MenuOption {
+func buildMenuOptions(parentID string, childMap map[string][]*system.Menu) []dto.MenuOption {
 	children, ok := childMap[parentID]
 	if !ok {
 		return nil
@@ -334,7 +333,7 @@ func buildMenuOptions(parentID uint64, childMap map[uint64][]*system.Menu) []dto
 }
 
 // GetUserRoutes 获取用户的路由列表
-func (a MenuService) GetUserRoutes(roleIDs []uint64, isSuperAdmin bool) ([]*dto.RouteVO, error) {
+func (a MenuService) GetUserRoutes(roleIDs []string, isSuperAdmin bool) ([]*dto.RouteVO, error) {
 	var menus system.Menus
 	var err error
 
@@ -377,14 +376,14 @@ func (a MenuService) GetUserRoutes(roleIDs []uint64, isSuperAdmin bool) ([]*dto.
 
 	// 预构建 parentID -> children 映射（O(n) 复杂度）
 	routeChildMap := buildMenuChildMap(routeMenus)
-	return a.buildRoutes(routeChildMap, 0), nil
+	return a.buildRoutes(routeChildMap, ""), nil
 }
 
 func (a MenuService) fillParentMenus(menus system.Menus) (system.Menus, error) {
 	menuMap := menus.ToMap()
 	parentIDs := menus.SplitParentIDs()
 
-	var missingIDs []uint64
+	var missingIDs []string
 	for _, parentID := range parentIDs {
 		if _, ok := menuMap[parentID]; !ok {
 			missingIDs = append(missingIDs, parentID)
@@ -404,7 +403,7 @@ func (a MenuService) fillParentMenus(menus system.Menus) (system.Menus, error) {
 	return menus, nil
 }
 
-func (a MenuService) buildRoutes(childMap map[uint64][]*system.Menu, parentID uint64) []*dto.RouteVO {
+func (a MenuService) buildRoutes(childMap map[string][]*system.Menu, parentID string) []*dto.RouteVO {
 	menuChildren, ok := childMap[parentID]
 	if !ok {
 		return nil
@@ -416,7 +415,7 @@ func (a MenuService) buildRoutes(childMap map[uint64][]*system.Menu, parentID ui
 		children := a.buildRoutes(childMap, menu.ID)
 
 		// 顶级路由处理
-		if parentID == 0 {
+		if parentID == "" {
 			route := a.buildTopLevelRoute(menu, children)
 			routes = append(routes, route)
 		} else {

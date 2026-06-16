@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
@@ -68,10 +67,7 @@ func (a ConfigController) Query(ctx echo.Context) error {
 // @Success 200 {object} echox.Response{data=system.ConfigForm} "ok"
 // @Router /api/v1/configs/{id}/form [get]
 func (a ConfigController) GetForm(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form, err := a.configService.GetForm(id)
 	if err != nil {
@@ -95,7 +91,7 @@ func (a ConfigController) Create(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var createdBy uint64
+	var createdBy string
 	if claims != nil {
 		createdBy = claims.ID
 	}
@@ -116,10 +112,7 @@ func (a ConfigController) Create(ctx echo.Context) error {
 // @Success 200 {object} echox.Response "ok"
 // @Router /api/v1/configs/{id} [put]
 func (a ConfigController) Update(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form := new(system.ConfigForm)
 	if err := ctx.Bind(form); err != nil {
@@ -127,7 +120,7 @@ func (a ConfigController) Update(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var updatedBy uint64
+	var updatedBy string
 	if claims != nil {
 		updatedBy = claims.ID
 	}
@@ -147,13 +140,10 @@ func (a ConfigController) Update(ctx echo.Context) error {
 // @Success 200 {object} echox.Response "ok"
 // @Router /api/v1/configs/{id} [delete]
 func (a ConfigController) Delete(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var deletedBy uint64
+	var deletedBy string
 	if claims != nil {
 		deletedBy = claims.ID
 	}

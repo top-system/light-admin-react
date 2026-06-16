@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -55,7 +54,7 @@ func (a DictService) GetDictList() ([]*system.DictOption, error) {
 }
 
 // GetDictForm 获取字典表单数据
-func (a DictService) GetDictForm(id uint64) (*system.DictForm, error) {
+func (a DictService) GetDictForm(id string) (*system.DictForm, error) {
 	dict, err := a.dictRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -71,7 +70,7 @@ func (a DictService) GetDictForm(id uint64) (*system.DictForm, error) {
 }
 
 // SaveDict 新增字典
-func (a DictService) SaveDict(form *system.DictForm, createdBy uint64) error {
+func (a DictService) SaveDict(form *system.DictForm, createdBy string) error {
 	// 校验字典编码是否存在
 	existDict, err := a.dictRepository.GetByCode(form.DictCode)
 	if err != nil {
@@ -93,7 +92,7 @@ func (a DictService) SaveDict(form *system.DictForm, createdBy uint64) error {
 }
 
 // UpdateDict 更新字典
-func (a DictService) UpdateDict(id uint64, form *system.DictForm, updatedBy uint64) error {
+func (a DictService) UpdateDict(id string, form *system.DictForm, updatedBy string) error {
 	// 检查字典是否存在
 	existDict, err := a.dictRepository.Get(id)
 	if err != nil {
@@ -129,16 +128,16 @@ func (a DictService) UpdateDict(id uint64, form *system.DictForm, updatedBy uint
 }
 
 // DeleteDictByIds 删除字典
-func (a DictService) DeleteDictByIds(ids string, deletedBy uint64) error {
+func (a DictService) DeleteDictByIds(ids string, deletedBy string) error {
 	if ids == "" {
 		return errors.New("删除的字典数据为空")
 	}
 
 	idStrs := strings.Split(ids, ",")
-	idList := make([]uint64, 0, len(idStrs))
+	idList := make([]string, 0, len(idStrs))
 	for _, idStr := range idStrs {
-		id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
-		if err != nil {
+		id := strings.TrimSpace(idStr)
+		if id == "" {
 			continue
 		}
 		idList = append(idList, id)
@@ -180,10 +179,10 @@ func (a DictService) GetDictCodesByIds(ids string) ([]string, error) {
 	}
 
 	idStrs := strings.Split(ids, ",")
-	idList := make([]uint64, 0, len(idStrs))
+	idList := make([]string, 0, len(idStrs))
 	for _, idStr := range idStrs {
-		id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
-		if err != nil {
+		id := strings.TrimSpace(idStr)
+		if id == "" {
 			continue
 		}
 		idList = append(idList, id)

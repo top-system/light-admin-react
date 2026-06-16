@@ -39,7 +39,7 @@ import {
 import type { MenuNode, Role, RoleForm } from '@/types/light-admin/domain';
 import { toProTableRequest } from '@/utils/response/adapter';
 
-type EditState = { mode: 'create' } | { mode: 'edit'; id: number };
+type EditState = { mode: 'create' } | { mode: 'edit'; id: string };
 
 function menusToTreeData(nodes: MenuNode[]): DataNode[] {
   return nodes.map((n) => ({
@@ -76,7 +76,7 @@ const RolePage: React.FC = () => {
     setEdit({ mode: 'create' });
   };
 
-  const openEdit = useCallback(async (id: number) => {
+  const openEdit = useCallback(async (id: string) => {
     const form = await getRoleForm(id);
     setEditInitial(form);
     setEdit({ mode: 'edit', id });
@@ -100,7 +100,7 @@ const RolePage: React.FC = () => {
     return true;
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     await deleteRole(id);
     message.success('已删除');
     actionRef.current?.reload();
@@ -108,7 +108,7 @@ const RolePage: React.FC = () => {
 
   const handleAssign = async () => {
     if (!assignRole) return;
-    await assignRoleMenus(assignRole.id, checkedMenus.map(Number));
+    await assignRoleMenus(assignRole.id, checkedMenus.map(String));
     message.success('权限已保存');
     setAssignRole(null);
   };

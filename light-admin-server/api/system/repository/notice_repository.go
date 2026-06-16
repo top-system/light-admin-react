@@ -66,7 +66,7 @@ func (a NoticeRepository) Query(param *system.NoticeQueryParam) (*system.NoticeQ
 	return qr, nil
 }
 
-func (a NoticeRepository) Get(id uint64) (*system.Notice, error) {
+func (a NoticeRepository) Get(id string) (*system.Notice, error) {
 	notice := new(system.Notice)
 
 	if ok, err := QueryOne(a.db.ORM.Model(notice).Where("id=? AND is_deleted=?", id, 0), notice); err != nil {
@@ -87,7 +87,7 @@ func (a NoticeRepository) Create(notice *system.Notice) error {
 	return nil
 }
 
-func (a NoticeRepository) Update(id uint64, notice *system.Notice) error {
+func (a NoticeRepository) Update(id string, notice *system.Notice) error {
 	result := a.db.ORM.Model(notice).Where("id=?", id).Select(
 		"title", "content", "type", "level", "target_type",
 		"target_user_ids", "update_by",
@@ -99,7 +99,7 @@ func (a NoticeRepository) Update(id uint64, notice *system.Notice) error {
 	return nil
 }
 
-func (a NoticeRepository) UpdateStatus(id uint64, status int, publisherId uint64) error {
+func (a NoticeRepository) UpdateStatus(id string, status int, publisherId string) error {
 	updates := map[string]interface{}{
 		"publish_status": status,
 		"publisher_id":   publisherId,
@@ -118,7 +118,7 @@ func (a NoticeRepository) UpdateStatus(id uint64, status int, publisherId uint64
 	return nil
 }
 
-func (a NoticeRepository) Delete(id uint64, deletedBy uint64) error {
+func (a NoticeRepository) Delete(id string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.Notice{}).Where("id=?", id).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,
@@ -130,7 +130,7 @@ func (a NoticeRepository) Delete(id uint64, deletedBy uint64) error {
 	return nil
 }
 
-func (a NoticeRepository) BatchDelete(ids []uint64, deletedBy uint64) error {
+func (a NoticeRepository) BatchDelete(ids []string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.Notice{}).Where("id IN ?", ids).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,

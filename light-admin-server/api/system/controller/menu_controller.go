@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
@@ -76,10 +75,7 @@ func (a MenuController) Query(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/menus/{id}/form [get]
 func (a MenuController) GetForm(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	menu, err := a.menuService.Get(id)
 	if err != nil {
@@ -123,10 +119,7 @@ func (a MenuController) Create(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/menus/{id} [put]
 func (a MenuController) Update(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form := new(system.MenuForm)
 	if err := ctx.Bind(form); err != nil {
@@ -150,10 +143,7 @@ func (a MenuController) Update(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/menus/{id} [delete]
 func (a MenuController) Delete(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
 	if err := a.menuService.WithTrx(trxHandle).Delete(id); err != nil {

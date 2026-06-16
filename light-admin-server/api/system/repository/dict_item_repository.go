@@ -73,7 +73,7 @@ func (a DictItemRepository) GetByDictCode(dictCode string) (system.DictItems, er
 }
 
 // Get 获取字典项
-func (a DictItemRepository) Get(id uint64) (*system.DictItem, error) {
+func (a DictItemRepository) Get(id string) (*system.DictItem, error) {
 	item := new(system.DictItem)
 
 	if ok, err := QueryOne(a.db.ORM.Model(item).Where("id=? AND is_deleted=?", id, 0), item); err != nil {
@@ -96,7 +96,7 @@ func (a DictItemRepository) Create(item *system.DictItem) error {
 }
 
 // Update 更新字典项
-func (a DictItemRepository) Update(id uint64, item *system.DictItem) error {
+func (a DictItemRepository) Update(id string, item *system.DictItem) error {
 	result := a.db.ORM.Model(&system.DictItem{}).Where("id=?", id).Updates(map[string]interface{}{
 		"dict_code": item.DictCode,
 		"label":     item.Label,
@@ -115,7 +115,7 @@ func (a DictItemRepository) Update(id uint64, item *system.DictItem) error {
 }
 
 // Delete 删除字典项（软删除）
-func (a DictItemRepository) Delete(id uint64, deletedBy uint64) error {
+func (a DictItemRepository) Delete(id string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.DictItem{}).Where("id=?", id).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,
@@ -128,7 +128,7 @@ func (a DictItemRepository) Delete(id uint64, deletedBy uint64) error {
 }
 
 // DeleteByIDs 批量删除字典项
-func (a DictItemRepository) DeleteByIDs(ids []uint64, deletedBy uint64) error {
+func (a DictItemRepository) DeleteByIDs(ids []string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.DictItem{}).Where("id IN ?", ids).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,
@@ -141,7 +141,7 @@ func (a DictItemRepository) DeleteByIDs(ids []uint64, deletedBy uint64) error {
 }
 
 // DeleteByDictCodes 根据字典编码删除字典项
-func (a DictItemRepository) DeleteByDictCodes(dictCodes []string, deletedBy uint64) error {
+func (a DictItemRepository) DeleteByDictCodes(dictCodes []string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.DictItem{}).
 		Where("dict_code IN ?", dictCodes).
 		Updates(map[string]interface{}{

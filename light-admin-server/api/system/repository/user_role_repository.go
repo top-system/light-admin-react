@@ -36,7 +36,7 @@ func (a UserRoleRepository) WithTrx(trxHandle *gorm.DB) UserRoleRepository {
 func (a UserRoleRepository) Query(param *system.UserRoleQueryParam) (*system.UserRoleQueryResult, error) {
 	db := a.db.ORM.Model(system.UserRole{})
 
-	if v := param.UserID; v != 0 {
+	if v := param.UserID; v != "" {
 		db = db.Where("user_id=?", v)
 	}
 	if v := param.UserIDs; len(v) > 0 {
@@ -64,8 +64,8 @@ func (a UserRoleRepository) Query(param *system.UserRoleQueryParam) (*system.Use
 	return qr, nil
 }
 
-func (a UserRoleRepository) GetRoleIDsByUserID(userID uint64) ([]uint64, error) {
-	var roleIDs []uint64
+func (a UserRoleRepository) GetRoleIDsByUserID(userID string) ([]string, error) {
+	var roleIDs []string
 	result := a.db.ORM.Model(&system.UserRole{}).
 		Where("user_id=?", userID).
 		Pluck("role_id", &roleIDs)
@@ -78,8 +78,8 @@ func (a UserRoleRepository) GetRoleIDsByUserID(userID uint64) ([]uint64, error) 
 }
 
 // GetUserIDsByRoleID 根据角色ID获取用户ID列表
-func (a UserRoleRepository) GetUserIDsByRoleID(roleID uint64) ([]uint64, error) {
-	var userIDs []uint64
+func (a UserRoleRepository) GetUserIDsByRoleID(roleID string) ([]string, error) {
+	var userIDs []string
 	result := a.db.ORM.Model(&system.UserRole{}).
 		Where("role_id=?", roleID).
 		Pluck("user_id", &userIDs)
@@ -112,7 +112,7 @@ func (a UserRoleRepository) BatchCreate(userRoles []*system.UserRole) error {
 	return nil
 }
 
-func (a UserRoleRepository) DeleteByUserID(userID uint64) error {
+func (a UserRoleRepository) DeleteByUserID(userID string) error {
 	result := a.db.ORM.Where("user_id=?", userID).Delete(&system.UserRole{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
@@ -121,7 +121,7 @@ func (a UserRoleRepository) DeleteByUserID(userID uint64) error {
 	return nil
 }
 
-func (a UserRoleRepository) DeleteByRoleID(roleID uint64) error {
+func (a UserRoleRepository) DeleteByRoleID(roleID string) error {
 	result := a.db.ORM.Where("role_id=?", roleID).Delete(&system.UserRole{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())

@@ -36,12 +36,12 @@ func NewPermissionService(
 }
 
 // GetRolePerms 获取角色的权限标识列表
-func (a PermissionService) GetRolePerms(roleIDs []uint64) ([]string, error) {
+func (a PermissionService) GetRolePerms(roleIDs []string) ([]string, error) {
 	return a.menuRepository.GetButtonPermsByRoleIDs(roleIDs)
 }
 
 // HasPerm 检查角色是否有指定权限
-func (a PermissionService) HasPerm(roleIDs []uint64, perm string) (bool, error) {
+func (a PermissionService) HasPerm(roleIDs []string, perm string) (bool, error) {
 	if perm == "" {
 		return true, nil
 	}
@@ -61,12 +61,12 @@ func (a PermissionService) HasPerm(roleIDs []uint64, perm string) (bool, error) 
 }
 
 // GetUserRoleIDs 获取用户的角色ID列表（带缓存）
-func (a PermissionService) GetUserRoleIDs(userID uint64) ([]uint64, error) {
+func (a PermissionService) GetUserRoleIDs(userID string) ([]string, error) {
 	return a.cache.GetUserRoleIDs(userID)
 }
 
 // GetUserPerms 获取用户的所有权限标识（带缓存）
-func (a PermissionService) GetUserPerms(userID uint64) ([]string, error) {
+func (a PermissionService) GetUserPerms(userID string) ([]string, error) {
 	// 尝试从缓存获取
 	if perms, ok := a.cache.GetUserPerms(userID); ok {
 		return perms, nil
@@ -90,7 +90,7 @@ func (a PermissionService) GetUserPerms(userID uint64) ([]string, error) {
 }
 
 // GetUserRoleCodes 获取用户的角色编码列表
-func (a PermissionService) GetUserRoleCodes(userID uint64) ([]string, error) {
+func (a PermissionService) GetUserRoleCodes(userID string) ([]string, error) {
 	roleIDs, err := a.GetUserRoleIDs(userID)
 	if err != nil {
 		return nil, err

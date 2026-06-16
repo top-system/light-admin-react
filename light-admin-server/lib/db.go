@@ -3,6 +3,7 @@ package lib
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -10,6 +11,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
+
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
 // DatabaseEngine represents the database engine type
@@ -76,9 +79,45 @@ func NewDatabase(config Config, logger Logger) Database {
 		db = db.Debug()
 	}
 
+	// 为字符串主键(CHAR(32) UUID)的实体自动生成 ID
+	registerUUIDCallback(db, logger)
+
 	logger.Zap.Infof("Database connection established (engine: %s)", CurrentDatabaseEngine)
 	return Database{
 		ORM: db,
+	}
+}
+
+// registerUUIDCallback 注册创建前回调：当实体主键为字符串且为空时，自动生成 32 位 UUID。
+// 自增主键(uint64，如任务队列)不受影响。
+func registerUUIDCallback(db *gorm.DB, logger Logger) {
+	err := db.Callback().Create().Before("gorm:create").Register("light:assign_uuid", func(tx *gorm.DB) {
+		if tx.Statement.Schema == nil {
+			return
+		}
+
+		field := tx.Statement.Schema.PrioritizedPrimaryField
+		if field == nil || field.FieldType.Kind() != reflect.String {
+			return
+		}
+
+		assign := func(rv reflect.Value) {
+			if _, isZero := field.ValueOf(tx.Statement.Context, rv); isZero {
+				_ = field.Set(tx.Statement.Context, rv, uuid.NewID())
+			}
+		}
+
+		switch tx.Statement.ReflectValue.Kind() {
+		case reflect.Slice, reflect.Array:
+			for i := 0; i < tx.Statement.ReflectValue.Len(); i++ {
+				assign(tx.Statement.ReflectValue.Index(i))
+			}
+		case reflect.Struct:
+			assign(tx.Statement.ReflectValue)
+		}
+	})
+	if err != nil {
+		logger.Zap.Fatalf("Error to register uuid callback: %v", err)
 	}
 }
 

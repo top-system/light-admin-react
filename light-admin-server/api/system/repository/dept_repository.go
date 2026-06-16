@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"strconv"
-
 	"gorm.io/gorm"
 
 	"github.com/top-system/light-admin/errors"
@@ -60,7 +58,7 @@ func (a DeptRepository) Query(param *system.DeptQueryParam) (system.Depts, error
 }
 
 // Get 获取部门
-func (a DeptRepository) Get(id uint64) (*system.Dept, error) {
+func (a DeptRepository) Get(id string) (*system.Dept, error) {
 	dept := new(system.Dept)
 
 	if ok, err := QueryOne(a.db.ORM.Model(dept).Where("id=? AND is_deleted=?", id, 0), dept); err != nil {
@@ -73,11 +71,11 @@ func (a DeptRepository) Get(id uint64) (*system.Dept, error) {
 }
 
 // GetByCode 根据编码获取部门
-func (a DeptRepository) GetByCode(code string, excludeID ...uint64) (*system.Dept, error) {
+func (a DeptRepository) GetByCode(code string, excludeID ...string) (*system.Dept, error) {
 	dept := new(system.Dept)
 	db := a.db.ORM.Model(dept).Where("code = ? AND is_deleted = ?", code, 0)
 
-	if len(excludeID) > 0 && excludeID[0] > 0 {
+	if len(excludeID) > 0 && excludeID[0] != "" {
 		db = db.Where("id != ?", excludeID[0])
 	}
 
@@ -101,7 +99,7 @@ func (a DeptRepository) Create(dept *system.Dept) error {
 }
 
 // Update 更新部门
-func (a DeptRepository) Update(id uint64, dept *system.Dept) error {
+func (a DeptRepository) Update(id string, dept *system.Dept) error {
 	result := a.db.ORM.Model(dept).Where("id=?", id).Select(
 		"name", "code", "parent_id", "tree_path", "sort", "status", "update_by",
 	).Updates(dept)
@@ -113,7 +111,7 @@ func (a DeptRepository) Update(id uint64, dept *system.Dept) error {
 }
 
 // Delete 删除部门（软删除）
-func (a DeptRepository) Delete(id uint64, deletedBy uint64) error {
+func (a DeptRepository) Delete(id string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.Dept{}).Where("id=?", id).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,
@@ -126,11 +124,11 @@ func (a DeptRepository) Delete(id uint64, deletedBy uint64) error {
 }
 
 // DeleteByTreePath 根据tree_path删除部门及子部门
-func (a DeptRepository) DeleteByTreePath(deptId uint64, deletedBy uint64) error {
+func (a DeptRepository) DeleteByTreePath(deptId string, deletedBy string) error {
 	// 删除部门本身和所有子部门（tree_path包含该部门ID的）
 	treePathExpr := a.dbCompat.TreePathLike("tree_path")
 	result := a.db.ORM.Model(&system.Dept{}).
-		Where("id = ? OR "+treePathExpr+" LIKE ?", deptId, "%,"+strconv.FormatUint(deptId, 10)+",%").
+		Where("id = ? OR "+treePathExpr+" LIKE ?", deptId, "%,"+deptId+",%").
 		Updates(map[string]interface{}{
 			"is_deleted": 1,
 			"update_by":  deletedBy,
@@ -156,7 +154,7 @@ func (a DeptRepository) GetAllEnabled() (system.Depts, error) {
 }
 
 // GetByIDs 根据ID列表获取部门Map
-func (a DeptRepository) GetByIDs(ids []uint64) (map[uint64]*system.Dept, error) {
+func (a DeptRepository) GetByIDs(ids []string) (map[string]*system.Dept, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -168,7 +166,7 @@ func (a DeptRepository) GetByIDs(ids []uint64) (map[uint64]*system.Dept, error) 
 		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
 	}
 
-	result := make(map[uint64]*system.Dept)
+	result := make(map[string]*system.Dept)
 	for _, dept := range list {
 		result[dept.ID] = dept
 	}

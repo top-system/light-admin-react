@@ -69,10 +69,10 @@ func (a UserController) Query(ctx echo.Context) error {
 	}
 	if v := ctx.QueryParam("role_ids"); v != "" {
 		strIDs := strings.Split(v, ",")
-		roleIDs := make([]uint64, 0, len(strIDs))
+		roleIDs := make([]string, 0, len(strIDs))
 		for _, s := range strIDs {
-			if id, err := strconv.ParseUint(s, 10, 64); err == nil {
-				roleIDs = append(roleIDs, id)
+			if trimmed := strings.TrimSpace(s); trimmed != "" {
+				roleIDs = append(roleIDs, trimmed)
 			}
 		}
 		param.RoleIDs = roleIDs
@@ -148,10 +148,7 @@ func (a UserController) Create(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/users/{id}/form [get]
 func (a UserController) GetForm(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form, err := a.userService.GetUserForm(id)
 	if err != nil {
@@ -171,10 +168,7 @@ func (a UserController) GetForm(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/users/{id} [put]
 func (a UserController) Update(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	user := new(system.User)
 	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
@@ -186,7 +180,7 @@ func (a UserController) Update(ctx echo.Context) error {
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
 	user.UpdateBy = claims.ID
 
-	err = a.userService.WithTrx(trxHandle).Update(id, user)
+	err := a.userService.WithTrx(trxHandle).Update(id, user)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -203,13 +197,10 @@ func (a UserController) Update(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/users/{id} [delete]
 func (a UserController) Delete(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	err = a.userService.WithTrx(trxHandle).Delete(id)
+	err := a.userService.WithTrx(trxHandle).Delete(id)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -227,17 +218,14 @@ func (a UserController) Delete(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/users/{id}/password/reset [put]
 func (a UserController) ResetPassword(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	password := ctx.QueryParam("password")
 	if password == "" {
 		return echox.Response{Code: http.StatusBadRequest, Message: errors.UserPasswordRequired}.JSON(ctx)
 	}
 
-	err = a.userService.ResetPassword(id, password)
+	err := a.userService.ResetPassword(id, password)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}

@@ -6,15 +6,15 @@ import (
 
 // Config 系统配置模型
 type Config struct {
-	ID          uint64       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID          string       `gorm:"primaryKey;type:char(32)" json:"id"`
 	ConfigName  string       `gorm:"column:config_name;size:50;not null" json:"configName"`
 	ConfigKey   string       `gorm:"column:config_key;size:50;not null;uniqueIndex:uk_config_key" json:"configKey"`
 	ConfigValue string       `gorm:"column:config_value;size:100;not null" json:"configValue"`
 	Remark      string       `gorm:"column:remark;size:255" json:"remark"`
 	CreateTime  dto.DateTime `gorm:"column:create_time;autoCreateTime" json:"createTime"`
-	CreateBy    uint64       `gorm:"column:create_by" json:"createBy"`
+	CreateBy    string       `gorm:"column:create_by" json:"createBy"`
 	UpdateTime  dto.DateTime `gorm:"column:update_time;autoUpdateTime" json:"updateTime"`
-	UpdateBy    uint64       `gorm:"column:update_by" json:"updateBy"`
+	UpdateBy    string       `gorm:"column:update_by" json:"updateBy"`
 	IsDeleted   int          `gorm:"column:is_deleted;default:0" json:"isDeleted"`
 }
 
@@ -39,7 +39,7 @@ type ConfigQueryResult struct {
 
 // ConfigForm 系统配置表单
 type ConfigForm struct {
-	ID          uint64 `json:"id"`
+	ID          string `json:"id"`
 	ConfigName  string `json:"configName" validate:"required,max=50"`
 	ConfigKey   string `json:"configKey" validate:"required,max=50"`
 	ConfigValue string `json:"configValue" validate:"required,max=100"`
@@ -48,7 +48,7 @@ type ConfigForm struct {
 
 // ConfigVO 系统配置视图对象
 type ConfigVO struct {
-	ID          uint64       `json:"id"`
+	ID          string       `json:"id"`
 	ConfigName  string       `json:"configName"`
 	ConfigKey   string       `json:"configKey"`
 	ConfigValue string       `json:"configValue"`

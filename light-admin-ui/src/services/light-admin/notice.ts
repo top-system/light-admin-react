@@ -10,11 +10,11 @@ export function queryNotices(params: Record<string, unknown> = {}) {
   return requestList<Notice>('/notices', 'GET', { params });
 }
 
-export function getNoticeForm(id: number) {
+export function getNoticeForm(id: string) {
   return requestData<NoticeForm>(`/notices/${id}/form`, 'GET');
 }
 
-export function getNoticeDetail(id: number) {
+export function getNoticeDetail(id: string) {
   return requestData<NoticeDetail>(`/notices/${id}/detail`, 'GET');
 }
 
@@ -22,19 +22,19 @@ export function createNotice(data: NoticeForm) {
   return requestData<void>('/notices', 'POST', { data });
 }
 
-export function updateNotice(id: number, data: NoticeForm) {
+export function updateNotice(id: string, data: NoticeForm) {
   return requestData<void>(`/notices/${id}`, 'PUT', { data });
 }
 
-export function deleteNotices(ids: number[]) {
+export function deleteNotices(ids: string[]) {
   return requestData<void>(`/notices/${ids.join(',')}`, 'DELETE');
 }
 
-export function publishNotice(id: number) {
+export function publishNotice(id: string) {
   return requestData<void>(`/notices/${id}/publish`, 'PUT');
 }
 
-export function revokeNotice(id: number) {
+export function revokeNotice(id: string) {
   return requestData<void>(`/notices/${id}/revoke`, 'PUT');
 }
 

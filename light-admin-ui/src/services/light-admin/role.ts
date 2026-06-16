@@ -16,22 +16,22 @@ export function createRole(data: RoleForm) {
   return requestData<void>('/roles', 'POST', { data });
 }
 
-export function getRoleForm(id: number) {
+export function getRoleForm(id: string) {
   return requestData<RoleForm>(`/roles/${id}/form`, 'GET');
 }
 
-export function updateRole(id: number, data: RoleForm) {
+export function updateRole(id: string, data: RoleForm) {
   return requestData<void>(`/roles/${id}`, 'PUT', { data });
 }
 
-export function deleteRole(id: number) {
+export function deleteRole(id: string) {
   return requestData<void>(`/roles/${id}`, 'DELETE');
 }
 
-export function getRoleMenuIds(id: number) {
-  return requestData<number[]>(`/roles/${id}/menuIds`, 'GET');
+export function getRoleMenuIds(id: string) {
+  return requestData<string[]>(`/roles/${id}/menuIds`, 'GET');
 }
 
-export function assignRoleMenus(id: number, menuIds: number[]) {
+export function assignRoleMenus(id: string, menuIds: string[]) {
   return requestData<void>(`/roles/${id}/menus`, 'PUT', { data: menuIds });
 }

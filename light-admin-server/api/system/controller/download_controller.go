@@ -101,9 +101,11 @@ func (a DownloadController) Create(ctx echo.Context) error {
 	}
 
 	// 获取当前用户ID
-	var ownerID uint64 = 0
+	var ownerID string
 	if userID := ctx.Get("userID"); userID != nil {
-		ownerID = userID.(uint64)
+		if s, ok := userID.(string); ok {
+			ownerID = s
+		}
 	}
 
 	task, err := a.downloadService.Create(context.Background(), form, ownerID)

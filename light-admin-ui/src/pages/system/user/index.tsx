@@ -33,7 +33,7 @@ import {
 import type { User, UserForm, UserQuery } from '@/types/light-admin/domain';
 import { toProTableRequest } from '@/utils/response/adapter';
 
-type EditState = { mode: 'create' } | { mode: 'edit'; id: number };
+type EditState = { mode: 'create' } | { mode: 'edit'; id: string };
 
 const UserPage: React.FC = () => {
   const actionRef = useRef<ActionType | undefined>(undefined);
@@ -46,7 +46,7 @@ const UserPage: React.FC = () => {
     setEdit({ mode: 'create' });
   };
 
-  const openEdit = useCallback(async (id: number) => {
+  const openEdit = useCallback(async (id: string) => {
     const form = await getUserForm(id);
     setEditInitial(form);
     setEdit({ mode: 'edit', id });
@@ -71,13 +71,13 @@ const UserPage: React.FC = () => {
     return true;
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     await deleteUser(id);
     message.success('已删除');
     actionRef.current?.reload();
   };
 
-  const handleResetPwd = async (id: number) => {
+  const handleResetPwd = async (id: string) => {
     await resetUserPassword(id);
     message.success('密码已重置');
   };

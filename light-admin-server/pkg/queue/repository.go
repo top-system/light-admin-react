@@ -72,7 +72,7 @@ type TaskArgs struct {
 	Type          string
 	PublicState   *TaskPublicState
 	PrivateState  string
-	OwnerID       uint64
+	OwnerID       string
 	CorrelationID uuid.UUID
 }
 

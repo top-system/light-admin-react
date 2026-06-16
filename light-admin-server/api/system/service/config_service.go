@@ -41,7 +41,7 @@ func (a ConfigService) Query(param *system.ConfigQueryParam) (*system.ConfigQuer
 }
 
 // Get 获取系统配置
-func (a ConfigService) Get(id uint64) (*system.Config, error) {
+func (a ConfigService) Get(id string) (*system.Config, error) {
 	return a.configRepository.Get(id)
 }
 
@@ -51,7 +51,7 @@ func (a ConfigService) GetByKey(key string) (*system.Config, error) {
 }
 
 // GetForm 获取系统配置表单数据
-func (a ConfigService) GetForm(id uint64) (*system.ConfigForm, error) {
+func (a ConfigService) GetForm(id string) (*system.ConfigForm, error) {
 	config, err := a.configRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -67,9 +67,9 @@ func (a ConfigService) GetForm(id uint64) (*system.ConfigForm, error) {
 }
 
 // Create 创建系统配置
-func (a ConfigService) Create(form *system.ConfigForm, createdBy uint64) error {
+func (a ConfigService) Create(form *system.ConfigForm, createdBy string) error {
 	// 检查配置key是否已存在
-	exists, err := a.configRepository.ExistsByKey(form.ConfigKey, 0)
+	exists, err := a.configRepository.ExistsByKey(form.ConfigKey, "")
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (a ConfigService) Create(form *system.ConfigForm, createdBy uint64) error {
 }
 
 // Update 更新系统配置
-func (a ConfigService) Update(id uint64, form *system.ConfigForm, updatedBy uint64) error {
+func (a ConfigService) Update(id string, form *system.ConfigForm, updatedBy string) error {
 	// 检查配置是否存在
 	_, err := a.configRepository.Get(id)
 	if err != nil {
@@ -119,7 +119,7 @@ func (a ConfigService) Update(id uint64, form *system.ConfigForm, updatedBy uint
 }
 
 // Delete 删除系统配置
-func (a ConfigService) Delete(id uint64, deletedBy uint64) error {
+func (a ConfigService) Delete(id string, deletedBy string) error {
 	// 检查配置是否存在
 	_, err := a.configRepository.Get(id)
 	if err != nil {

@@ -57,7 +57,7 @@ func (a ConfigRepository) Query(param *system.ConfigQueryParam) (*system.ConfigQ
 	return qr, nil
 }
 
-func (a ConfigRepository) Get(id uint64) (*system.Config, error) {
+func (a ConfigRepository) Get(id string) (*system.Config, error) {
 	config := new(system.Config)
 
 	if ok, err := QueryOne(a.db.ORM.Model(config).Where("id=? AND is_deleted=?", id, 0), config); err != nil {
@@ -90,10 +90,10 @@ func (a ConfigRepository) GetAll() (system.Configs, error) {
 	return list, nil
 }
 
-func (a ConfigRepository) ExistsByKey(key string, excludeID uint64) (bool, error) {
+func (a ConfigRepository) ExistsByKey(key string, excludeID string) (bool, error) {
 	var count int64
 	db := a.db.ORM.Model(&system.Config{}).Where("config_key=? AND is_deleted=?", key, 0)
-	if excludeID > 0 {
+	if excludeID != "" {
 		db = db.Where("id != ?", excludeID)
 	}
 	result := db.Count(&count)
@@ -112,7 +112,7 @@ func (a ConfigRepository) Create(config *system.Config) error {
 	return nil
 }
 
-func (a ConfigRepository) Update(id uint64, config *system.Config) error {
+func (a ConfigRepository) Update(id string, config *system.Config) error {
 	result := a.db.ORM.Model(config).Where("id=?", id).Select(
 		"config_name", "config_key", "config_value", "remark", "update_by",
 	).Updates(config)
@@ -123,7 +123,7 @@ func (a ConfigRepository) Update(id uint64, config *system.Config) error {
 	return nil
 }
 
-func (a ConfigRepository) Delete(id uint64, deletedBy uint64) error {
+func (a ConfigRepository) Delete(id string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.Config{}).Where("id=?", id).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,

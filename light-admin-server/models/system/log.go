@@ -6,7 +6,7 @@ import (
 
 // Log 系统操作日志模型
 type Log struct {
-	ID              uint64       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID              string       `gorm:"primaryKey;type:char(32)" json:"id"`
 	Module          string       `gorm:"column:module;size:50;not null;index:idx_module" json:"module"`
 	RequestMethod   string       `gorm:"column:request_method;size:64;not null" json:"requestMethod"`
 	RequestParams   string       `gorm:"column:request_params;type:text" json:"requestParams"`
@@ -21,7 +21,7 @@ type Log struct {
 	Browser         string       `gorm:"column:browser;size:100" json:"browser"`
 	BrowserVersion  string       `gorm:"column:browser_version;size:100" json:"browserVersion"`
 	OS              string       `gorm:"column:os;size:100" json:"os"`
-	CreateBy        uint64       `gorm:"column:create_by;index:idx_log_create_by" json:"createBy"`
+	CreateBy        string       `gorm:"column:create_by;index:idx_log_create_by" json:"createBy"`
 	CreateTime      dto.DateTime `gorm:"column:create_time;autoCreateTime;index:idx_log_create_time" json:"createTime"`
 }
 
@@ -49,7 +49,7 @@ type LogQueryResult struct {
 
 // LogPageVO 日志分页视图对象
 type LogPageVO struct {
-	ID             uint64       `json:"id"`
+	ID             string       `json:"id"`
 	Module         string       `json:"module"`
 	RequestMethod  string       `json:"requestMethod"`
 	Content        string       `json:"content"`
@@ -61,7 +61,7 @@ type LogPageVO struct {
 	Browser        string       `json:"browser"`
 	BrowserVersion string       `json:"browserVersion"`
 	OS             string       `json:"os"`
-	CreateBy       uint64       `json:"createBy"`
+	CreateBy       string       `json:"createBy"`
 	CreateTime     dto.DateTime `json:"createTime"`
 }
 

@@ -36,7 +36,7 @@ func (a RoleMenuRepository) WithTrx(trxHandle *gorm.DB) RoleMenuRepository {
 func (a RoleMenuRepository) Query(param *system.RoleMenuQueryParam) (*system.RoleMenuQueryResult, error) {
 	db := a.db.ORM.Model(&system.RoleMenu{})
 
-	if v := param.RoleID; v != 0 {
+	if v := param.RoleID; v != "" {
 		db = db.Where("role_id=?", v)
 	}
 
@@ -65,8 +65,8 @@ func (a RoleMenuRepository) Query(param *system.RoleMenuQueryParam) (*system.Rol
 	return qr, nil
 }
 
-func (a RoleMenuRepository) GetMenuIDsByRoleID(roleID uint64) ([]uint64, error) {
-	var menuIDs []uint64
+func (a RoleMenuRepository) GetMenuIDsByRoleID(roleID string) ([]string, error) {
+	var menuIDs []string
 	result := a.db.ORM.Model(&system.RoleMenu{}).
 		Where("role_id=?", roleID).
 		Pluck("menu_id", &menuIDs)
@@ -99,7 +99,7 @@ func (a RoleMenuRepository) BatchCreate(roleMenus []*system.RoleMenu) error {
 	return nil
 }
 
-func (a RoleMenuRepository) DeleteByRoleID(roleID uint64) error {
+func (a RoleMenuRepository) DeleteByRoleID(roleID string) error {
 	result := a.db.ORM.Where("role_id=?", roleID).Delete(&system.RoleMenu{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
@@ -108,7 +108,7 @@ func (a RoleMenuRepository) DeleteByRoleID(roleID uint64) error {
 	return nil
 }
 
-func (a RoleMenuRepository) DeleteByMenuID(menuID uint64) error {
+func (a RoleMenuRepository) DeleteByMenuID(menuID string) error {
 	result := a.db.ORM.Where("menu_id=?", menuID).Delete(&system.RoleMenu{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())

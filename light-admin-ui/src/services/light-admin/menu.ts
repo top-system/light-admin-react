@@ -22,7 +22,7 @@ export function getMenuOptions() {
   return requestData<MenuOption[]>('/menus/options', 'GET');
 }
 
-export function getMenuForm(id: number) {
+export function getMenuForm(id: string) {
   return requestData<MenuForm>(`/menus/${id}/form`, 'GET');
 }
 
@@ -30,10 +30,10 @@ export function createMenu(data: MenuForm) {
   return requestData<void>('/menus', 'POST', { data });
 }
 
-export function updateMenu(id: number, data: MenuForm) {
+export function updateMenu(id: string, data: MenuForm) {
   return requestData<void>(`/menus/${id}`, 'PUT', { data });
 }
 
-export function deleteMenu(id: number) {
+export function deleteMenu(id: string) {
   return requestData<void>(`/menus/${id}`, 'DELETE');
 }

@@ -52,7 +52,7 @@ func (a RoleService) Query(param *system.RoleQueryParam) (roleQR *system.RoleQue
 	return a.roleRepository.Query(param)
 }
 
-func (a RoleService) Get(id uint64) (*system.Role, error) {
+func (a RoleService) Get(id string) (*system.Role, error) {
 	role, err := a.roleRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -102,30 +102,30 @@ func (a RoleService) CheckCode(item *system.Role) error {
 	return nil
 }
 
-func (a RoleService) Create(role *system.Role) (uint64, error) {
+func (a RoleService) Create(role *system.Role) (string, error) {
 	if err := a.CheckName(role); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	if err := a.CheckCode(role); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	if err := a.roleRepository.Create(role); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	// Create role menu associations
 	if len(role.MenuIds) > 0 {
 		if err := a.assignMenusToRole(role.ID, role.MenuIds); err != nil {
-			return 0, err
+			return "", err
 		}
 	}
 
 	return role.ID, nil
 }
 
-func (a RoleService) Update(id uint64, role *system.Role) error {
+func (a RoleService) Update(id string, role *system.Role) error {
 	oRole, err := a.Get(id)
 	if err != nil {
 		return err
@@ -155,14 +155,14 @@ func (a RoleService) Update(id uint64, role *system.Role) error {
 	return nil
 }
 
-func (a RoleService) Delete(id uint64) error {
+func (a RoleService) Delete(id string) error {
 	_, err := a.roleRepository.Get(id)
 	if err != nil {
 		return err
 	}
 
 	userQR, err := a.userRepository.Query(&system.UserQueryParam{
-		RoleIDs: []uint64{id},
+		RoleIDs: []string{id},
 	})
 
 	if err != nil {
@@ -186,7 +186,7 @@ func (a RoleService) Delete(id uint64) error {
 	return nil
 }
 
-func (a RoleService) UpdateStatus(id uint64, status int) error {
+func (a RoleService) UpdateStatus(id string, status int) error {
 	_, err := a.roleRepository.Get(id)
 	if err != nil {
 		return err
@@ -196,12 +196,12 @@ func (a RoleService) UpdateStatus(id uint64, status int) error {
 }
 
 // GetRoleMenuIds 获取角色的菜单ID列表
-func (a RoleService) GetRoleMenuIds(roleID uint64) ([]uint64, error) {
+func (a RoleService) GetRoleMenuIds(roleID string) ([]string, error) {
 	return a.roleMenuRepository.GetMenuIDsByRoleID(roleID)
 }
 
 // AssignMenusToRole 为角色分配菜单
-func (a RoleService) AssignMenusToRole(roleID uint64, menuIDs []uint64) error {
+func (a RoleService) AssignMenusToRole(roleID string, menuIDs []string) error {
 	_, err := a.roleRepository.Get(roleID)
 	if err != nil {
 		return err
@@ -222,7 +222,7 @@ func (a RoleService) AssignMenusToRole(roleID uint64, menuIDs []uint64) error {
 	return nil
 }
 
-func (a RoleService) assignMenusToRole(roleID uint64, menuIDs []uint64) error {
+func (a RoleService) assignMenusToRole(roleID string, menuIDs []string) error {
 	if len(menuIDs) == 0 {
 		return nil
 	}

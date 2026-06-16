@@ -68,7 +68,7 @@ func (a UserService) IsSuperAdmin(username string) bool {
 }
 
 // GetUserRoleIDs 获取用户角色ID列表
-func (a UserService) GetUserRoleIDs(userID uint64) ([]uint64, error) {
+func (a UserService) GetUserRoleIDs(userID string) ([]string, error) {
 	return a.userRoleRepository.GetRoleIDsByUserID(userID)
 }
 
@@ -101,10 +101,10 @@ func (a UserService) Query(param *system.UserQueryParam) (userQR *system.UserQue
 	}
 
 	// Get dept names
-	deptIDs := make([]uint64, 0)
-	deptIDMap := make(map[uint64]struct{})
+	deptIDs := make([]string, 0)
+	deptIDMap := make(map[string]struct{})
 	for _, user := range userQR.List {
-		if user.DeptID > 0 {
+		if user.DeptID != "" {
 			if _, ok := deptIDMap[user.DeptID]; !ok {
 				deptIDs = append(deptIDs, user.DeptID)
 				deptIDMap[user.DeptID] = struct{}{}
@@ -175,7 +175,7 @@ func (a UserService) Check(user *system.User) error {
 	return nil
 }
 
-func (a UserService) GetUserInfo(ID uint64) (*system.UserInfo, error) {
+func (a UserService) GetUserInfo(ID string) (*system.UserInfo, error) {
 	user, err := a.Get(ID)
 	if err != nil {
 		return nil, err
@@ -207,12 +207,12 @@ func (a UserService) GetUserInfo(ID uint64) (*system.UserInfo, error) {
 }
 
 // GetCurrentUserInfo 获取当前登录用户的详细信息
-func (a UserService) GetCurrentUserInfo(ID uint64, username string) (*dto.CurrentUserInfo, error) {
+func (a UserService) GetCurrentUserInfo(ID string, username string) (*dto.CurrentUserInfo, error) {
 	// 超级管理员
 	if a.IsSuperAdmin(username) {
 		admin := a.GetSuperAdmin()
 		return &dto.CurrentUserInfo{
-			UserID:          0,
+			UserID:          "",
 			Username:        admin.Username,
 			Nickname:        admin.Nickname,
 			Avatar:          "",
@@ -242,8 +242,8 @@ func (a UserService) GetCurrentUserInfo(ID uint64, username string) (*dto.Curren
 	}
 
 	// 获取部门名称
-	if user.DeptID > 0 {
-		deptMap, err := a.deptRepository.GetByIDs([]uint64{user.DeptID})
+	if user.DeptID != "" {
+		deptMap, err := a.deptRepository.GetByIDs([]string{user.DeptID})
 		if err == nil {
 			if dept, ok := deptMap[user.DeptID]; ok {
 				info.DeptName = dept.Name
@@ -280,7 +280,7 @@ func (a UserService) GetCurrentUserInfo(ID uint64, username string) (*dto.Curren
 	return info, nil
 }
 
-func (a UserService) GetUserMenuTrees(ID uint64, username string) (system.MenuTrees, error) {
+func (a UserService) GetUserMenuTrees(ID string, username string) (system.MenuTrees, error) {
 	if a.IsSuperAdmin(username) {
 		menuQR, err := a.menuRepository.Query(&system.MenuQueryParam{
 			Visible:    1,
@@ -316,7 +316,7 @@ func (a UserService) GetUserMenuTrees(ID uint64, username string) (system.MenuTr
 	menuMap := menus.ToMap()
 	parentIDs := menus.SplitParentIDs()
 
-	var missingIDs []uint64
+	var missingIDs []string
 	for _, parentID := range parentIDs {
 		if _, ok := menuMap[parentID]; !ok {
 			missingIDs = append(missingIDs, parentID)
@@ -352,7 +352,7 @@ func (a UserService) GetByUsername(username string) (*system.User, error) {
 	return user, nil
 }
 
-func (a UserService) Get(id uint64) (*system.User, error) {
+func (a UserService) Get(id string) (*system.User, error) {
 	user, err := a.userRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -367,32 +367,32 @@ func (a UserService) Get(id uint64) (*system.User, error) {
 	return user, nil
 }
 
-func (a UserService) Create(user *system.User) (uint64, error) {
+func (a UserService) Create(user *system.User) (string, error) {
 	if err := a.Check(user); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	hashedPassword, err := hash.BcryptHash(user.Password)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	user.Password = hashedPassword
 
 	if err := a.userRepository.Create(user); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	// Create user role associations
 	if len(user.RoleIds) > 0 {
 		if err := a.assignRolesToUser(user.ID, user.RoleIds); err != nil {
-			return 0, err
+			return "", err
 		}
 	}
 
 	return user.ID, nil
 }
 
-func (a UserService) Update(id uint64, user *system.User) error {
+func (a UserService) Update(id string, user *system.User) error {
 	oUser, err := a.Get(id)
 	if err != nil {
 		return err
@@ -455,7 +455,7 @@ func (a UserService) Update(id uint64, user *system.User) error {
 	return nil
 }
 
-func (a UserService) assignRolesToUser(userID uint64, roleIDs []uint64) error {
+func (a UserService) assignRolesToUser(userID string, roleIDs []string) error {
 	if len(roleIDs) == 0 {
 		return nil
 	}
@@ -471,7 +471,7 @@ func (a UserService) assignRolesToUser(userID uint64, roleIDs []uint64) error {
 	return a.userRoleRepository.BatchCreate(userRoles)
 }
 
-func (a UserService) Delete(id uint64) error {
+func (a UserService) Delete(id string) error {
 	_, err := a.userRepository.Get(id)
 	if err != nil {
 		return err
@@ -487,7 +487,7 @@ func (a UserService) Delete(id uint64) error {
 	return a.userRepository.Delete(id)
 }
 
-func (a UserService) UpdateStatus(id uint64, status int) error {
+func (a UserService) UpdateStatus(id string, status int) error {
 	_, err := a.userRepository.Get(id)
 	if err != nil {
 		return err
@@ -497,7 +497,7 @@ func (a UserService) UpdateStatus(id uint64, status int) error {
 }
 
 // ResetPassword 重置用户密码
-func (a UserService) ResetPassword(id uint64, password string) error {
+func (a UserService) ResetPassword(id string, password string) error {
 	_, err := a.userRepository.Get(id)
 	if err != nil {
 		return err
@@ -511,7 +511,7 @@ func (a UserService) ResetPassword(id uint64, password string) error {
 }
 
 // GetUserForm 获取用户表单数据
-func (a UserService) GetUserForm(id uint64) (*system.UserForm, error) {
+func (a UserService) GetUserForm(id string) (*system.UserForm, error) {
 	user, err := a.Get(id)
 	if err != nil {
 		return nil, err
@@ -546,7 +546,7 @@ func (a UserService) ListUserOptions() ([]*system.UserOption, error) {
 }
 
 // UpdateProfile 更新用户个人资料
-func (a UserService) UpdateProfile(id uint64, username string, profile *system.ProfileForm) error {
+func (a UserService) UpdateProfile(id string, username string, profile *system.ProfileForm) error {
 	// 超级管理员不支持更新资料（配置文件用户）
 	if a.IsSuperAdmin(username) {
 		return errors.UserCannotUpdate

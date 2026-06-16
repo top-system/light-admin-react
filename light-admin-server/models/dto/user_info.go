@@ -2,7 +2,7 @@ package dto
 
 // CurrentUserInfo 当前登录用户信息
 type CurrentUserInfo struct {
-	UserID          uint64   `json:"userId"`
+	UserID          string   `json:"userId"`
 	Username        string   `json:"username"`
 	Nickname        string   `json:"nickname"`
 	Avatar          string   `json:"avatar"`

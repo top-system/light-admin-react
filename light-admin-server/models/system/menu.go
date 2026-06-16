@@ -2,7 +2,6 @@ package system
 
 import (
 	"encoding/json"
-	"strconv"
 	"strings"
 
 	"github.com/top-system/light-admin/models/dto"
@@ -12,8 +11,8 @@ import (
 // Type: 1-菜单 2-目录 3-外链 4-按钮
 // Visible: 1-显示 0-隐藏
 type Menu struct {
-	ID         uint64       `gorm:"primaryKey;autoIncrement" json:"id"`
-	ParentID   uint64       `gorm:"column:parent_id;not null;default:0;index" json:"parentId"`
+	ID         string       `gorm:"primaryKey;type:char(32)" json:"id"`
+	ParentID   string       `gorm:"column:parent_id;type:char(32);not null;index" json:"parentId"`
 	TreePath   string       `gorm:"column:tree_path;size:255;index:idx_tree_path" json:"treePath"`
 	Name       string       `gorm:"column:name;size:64;not null" json:"name"`
 	Type       int          `gorm:"column:type;not null;index:idx_type" json:"type"`
@@ -39,8 +38,8 @@ func (Menu) TableName() string {
 
 // MenuTree 菜单树结构(用于展示和YAML解析)
 type MenuTree struct {
-	ID         uint64       `yaml:"-" json:"id"`
-	ParentID   uint64       `yaml:"-" json:"parentId"`
+	ID         string       `yaml:"-" json:"id"`
+	ParentID   string       `yaml:"-" json:"parentId"`
 	TreePath   string       `yaml:"-" json:"treePath,omitempty"`
 	Name       string       `yaml:"name" json:"name"`
 	Type       dto.MenuType `yaml:"type" json:"type"`
@@ -65,11 +64,11 @@ type MenuQueryParam struct {
 	dto.PaginationParam
 	dto.OrderParam
 
-	IDs            []uint64 `query:"ids"`
+	IDs            []string `query:"ids"`
 	Name           string   `query:"name"`
 	PrefixTreePath string   `query:"prefix_tree_path"`
 	Keywords       string   `query:"keywords"`
-	ParentID       *uint64  `query:"parent_id"`
+	ParentID       *string  `query:"parent_id"`
 	Type           int      `query:"type"`
 	Visible        int      `query:"visible"`
 	Tree           bool     `query:"tree"`
@@ -82,8 +81,8 @@ type MenuQueryResult struct {
 
 // MenuForm 菜单表单（用于创建和更新）
 type MenuForm struct {
-	ID         uint64         `json:"id"`
-	ParentID   dto.FlexUint64 `json:"parentId"`
+	ID         string         `json:"id"`
+	ParentID   string         `json:"parentId"`
 	Name       string         `json:"name"`
 	Type       dto.MenuType   `json:"type"`
 	RouteName  string         `json:"routeName"`
@@ -103,7 +102,7 @@ type MenuForm struct {
 func (f *MenuForm) ToMenu() *Menu {
 	return &Menu{
 		ID:         f.ID,
-		ParentID:   f.ParentID.Value(),
+		ParentID:   f.ParentID,
 		Name:       f.Name,
 		Type:       f.Type.Value(),
 		RouteName:  f.RouteName,
@@ -124,7 +123,7 @@ func (f *MenuForm) ToMenu() *Menu {
 func (m *Menu) ToForm() *MenuForm {
 	return &MenuForm{
 		ID:         m.ID,
-		ParentID:   dto.FlexUint64(m.ParentID),
+		ParentID:   m.ParentID,
 		Name:       m.Name,
 		Type:       dto.MenuType(m.Type),
 		RouteName:  m.RouteName,
@@ -153,17 +152,17 @@ func (a Menus) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func (a Menus) ToMap() map[uint64]*Menu {
-	m := make(map[uint64]*Menu)
+func (a Menus) ToMap() map[string]*Menu {
+	m := make(map[string]*Menu)
 	for _, menu := range a {
 		m[menu.ID] = menu
 	}
 	return m
 }
 
-func (a Menus) SplitParentIDs() []uint64 {
-	idList := make([]uint64, 0, len(a))
-	mIDList := make(map[uint64]struct{})
+func (a Menus) SplitParentIDs() []string {
+	idList := make([]string, 0, len(a))
+	mIDList := make(map[string]struct{})
 
 	for _, item := range a {
 		if _, ok := mIDList[item.ID]; ok || item.TreePath == "" {
@@ -174,10 +173,7 @@ func (a Menus) SplitParentIDs() []uint64 {
 			if pp == "" {
 				continue
 			}
-			id, err := strconv.ParseUint(pp, 10, 64)
-			if err != nil {
-				continue
-			}
+			id := pp
 			if _, ok := mIDList[id]; ok {
 				continue
 			}
@@ -190,8 +186,8 @@ func (a Menus) SplitParentIDs() []uint64 {
 	return idList
 }
 
-func (a Menus) ToIDs() []uint64 {
-	ids := make([]uint64, len(a))
+func (a Menus) ToIDs() []string {
+	ids := make([]string, len(a))
 	for i, item := range a {
 		ids[i] = item.ID
 	}
@@ -253,14 +249,14 @@ func (a Menus) ToFlatMenuTrees() MenuTrees {
 }
 
 func (a MenuTrees) ToTree() MenuTrees {
-	menuTreeMap := make(map[uint64]*MenuTree)
+	menuTreeMap := make(map[string]*MenuTree)
 	for _, menuTree := range a {
 		menuTreeMap[menuTree.ID] = menuTree
 	}
 
 	menuTrees := make(MenuTrees, 0)
 	for _, menuTree := range a {
-		if menuTree.ParentID == 0 {
+		if menuTree.ParentID == "" {
 			menuTrees = append(menuTrees, menuTree)
 			continue
 		}

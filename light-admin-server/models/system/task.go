@@ -13,7 +13,7 @@ type Task struct {
 	Type             string       `gorm:"column:type;size:100;not null;index" json:"type"`
 	Status           queue.Status `gorm:"column:status;size:50;not null;index" json:"status"`
 	CorrelationID    string       `gorm:"column:correlation_id;type:char(36);index" json:"correlationId"`
-	OwnerID          uint64       `gorm:"column:owner_id;index" json:"ownerId"`
+	OwnerID          string       `gorm:"column:owner_id;type:char(32);index" json:"ownerId"`
 	PrivateState     string       `gorm:"column:private_state;type:text" json:"privateState"`
 	RetryCount       int          `gorm:"column:public_retry_count;default:0" json:"retryCount"`
 	ExecutedDuration int64        `gorm:"column:public_executed_duration;default:0" json:"executedDuration"`
@@ -56,7 +56,7 @@ type TaskPageVO struct {
 	Type             string `json:"type"`
 	Status           string `json:"status"`
 	CorrelationID    string `json:"correlationId"`
-	OwnerID          uint64 `json:"ownerId"`
+	OwnerID          string `json:"ownerId"`
 	RetryCount       int    `json:"retryCount"`
 	ExecutedDuration int64  `json:"executedDuration"`
 	Error            string `json:"error"`

@@ -6,8 +6,8 @@ import (
 
 // UserRole 用户角色关联模型
 type UserRole struct {
-	UserID uint64 `gorm:"column:user_id;primaryKey" json:"userId"`
-	RoleID uint64 `gorm:"column:role_id;primaryKey" json:"roleId"`
+	UserID string `gorm:"column:user_id;type:char(32);primaryKey" json:"userId"`
+	RoleID string `gorm:"column:role_id;type:char(32);primaryKey" json:"roleId"`
 }
 
 // TableName 指定表名
@@ -21,8 +21,8 @@ type UserRoleQueryParam struct {
 	dto.PaginationParam
 	dto.OrderParam
 
-	UserID  uint64
-	UserIDs []uint64
+	UserID  string
+	UserIDs []string
 }
 
 type UserRoleQueryResult struct {
@@ -30,24 +30,24 @@ type UserRoleQueryResult struct {
 	Pagination *dto.Pagination `json:"pagination"`
 }
 
-func (a UserRoles) ToMap() map[uint64]*UserRole {
-	m := make(map[uint64]*UserRole)
+func (a UserRoles) ToMap() map[string]*UserRole {
+	m := make(map[string]*UserRole)
 	for _, item := range a {
 		m[item.RoleID] = item
 	}
 	return m
 }
 
-func (a UserRoles) ToRoleIDs() []uint64 {
-	list := make([]uint64, len(a))
+func (a UserRoles) ToRoleIDs() []string {
+	list := make([]string, len(a))
 	for i, item := range a {
 		list[i] = item.RoleID
 	}
 	return list
 }
 
-func (a UserRoles) ToUserIDMap() map[uint64]UserRoles {
-	m := make(map[uint64]UserRoles)
+func (a UserRoles) ToUserIDMap() map[string]UserRoles {
+	m := make(map[string]UserRoles)
 	for _, item := range a {
 		m[item.UserID] = append(m[item.UserID], item)
 	}

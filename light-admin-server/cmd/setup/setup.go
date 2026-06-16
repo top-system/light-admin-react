@@ -72,13 +72,13 @@ var StartCmd = &cobra.Command{
 			logger.Zap.Fatalf("menu file decode error: %v", err)
 		}
 
-		if err = menuService.CreateMenus(0, menuTrees); err != nil {
+		if err = menuService.CreateMenus("", menuTrees); err != nil {
 			logger.Zap.Fatalf("menu file init err: %v", err)
 		}
 		logger.Zap.Info("Step 1: Menu data imported successfully")
 
 		// Step 2: 创建超级管理员角色
-		var roleID uint64
+		var roleID string
 		adminRole := &system.Role{
 			Name:   "超级管理员",
 			Code:   "ROOT",
@@ -181,7 +181,7 @@ var StartCmd = &cobra.Command{
 				DictCode: d.DictCode,
 				Name:     d.Name,
 				Status:   1,
-				CreateBy: 1,
+				CreateBy: "",
 			}
 			if err := dictRepo.Create(dict); err != nil {
 				logger.Zap.Warnf("failed to create dict %s: %v", d.DictCode, err)
@@ -235,7 +235,7 @@ var StartCmd = &cobra.Command{
 				TagType:  item.TagType,
 				Sort:     item.Sort,
 				Status:   1,
-				CreateBy: 1,
+				CreateBy: "",
 			}
 			if err := dictItemRepo.Create(dictItem); err != nil {
 				logger.Zap.Warnf("failed to create dict item %s-%s: %v", item.DictCode, item.Value, err)

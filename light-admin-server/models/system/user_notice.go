@@ -7,9 +7,9 @@ import (
 // UserNotice 用户通知公告模型
 // IsRead: 读取状态（0: 未读, 1: 已读）
 type UserNotice struct {
-	ID         uint64           `gorm:"primaryKey;autoIncrement" json:"id"`
-	NoticeID   uint64           `gorm:"column:notice_id;not null" json:"noticeId"`
-	UserID     uint64           `gorm:"column:user_id;not null" json:"userId"`
+	ID         string           `gorm:"primaryKey;type:char(32)" json:"id"`
+	NoticeID   string           `gorm:"column:notice_id;type:char(32);not null" json:"noticeId"`
+	UserID     string           `gorm:"column:user_id;type:char(32);not null" json:"userId"`
 	IsRead     int              `gorm:"column:is_read;default:0" json:"isRead"`
 	ReadTime   dto.NullDateTime `gorm:"column:read_time" json:"readTime"`
 	CreateTime dto.DateTime     `gorm:"column:create_time;autoCreateTime" json:"createTime"`
@@ -28,8 +28,8 @@ type UserNoticeQueryParam struct {
 	dto.PaginationParam
 	dto.OrderParam
 
-	NoticeID uint64 `query:"noticeId"`
-	UserID   uint64 `query:"userId"`
+	NoticeID string `query:"noticeId"`
+	UserID   string `query:"userId"`
 	IsRead   *int   `query:"isRead"`
 }
 
@@ -40,8 +40,8 @@ type UserNoticeQueryResult struct {
 
 // UserNoticePageVO 我的通知公告分页视图对象
 type UserNoticePageVO struct {
-	ID          uint64           `json:"id"`
-	NoticeID    uint64           `json:"noticeId"`
+	ID          string           `json:"id"`
+	NoticeID    string           `json:"noticeId"`
 	Title       string           `json:"title"`
 	Type        int              `json:"type"`
 	Level       string           `json:"level"`

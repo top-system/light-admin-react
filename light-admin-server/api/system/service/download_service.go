@@ -211,7 +211,7 @@ func (a DownloadService) GetDetail(ctx context.Context, id uint64) (*system.Down
 }
 
 // Create 创建下载任务（通过队列）
-func (a DownloadService) Create(ctx context.Context, form *system.DownloadTaskCreateForm, ownerID uint64) (*system.DownloadTask, error) {
+func (a DownloadService) Create(ctx context.Context, form *system.DownloadTaskCreateForm, ownerID string) (*system.DownloadTask, error) {
 	// 检查队列是否启用
 	if a.taskQueue.Queue == nil {
 		return nil, apperrors.DownloadQueueNotEnabled

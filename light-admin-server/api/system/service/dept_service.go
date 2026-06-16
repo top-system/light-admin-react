@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -10,7 +9,6 @@ import (
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
-	"github.com/top-system/light-admin/models/dto"
 )
 
 // DeptService service layer
@@ -48,19 +46,19 @@ func (a DeptService) GetDeptList(param *system.DeptQueryParam) ([]*system.DeptVO
 	}
 
 	// 获取所有部门ID
-	deptIds := make(map[uint64]bool)
+	deptIds := make(map[string]bool)
 	for _, dept := range deptList {
 		deptIds[dept.ID] = true
 	}
 
 	// 获取父节点ID
-	parentIds := make(map[uint64]bool)
+	parentIds := make(map[string]bool)
 	for _, dept := range deptList {
 		parentIds[dept.ParentID] = true
 	}
 
 	// 获取根节点ID（父节点ID中不包含在部门ID中的节点）
-	var rootIds []uint64
+	var rootIds []string
 	for parentId := range parentIds {
 		if !deptIds[parentId] {
 			rootIds = append(rootIds, parentId)
@@ -80,7 +78,7 @@ func (a DeptService) GetDeptList(param *system.DeptQueryParam) ([]*system.DeptVO
 }
 
 // buildDeptTree 使用 map 预构建 O(n) 复杂度的部门树
-func buildDeptTree(parentId uint64, childMap map[uint64][]*system.Dept) []*system.DeptVO {
+func buildDeptTree(parentId string, childMap map[string][]*system.Dept) []*system.DeptVO {
 	children, ok := childMap[parentId]
 	if !ok {
 		return nil
@@ -109,8 +107,8 @@ func buildDeptTree(parentId uint64, childMap map[uint64][]*system.Dept) []*syste
 }
 
 // buildChildMap 预构建 parentID -> children 映射
-func buildDeptChildMap(deptList system.Depts) map[uint64][]*system.Dept {
-	childMap := make(map[uint64][]*system.Dept, len(deptList))
+func buildDeptChildMap(deptList system.Depts) map[string][]*system.Dept {
+	childMap := make(map[string][]*system.Dept, len(deptList))
 	for _, dept := range deptList {
 		childMap[dept.ParentID] = append(childMap[dept.ParentID], dept)
 	}
@@ -129,19 +127,19 @@ func (a DeptService) ListDeptOptions() ([]*system.DeptOption, error) {
 	}
 
 	// 获取所有部门ID
-	deptIds := make(map[uint64]bool)
+	deptIds := make(map[string]bool)
 	for _, dept := range deptList {
 		deptIds[dept.ID] = true
 	}
 
 	// 获取父节点ID
-	parentIds := make(map[uint64]bool)
+	parentIds := make(map[string]bool)
 	for _, dept := range deptList {
 		parentIds[dept.ParentID] = true
 	}
 
 	// 获取根节点ID
-	var rootIds []uint64
+	var rootIds []string
 	for parentId := range parentIds {
 		if !deptIds[parentId] {
 			rootIds = append(rootIds, parentId)
@@ -161,7 +159,7 @@ func (a DeptService) ListDeptOptions() ([]*system.DeptOption, error) {
 }
 
 // buildDeptOptions 使用 map 预构建 O(n) 复杂度的部门下拉选项
-func buildDeptOptions(parentId uint64, childMap map[uint64][]*system.Dept) []*system.DeptOption {
+func buildDeptOptions(parentId string, childMap map[string][]*system.Dept) []*system.DeptOption {
 	children, ok := childMap[parentId]
 	if !ok {
 		return nil
@@ -184,21 +182,21 @@ func buildDeptOptions(parentId uint64, childMap map[uint64][]*system.Dept) []*sy
 }
 
 // SaveDept 新增部门
-func (a DeptService) SaveDept(form *system.DeptForm, createdBy uint64) (uint64, error) {
+func (a DeptService) SaveDept(form *system.DeptForm, createdBy string) (string, error) {
 	// 校验部门编号是否存在
 	existDept, err := a.deptRepository.GetByCode(form.Code)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	if existDept != nil {
-		return 0, errors.New("部门编号已存在")
+		return "", errors.New("部门编号已存在")
 	}
 
 	// 生成部门路径
-	parentID := form.ParentID.Value()
+	parentID := form.ParentID
 	treePath, err := a.generateDeptTreePath(parentID)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	dept := &system.Dept{
@@ -212,14 +210,14 @@ func (a DeptService) SaveDept(form *system.DeptForm, createdBy uint64) (uint64, 
 	}
 
 	if err := a.deptRepository.Create(dept); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	return dept.ID, nil
 }
 
 // GetDeptForm 获取部门表单数据
-func (a DeptService) GetDeptForm(id uint64) (*system.DeptForm, error) {
+func (a DeptService) GetDeptForm(id string) (*system.DeptForm, error) {
 	dept, err := a.deptRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -229,34 +227,34 @@ func (a DeptService) GetDeptForm(id uint64) (*system.DeptForm, error) {
 		ID:       dept.ID,
 		Name:     dept.Name,
 		Code:     dept.Code,
-		ParentID: dto.FlexUint64(dept.ParentID),
+		ParentID: dept.ParentID,
 		Sort:     dept.Sort,
 		Status:   dept.Status,
 	}, nil
 }
 
 // UpdateDept 更新部门
-func (a DeptService) UpdateDept(id uint64, form *system.DeptForm, updatedBy uint64) (uint64, error) {
+func (a DeptService) UpdateDept(id string, form *system.DeptForm, updatedBy string) (string, error) {
 	// 检查部门是否存在
 	_, err := a.deptRepository.Get(id)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	// 校验部门编号是否存在（排除自身）
 	existDept, err := a.deptRepository.GetByCode(form.Code, id)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	if existDept != nil {
-		return 0, errors.New("部门编号已存在")
+		return "", errors.New("部门编号已存在")
 	}
 
 	// 生成部门路径
-	parentID := form.ParentID.Value()
+	parentID := form.ParentID
 	treePath, err := a.generateDeptTreePath(parentID)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	dept := &system.Dept{
@@ -271,22 +269,22 @@ func (a DeptService) UpdateDept(id uint64, form *system.DeptForm, updatedBy uint
 	}
 
 	if err := a.deptRepository.Update(id, dept); err != nil {
-		return 0, err
+		return "", err
 	}
 
 	return id, nil
 }
 
 // DeleteByIds 删除部门
-func (a DeptService) DeleteByIds(ids string, deletedBy uint64) error {
+func (a DeptService) DeleteByIds(ids string, deletedBy string) error {
 	if ids == "" {
 		return errors.New("删除的部门数据为空")
 	}
 
 	idStrs := strings.Split(ids, ",")
 	for _, idStr := range idStrs {
-		id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
-		if err != nil {
+		id := strings.TrimSpace(idStr)
+		if id == "" {
 			continue
 		}
 
@@ -300,8 +298,8 @@ func (a DeptService) DeleteByIds(ids string, deletedBy uint64) error {
 }
 
 // generateDeptTreePath 生成部门路径
-func (a DeptService) generateDeptTreePath(parentId uint64) (string, error) {
-	if parentId == 0 {
+func (a DeptService) generateDeptTreePath(parentId string) (string, error) {
+	if parentId == "" {
 		return "0", nil
 	}
 
@@ -310,5 +308,5 @@ func (a DeptService) generateDeptTreePath(parentId uint64) (string, error) {
 		return "", err
 	}
 
-	return parent.TreePath + "," + strconv.FormatUint(parent.ID, 10), nil
+	return parent.TreePath + "," + parent.ID, nil
 }

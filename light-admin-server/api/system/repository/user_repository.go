@@ -53,7 +53,7 @@ func (a UserRepository) Query(param *system.UserQueryParam) (*system.UserQueryRe
 		db = db.Where("status = ?", *v)
 	}
 
-	if v := param.DeptID; v > 0 {
+	if v := param.DeptID; v != "" {
 		db = db.Where("dept_id = ?", v)
 	}
 
@@ -99,7 +99,7 @@ func (a UserRepository) Query(param *system.UserQueryParam) (*system.UserQueryRe
 	return qr, nil
 }
 
-func (a UserRepository) Get(id uint64) (*system.User, error) {
+func (a UserRepository) Get(id string) (*system.User, error) {
 	user := new(system.User)
 
 	if ok, err := QueryOne(a.db.ORM.Model(user).Where("id=? AND is_deleted=?", id, 0), user); err != nil {
@@ -120,7 +120,7 @@ func (a UserRepository) Create(user *system.User) error {
 	return nil
 }
 
-func (a UserRepository) Update(id uint64, user *system.User) error {
+func (a UserRepository) Update(id string, user *system.User) error {
 	result := a.db.ORM.Model(user).Where("id=?", id).Select(
 		"username", "nickname", "gender", "dept_id", "avatar",
 		"mobile", "status", "email", "update_by",
@@ -132,7 +132,7 @@ func (a UserRepository) Update(id uint64, user *system.User) error {
 	return nil
 }
 
-func (a UserRepository) Delete(id uint64) error {
+func (a UserRepository) Delete(id string) error {
 	// 软删除
 	result := a.db.ORM.Model(&system.User{}).Where("id=?", id).Update("is_deleted", 1)
 	if result.Error != nil {
@@ -142,7 +142,7 @@ func (a UserRepository) Delete(id uint64) error {
 	return nil
 }
 
-func (a UserRepository) UpdateStatus(id uint64, status int) error {
+func (a UserRepository) UpdateStatus(id string, status int) error {
 	result := a.db.ORM.Model(&system.User{}).Where("id=?", id).Update("status", status)
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
@@ -151,7 +151,7 @@ func (a UserRepository) UpdateStatus(id uint64, status int) error {
 	return nil
 }
 
-func (a UserRepository) UpdatePassword(id uint64, password string) error {
+func (a UserRepository) UpdatePassword(id string, password string) error {
 	result := a.db.ORM.Model(&system.User{}).Where("id=?", id).Update("password", password)
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
@@ -160,7 +160,7 @@ func (a UserRepository) UpdatePassword(id uint64, password string) error {
 	return nil
 }
 
-func (a UserRepository) UpdateProfile(id uint64, profile *system.ProfileForm) error {
+func (a UserRepository) UpdateProfile(id string, profile *system.ProfileForm) error {
 	updates := make(map[string]interface{})
 
 	if profile.Nickname != "" {

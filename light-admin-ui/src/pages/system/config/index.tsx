@@ -22,7 +22,7 @@ import {
 import type { Config, ConfigForm } from '@/types/light-admin/domain';
 import { toProTableRequest } from '@/utils/response/adapter';
 
-type EditState = { mode: 'create' } | { mode: 'edit'; id: number };
+type EditState = { mode: 'create' } | { mode: 'edit'; id: string };
 
 const ConfigPage: React.FC = () => {
   const actionRef = useRef<ActionType | undefined>(undefined);
@@ -35,7 +35,7 @@ const ConfigPage: React.FC = () => {
     setEdit({ mode: 'create' });
   };
 
-  const openEdit = useCallback(async (id: number) => {
+  const openEdit = useCallback(async (id: string) => {
     const form = await getConfigForm(id);
     setEditInitial(form);
     setEdit({ mode: 'edit', id });
@@ -55,7 +55,7 @@ const ConfigPage: React.FC = () => {
     return true;
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     await deleteConfig(id);
     message.success('已删除');
     actionRef.current?.reload();

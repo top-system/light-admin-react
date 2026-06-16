@@ -28,8 +28,8 @@ import {
 import type { Dept, DeptForm } from '@/types/light-admin/domain';
 
 type EditState =
-  | { mode: 'create'; parentId?: number }
-  | { mode: 'edit'; id: number };
+  | { mode: 'create'; parentId?: string }
+  | { mode: 'edit'; id: string };
 
 const DeptPage: React.FC = () => {
   const actionRef = useRef<ActionType | undefined>(undefined);
@@ -37,18 +37,18 @@ const DeptPage: React.FC = () => {
   const [edit, setEdit] = useState<EditState | null>(null);
   const [editInitial, setEditInitial] = useState<DeptForm | undefined>();
 
-  const openCreate = (parentId?: number) => {
+  const openCreate = (parentId?: string) => {
     setEditInitial({
       name: '',
       code: '',
-      parentId: parentId ?? 0,
+      parentId: parentId ?? '',
       status: 1,
       sort: 0,
     });
     setEdit({ mode: 'create', parentId });
   };
 
-  const openEdit = useCallback(async (id: number) => {
+  const openEdit = useCallback(async (id: string) => {
     const form = await getDeptForm(id);
     setEditInitial(form);
     setEdit({ mode: 'edit', id });
@@ -72,7 +72,7 @@ const DeptPage: React.FC = () => {
     return true;
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     await deleteDepts([id]);
     message.success('已删除');
     actionRef.current?.reload();
@@ -173,11 +173,11 @@ const DeptPage: React.FC = () => {
           label="上级部门"
           request={async () =>
             [
-              { value: 0, label: '顶级', children: await getDeptOptions() },
+              { value: '', label: '顶级', children: await getDeptOptions() },
             ] as never
           }
           fieldProps={{ treeDefaultExpandAll: true }}
-          initialValue={0}
+          initialValue=""
         />
         <ProFormDigit name="sort" label="排序" min={0} />
         <ProFormSelect

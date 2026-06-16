@@ -13,7 +13,7 @@ type TaskModel struct {
 	Type          string         `gorm:"size:100;not null;index" json:"type"`
 	Status        Status         `gorm:"size:50;not null;index" json:"status"`
 	CorrelationID uuid.UUID      `gorm:"type:char(36);index" json:"correlationId"`
-	OwnerID       uint64         `gorm:"index" json:"ownerId"`
+	OwnerID       string         `gorm:"type:char(32);index" json:"ownerId"`
 	PrivateState  string         `gorm:"type:text" json:"privateState"`
 	PublicState   TaskPublicState `gorm:"embedded;embeddedPrefix:public_" json:"publicState"`
 	CreatedAt     time.Time      `json:"createdAt"`
@@ -37,7 +37,7 @@ type TaskPublicState struct {
 
 // TaskOwner represents the owner of a task (simplified user interface)
 type TaskOwner struct {
-	ID       uint64 `json:"id"`
+	ID       string `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 }

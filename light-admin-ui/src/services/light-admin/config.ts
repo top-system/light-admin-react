@@ -5,7 +5,7 @@ export function queryConfigs(params: Record<string, unknown> = {}) {
   return requestList<Config>('/configs', 'GET', { params });
 }
 
-export function getConfigForm(id: number) {
+export function getConfigForm(id: string) {
   return requestData<ConfigForm>(`/configs/${id}/form`, 'GET');
 }
 
@@ -13,11 +13,11 @@ export function createConfig(data: ConfigForm) {
   return requestData<void>('/configs', 'POST', { data });
 }
 
-export function updateConfig(id: number, data: ConfigForm) {
+export function updateConfig(id: string, data: ConfigForm) {
   return requestData<void>(`/configs/${id}`, 'PUT', { data });
 }
 
-export function deleteConfig(id: number) {
+export function deleteConfig(id: string) {
   return requestData<void>(`/configs/${id}`, 'DELETE');
 }
 

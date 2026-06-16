@@ -44,7 +44,7 @@ export const NoticeBell: React.FC = () => {
     }
   };
 
-  const openDetail = async (noticeId: number) => {
+  const openDetail = async (noticeId: string) => {
     try {
       const d = await getNoticeDetail(noticeId);
       setDetail(d);

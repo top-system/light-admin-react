@@ -8,20 +8,20 @@ import (
 // Status: 1-正常 0-停用
 // DataScope: 数据权限范围
 type Role struct {
-	ID         uint64       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID         string       `gorm:"primaryKey;type:char(32)" json:"id"`
 	Name       string       `gorm:"column:name;size:64;not null;uniqueIndex:uk_role_name" json:"name"`
 	Code       string       `gorm:"column:code;size:32;not null;uniqueIndex:uk_role_code" json:"code"`
 	Sort       int          `gorm:"column:sort" json:"sort"`
 	Status     int          `gorm:"column:status;default:1" json:"status"`
 	DataScope  int          `gorm:"column:data_scope" json:"dataScope"`
-	CreateBy   uint64       `gorm:"column:create_by" json:"createBy"`
+	CreateBy   string       `gorm:"column:create_by" json:"createBy"`
 	CreateTime dto.DateTime `gorm:"column:create_time;autoCreateTime" json:"createTime"`
-	UpdateBy   uint64       `gorm:"column:update_by" json:"updateBy"`
+	UpdateBy   string       `gorm:"column:update_by" json:"updateBy"`
 	UpdateTime dto.DateTime `gorm:"column:update_time;autoUpdateTime" json:"updateTime"`
 	IsDeleted  int          `gorm:"column:is_deleted;default:0" json:"isDeleted"`
 
 	// 非数据库字段
-	MenuIds []uint64 `gorm:"-" json:"menuIds,omitempty"`
+	MenuIds []string `gorm:"-" json:"menuIds,omitempty"`
 }
 
 // TableName 指定表名
@@ -35,11 +35,11 @@ type RoleQueryParam struct {
 	dto.PaginationParam
 	dto.OrderParam
 
-	IDs        []uint64 `query:"ids"`
+	IDs        []string `query:"ids"`
 	Name       string   `query:"name"`
 	Code       string   `query:"code"`
 	QueryValue string   `query:"query_value"`
-	UserID     uint64   `query:"user_id"`
+	UserID     string   `query:"user_id"`
 	Status     int      `query:"status"`
 }
 
@@ -64,16 +64,16 @@ func (a Roles) ToCodes() []string {
 	return codes
 }
 
-func (a Roles) ToMap() map[uint64]*Role {
-	m := make(map[uint64]*Role)
+func (a Roles) ToMap() map[string]*Role {
+	m := make(map[string]*Role)
 	for _, item := range a {
 		m[item.ID] = item
 	}
 	return m
 }
 
-func (a Roles) ToIDs() []uint64 {
-	ids := make([]uint64, len(a))
+func (a Roles) ToIDs() []string {
+	ids := make([]string, len(a))
 	for i, item := range a {
 		ids[i] = item.ID
 	}
@@ -82,7 +82,7 @@ func (a Roles) ToIDs() []uint64 {
 
 // RoleOption 角色下拉选项
 type RoleOption struct {
-	Value uint64 `json:"value"`
+	Value string `json:"value"`
 	Label string `json:"label"`
 }
 

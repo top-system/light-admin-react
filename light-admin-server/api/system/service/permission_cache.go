@@ -13,8 +13,8 @@ const (
 	permCacheExpiration = 30 * time.Minute
 
 	// 缓存键前缀
-	permCacheKeyUserRoles = "perm:user:%d:roles" // 用户角色ID列表
-	permCacheKeyUserPerms = "perm:user:%d:perms" // 用户权限标识列表
+	permCacheKeyUserRoles = "perm:user:%s:roles" // 用户角色ID列表
+	permCacheKeyUserPerms = "perm:user:%s:perms" // 用户权限标识列表
 )
 
 // PermissionCache 权限缓存服务
@@ -38,11 +38,11 @@ func NewPermissionCache(
 }
 
 // GetUserRoleIDs 获取用户角色ID列表（带缓存）
-func (a PermissionCache) GetUserRoleIDs(userID uint64) ([]uint64, error) {
+func (a PermissionCache) GetUserRoleIDs(userID string) ([]string, error) {
 	cacheKey := fmt.Sprintf(permCacheKeyUserRoles, userID)
 
 	// 尝试从缓存获取
-	var roleIDs []uint64
+	var roleIDs []string
 	if err := a.cache.Get(cacheKey, &roleIDs); err == nil {
 		return roleIDs, nil
 	}
@@ -62,7 +62,7 @@ func (a PermissionCache) GetUserRoleIDs(userID uint64) ([]uint64, error) {
 }
 
 // SetUserPerms 缓存用户权限
-func (a PermissionCache) SetUserPerms(userID uint64, perms []string) {
+func (a PermissionCache) SetUserPerms(userID string, perms []string) {
 	cacheKey := fmt.Sprintf(permCacheKeyUserPerms, userID)
 	if err := a.cache.Set(cacheKey, perms, permCacheExpiration); err != nil {
 		a.logger.Zap.Warn("Failed to cache user perms: " + err.Error())
@@ -70,7 +70,7 @@ func (a PermissionCache) SetUserPerms(userID uint64, perms []string) {
 }
 
 // GetUserPerms 从缓存获取用户权限
-func (a PermissionCache) GetUserPerms(userID uint64) ([]string, bool) {
+func (a PermissionCache) GetUserPerms(userID string) ([]string, bool) {
 	cacheKey := fmt.Sprintf(permCacheKeyUserPerms, userID)
 	var perms []string
 	if err := a.cache.Get(cacheKey, &perms); err == nil {
@@ -80,7 +80,7 @@ func (a PermissionCache) GetUserPerms(userID uint64) ([]string, bool) {
 }
 
 // InvalidateUserCache 清除用户权限缓存
-func (a PermissionCache) InvalidateUserCache(userID uint64) {
+func (a PermissionCache) InvalidateUserCache(userID string) {
 	rolesKey := fmt.Sprintf(permCacheKeyUserRoles, userID)
 	permsKey := fmt.Sprintf(permCacheKeyUserPerms, userID)
 
@@ -90,7 +90,7 @@ func (a PermissionCache) InvalidateUserCache(userID uint64) {
 }
 
 // InvalidateRoleCache 清除角色权限缓存（角色权限变更时调用）
-func (a PermissionCache) InvalidateRoleCache(roleID uint64) {
+func (a PermissionCache) InvalidateRoleCache(roleID string) {
 	// 角色权限变更时，需要清除所有拥有该角色的用户的权限缓存
 	userIDs, err := a.userRoleRepository.GetUserIDsByRoleID(roleID)
 	if err != nil {

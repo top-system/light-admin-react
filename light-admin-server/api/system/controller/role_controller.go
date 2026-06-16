@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
@@ -86,10 +85,7 @@ func (a RoleController) GetOptions(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/roles/{id}/form [get]
 func (a RoleController) GetForm(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	role, err := a.roleService.Get(id)
 	if err != nil {
@@ -135,10 +131,7 @@ func (a RoleController) Create(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/roles/{id} [put]
 func (a RoleController) Update(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	role := new(system.Role)
 	if err := ctx.Bind(role); err != nil {
@@ -165,10 +158,7 @@ func (a RoleController) Update(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/roles/{id} [delete]
 func (a RoleController) Delete(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
 	if err := a.roleService.WithTrx(trxHandle).Delete(id); err != nil {
@@ -187,10 +177,7 @@ func (a RoleController) Delete(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/roles/{id}/menus [get]
 func (a RoleController) GetMenuIds(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	menuIDs, err := a.roleService.GetRoleMenuIds(id)
 	if err != nil {
@@ -210,12 +197,9 @@ func (a RoleController) GetMenuIds(ctx echo.Context) error {
 // @failure 500 {object} echox.Response "internal error"
 // @router /api/v1/roles/{id}/menus [put]
 func (a RoleController) AssignMenus(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
-	var menuIDs []uint64
+	var menuIDs []string
 	if err := ctx.Bind(&menuIDs); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}

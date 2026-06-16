@@ -6,7 +6,7 @@ import (
 
 // DictItem 字典项模型
 type DictItem struct {
-	ID         uint64       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID         string       `gorm:"primaryKey;type:char(32)" json:"id"`
 	DictCode   string       `gorm:"column:dict_code;size:100;not null;index:idx_dict_code" json:"dictCode"`
 	Label      string       `gorm:"column:label;size:100;not null" json:"label"`
 	Value      string       `gorm:"column:value;size:100;not null" json:"value"`
@@ -14,9 +14,9 @@ type DictItem struct {
 	Sort       int          `gorm:"column:sort;default:0" json:"sort"`
 	Status     int          `gorm:"column:status;default:1" json:"status"`
 	Remark     string       `gorm:"column:remark;size:255" json:"remark"`
-	CreateBy   uint64       `gorm:"column:create_by" json:"createBy"`
+	CreateBy   string       `gorm:"column:create_by" json:"createBy"`
 	CreateTime dto.DateTime `gorm:"column:create_time;autoCreateTime" json:"createTime"`
-	UpdateBy   uint64       `gorm:"column:update_by" json:"updateBy"`
+	UpdateBy   string       `gorm:"column:update_by" json:"updateBy"`
 	UpdateTime dto.DateTime `gorm:"column:update_time;autoUpdateTime" json:"updateTime"`
 	IsDeleted  int          `gorm:"column:is_deleted;default:0" json:"isDeleted"`
 }
@@ -41,7 +41,7 @@ type DictItemQueryResult struct {
 
 // DictItemForm 字典项表单
 type DictItemForm struct {
-	ID       uint64 `json:"id"`
+	ID       string `json:"id"`
 	DictCode string `json:"dictCode"`
 	Label    string `json:"label" validate:"required,max=100"`
 	Value    string `json:"value" validate:"required,max=100"`
@@ -53,7 +53,7 @@ type DictItemForm struct {
 
 // DictItemPageVO 字典项分页视图对象
 type DictItemPageVO struct {
-	ID         uint64       `json:"id"`
+	ID         string       `json:"id"`
 	DictCode   string       `json:"dictCode"`
 	Label      string       `json:"label"`
 	Value      string       `json:"value"`

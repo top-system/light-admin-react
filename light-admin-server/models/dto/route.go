@@ -22,7 +22,7 @@ type RouteMeta struct {
 
 // MenuOption 菜单下拉选项
 type MenuOption struct {
-	Value    uint64       `json:"value"`
+	Value    string       `json:"value"`
 	Label    string       `json:"label"`
 	Children []MenuOption `json:"children,omitempty"`
 }

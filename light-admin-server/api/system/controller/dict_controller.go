@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -79,10 +78,7 @@ func (a DictController) GetDictPage(ctx echo.Context) error {
 // @Success 200 {object} echox.Response{data=system.DictForm} "ok"
 // @Router /api/v1/dicts/{id}/form [get]
 func (a DictController) GetDictForm(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form, err := a.dictService.GetDictForm(id)
 	if err != nil {
@@ -106,7 +102,7 @@ func (a DictController) SaveDict(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var createdBy uint64
+	var createdBy string
 	if claims != nil {
 		createdBy = claims.ID
 	}
@@ -131,10 +127,7 @@ func (a DictController) SaveDict(ctx echo.Context) error {
 // @Success 200 {object} echox.Response "ok"
 // @Router /api/v1/dicts/{id} [put]
 func (a DictController) UpdateDict(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form := new(system.DictForm)
 	if err := ctx.Bind(form); err != nil {
@@ -142,7 +135,7 @@ func (a DictController) UpdateDict(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var updatedBy uint64
+	var updatedBy string
 	if claims != nil {
 		updatedBy = claims.ID
 	}
@@ -177,7 +170,7 @@ func (a DictController) DeleteDict(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var deletedBy uint64
+	var deletedBy string
 	if claims != nil {
 		deletedBy = claims.ID
 	}
@@ -258,10 +251,7 @@ func (a DictController) GetDictItemOptions(ctx echo.Context) error {
 // @Success 200 {object} echox.Response{data=system.DictItemForm} "ok"
 // @Router /api/v1/dicts/{dictCode}/items/{itemId}/form [get]
 func (a DictController) GetDictItemForm(ctx echo.Context) error {
-	itemId, err := strconv.ParseUint(ctx.Param("itemId"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	itemId := ctx.Param("itemId")
 
 	form, err := a.dictItemService.GetDictItemForm(itemId)
 	if err != nil {
@@ -289,7 +279,7 @@ func (a DictController) SaveDictItem(ctx echo.Context) error {
 	form.DictCode = dictCode
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var createdBy uint64
+	var createdBy string
 	if claims != nil {
 		createdBy = claims.ID
 	}
@@ -316,10 +306,7 @@ func (a DictController) SaveDictItem(ctx echo.Context) error {
 // @Router /api/v1/dicts/{dictCode}/items/{itemId} [put]
 func (a DictController) UpdateDictItem(ctx echo.Context) error {
 	dictCode := ctx.Param("dictCode")
-	itemId, err := strconv.ParseUint(ctx.Param("itemId"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	itemId := ctx.Param("itemId")
 
 	form := new(system.DictItemForm)
 	if err := ctx.Bind(form); err != nil {
@@ -328,7 +315,7 @@ func (a DictController) UpdateDictItem(ctx echo.Context) error {
 	form.DictCode = dictCode
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var updatedBy uint64
+	var updatedBy string
 	if claims != nil {
 		updatedBy = claims.ID
 	}
@@ -357,7 +344,7 @@ func (a DictController) DeleteDictItem(ctx echo.Context) error {
 	itemIds := ctx.Param("itemIds")
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var deletedBy uint64
+	var deletedBy string
 	if claims != nil {
 		deletedBy = claims.ID
 	}

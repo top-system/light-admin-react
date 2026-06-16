@@ -43,10 +43,10 @@ import type {
 import { invalidateDict } from '@/utils/dict/cache';
 import { toProTableRequest } from '@/utils/response/adapter';
 
-type DictEdit = { mode: 'create' } | { mode: 'edit'; id: number };
+type DictEdit = { mode: 'create' } | { mode: 'edit'; id: string };
 type ItemEdit =
   | { mode: 'create'; dictCode: string }
-  | { mode: 'edit'; dictCode: string; id: number };
+  | { mode: 'edit'; dictCode: string; id: string };
 
 const DictPage: React.FC = () => {
   const { message } = App.useApp();
@@ -67,7 +67,7 @@ const DictPage: React.FC = () => {
     setDictInitial({ dictCode: '', name: '', status: 1 });
     setDictEdit({ mode: 'create' });
   };
-  const openDictEdit = useCallback(async (id: number) => {
+  const openDictEdit = useCallback(async (id: string) => {
     const form = await getDictForm(id);
     setDictInitial(form);
     setDictEdit({ mode: 'edit', id });
@@ -91,7 +91,7 @@ const DictPage: React.FC = () => {
     return true;
   };
 
-  const handleDictDelete = async (id: number) => {
+  const handleDictDelete = async (id: string) => {
     await deleteDicts([id]);
     if (selected?.id === id) setSelected(null);
     message.success('已删除');
@@ -150,7 +150,7 @@ const DictPage: React.FC = () => {
     setItemEdit({ mode: 'create', dictCode: selected.dictCode });
   };
 
-  const openItemEdit = useCallback(async (dictCode: string, id: number) => {
+  const openItemEdit = useCallback(async (dictCode: string, id: string) => {
     const form = await getDictItemForm(dictCode, id);
     setItemInitial(form);
     setItemEdit({ mode: 'edit', dictCode, id });
@@ -175,7 +175,7 @@ const DictPage: React.FC = () => {
     return true;
   };
 
-  const handleItemDelete = async (dictCode: string, ids: number[]) => {
+  const handleItemDelete = async (dictCode: string, ids: string[]) => {
     await deleteDictItems(dictCode, ids);
     invalidateDict(dictCode);
     message.success('已删除');

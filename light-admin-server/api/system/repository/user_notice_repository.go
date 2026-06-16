@@ -91,7 +91,7 @@ func (a UserNoticeRepository) BatchCreate(userNotices []*system.UserNotice) erro
 	return nil
 }
 
-func (a UserNoticeRepository) MarkAsRead(noticeID, userID uint64) error {
+func (a UserNoticeRepository) MarkAsRead(noticeID, userID string) error {
 	result := a.db.ORM.Model(&system.UserNotice{}).
 		Where("notice_id = ? AND user_id = ? AND is_read = ?", noticeID, userID, 0).
 		Updates(map[string]interface{}{
@@ -105,7 +105,7 @@ func (a UserNoticeRepository) MarkAsRead(noticeID, userID uint64) error {
 	return nil
 }
 
-func (a UserNoticeRepository) MarkAllAsRead(userID uint64) error {
+func (a UserNoticeRepository) MarkAllAsRead(userID string) error {
 	result := a.db.ORM.Model(&system.UserNotice{}).
 		Where("user_id = ? AND is_read = ?", userID, 0).
 		Updates(map[string]interface{}{
@@ -119,7 +119,7 @@ func (a UserNoticeRepository) MarkAllAsRead(userID uint64) error {
 	return nil
 }
 
-func (a UserNoticeRepository) DeleteByNoticeID(noticeID uint64) error {
+func (a UserNoticeRepository) DeleteByNoticeID(noticeID string) error {
 	result := a.db.ORM.Where("notice_id = ?", noticeID).Delete(&system.UserNotice{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
@@ -128,7 +128,7 @@ func (a UserNoticeRepository) DeleteByNoticeID(noticeID uint64) error {
 	return nil
 }
 
-func (a UserNoticeRepository) DeleteByNoticeIDs(noticeIDs []uint64) error {
+func (a UserNoticeRepository) DeleteByNoticeIDs(noticeIDs []string) error {
 	result := a.db.ORM.Where("notice_id IN ?", noticeIDs).Delete(&system.UserNotice{})
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())

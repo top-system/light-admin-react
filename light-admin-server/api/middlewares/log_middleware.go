@@ -200,7 +200,7 @@ func (m LogMiddleware) Handle() echo.MiddlewareFunc {
 			executionTime := time.Since(startTime).Milliseconds()
 
 			// 获取用户信息
-			var createBy uint64
+			var createBy string
 			if claims, ok := c.Get(constants.CurrentUser).(*dto.JwtClaims); ok && claims != nil {
 				createBy = claims.ID
 			}

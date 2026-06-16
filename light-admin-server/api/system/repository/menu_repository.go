@@ -81,7 +81,7 @@ func (a MenuRepository) Query(param *system.MenuQueryParam) (*system.MenuQueryRe
 	return qr, nil
 }
 
-func (a MenuRepository) Get(id uint64) (*system.Menu, error) {
+func (a MenuRepository) Get(id string) (*system.Menu, error) {
 	menu := new(system.Menu)
 
 	if ok, err := QueryOne(a.db.ORM.Model(menu).Where("id=?", id), menu); err != nil {
@@ -102,7 +102,7 @@ func (a MenuRepository) Create(menu *system.Menu) error {
 	return nil
 }
 
-func (a MenuRepository) Update(id uint64, menu *system.Menu) error {
+func (a MenuRepository) Update(id string, menu *system.Menu) error {
 	result := a.db.ORM.Model(menu).Where("id=?", id).Select(
 		"parent_id", "tree_path", "name", "type", "route_name", "route_path",
 		"component", "perm", "always_show", "keep_alive", "visible",
@@ -115,7 +115,7 @@ func (a MenuRepository) Update(id uint64, menu *system.Menu) error {
 	return nil
 }
 
-func (a MenuRepository) Delete(id uint64) error {
+func (a MenuRepository) Delete(id string) error {
 	menu := new(system.Menu)
 
 	result := a.db.ORM.Model(menu).Where("id=?", id).Delete(menu)
@@ -126,7 +126,7 @@ func (a MenuRepository) Delete(id uint64) error {
 	return nil
 }
 
-func (a MenuRepository) UpdateVisible(id uint64, visible int) error {
+func (a MenuRepository) UpdateVisible(id string, visible int) error {
 	menu := new(system.Menu)
 
 	result := a.db.ORM.Model(menu).Where("id=?", id).Update("visible", visible)
@@ -137,7 +137,7 @@ func (a MenuRepository) UpdateVisible(id uint64, visible int) error {
 	return nil
 }
 
-func (a MenuRepository) UpdateTreePath(id uint64, treePath string) error {
+func (a MenuRepository) UpdateTreePath(id string, treePath string) error {
 	menu := new(system.Menu)
 
 	result := a.db.ORM.Model(menu).Where("id=?", id).Update("tree_path", treePath)
@@ -149,7 +149,7 @@ func (a MenuRepository) UpdateTreePath(id uint64, treePath string) error {
 }
 
 // GetMenusByRoleIDs 根据角色ID列表获取菜单
-func (a MenuRepository) GetMenusByRoleIDs(roleIDs []uint64) (system.Menus, error) {
+func (a MenuRepository) GetMenusByRoleIDs(roleIDs []string) (system.Menus, error) {
 	if len(roleIDs) == 0 {
 		return nil, nil
 	}
@@ -172,7 +172,7 @@ func (a MenuRepository) GetMenusByRoleIDs(roleIDs []uint64) (system.Menus, error
 }
 
 // GetButtonPermsByRoleIDs 获取角色关联的按钮权限标识列表
-func (a MenuRepository) GetButtonPermsByRoleIDs(roleIDs []uint64) ([]string, error) {
+func (a MenuRepository) GetButtonPermsByRoleIDs(roleIDs []string) ([]string, error) {
 	if len(roleIDs) == 0 {
 		return nil, nil
 	}

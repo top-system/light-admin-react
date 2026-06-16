@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
@@ -72,10 +71,7 @@ func (a NoticeController) Query(ctx echo.Context) error {
 // @Success 200 {object} echox.Response{data=system.NoticeForm} "ok"
 // @Router /api/v1/notices/{id}/form [get]
 func (a NoticeController) GetForm(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form, err := a.noticeService.GetForm(id)
 	if err != nil {
@@ -93,13 +89,10 @@ func (a NoticeController) GetForm(ctx echo.Context) error {
 // @Success 200 {object} echox.Response{data=system.NoticeDetailVO} "ok"
 // @Router /api/v1/notices/{id}/detail [get]
 func (a NoticeController) GetDetail(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var userID uint64
+	var userID string
 	if claims != nil {
 		userID = claims.ID
 	}
@@ -126,7 +119,7 @@ func (a NoticeController) Create(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var createdBy uint64
+	var createdBy string
 	if claims != nil {
 		createdBy = claims.ID
 	}
@@ -148,10 +141,7 @@ func (a NoticeController) Create(ctx echo.Context) error {
 // @Success 200 {object} echox.Response "ok"
 // @Router /api/v1/notices/{id} [put]
 func (a NoticeController) Update(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	form := new(system.NoticeForm)
 	if err := ctx.Bind(form); err != nil {
@@ -159,7 +149,7 @@ func (a NoticeController) Update(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var updatedBy uint64
+	var updatedBy string
 	if claims != nil {
 		updatedBy = claims.ID
 	}
@@ -183,7 +173,7 @@ func (a NoticeController) Delete(ctx echo.Context) error {
 	ids := ctx.Param("ids")
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var deletedBy uint64
+	var deletedBy string
 	if claims != nil {
 		deletedBy = claims.ID
 	}
@@ -204,13 +194,10 @@ func (a NoticeController) Delete(ctx echo.Context) error {
 // @Success 200 {object} echox.Response "ok"
 // @Router /api/v1/notices/{id}/publish [put]
 func (a NoticeController) Publish(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var publisherId uint64
+	var publisherId string
 	if claims != nil {
 		publisherId = claims.ID
 	}
@@ -231,13 +218,10 @@ func (a NoticeController) Publish(ctx echo.Context) error {
 // @Success 200 {object} echox.Response "ok"
 // @Router /api/v1/notices/{id}/revoke [put]
 func (a NoticeController) Revoke(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("id"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("id")
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var updatedBy uint64
+	var updatedBy string
 	if claims != nil {
 		updatedBy = claims.ID
 	}
@@ -258,7 +242,7 @@ func (a NoticeController) Revoke(ctx echo.Context) error {
 // @Router /api/v1/notices/read-all [put]
 func (a NoticeController) ReadAll(ctx echo.Context) error {
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var userID uint64
+	var userID string
 	if claims != nil {
 		userID = claims.ID
 	}

@@ -23,7 +23,7 @@ type DownloadTask struct {
 	UploadSpeed   int64        `gorm:"column:upload_speed;default:0" json:"uploadSpeed"`
 	SavePath      string       `gorm:"column:save_path;size:500" json:"savePath"`
 	ErrorMessage  string       `gorm:"column:error_message;type:text" json:"errorMessage"`
-	OwnerID       uint64       `gorm:"column:owner_id;index" json:"ownerId"`
+	OwnerID       string       `gorm:"column:owner_id;type:char(32);index" json:"ownerId"`
 	CreatedAt     time.Time    `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
 	UpdatedAt     time.Time    `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 	DeletedAt     dto.DateTime `gorm:"column:deleted_at;index" json:"-"`

@@ -68,7 +68,7 @@ func (a DictRepository) GetAll() (system.Dicts, error) {
 }
 
 // Get 获取字典
-func (a DictRepository) Get(id uint64) (*system.Dict, error) {
+func (a DictRepository) Get(id string) (*system.Dict, error) {
 	dict := new(system.Dict)
 
 	if ok, err := QueryOne(a.db.ORM.Model(dict).Where("id=? AND is_deleted=?", id, 0), dict); err != nil {
@@ -81,11 +81,11 @@ func (a DictRepository) Get(id uint64) (*system.Dict, error) {
 }
 
 // GetByCode 根据编码获取字典
-func (a DictRepository) GetByCode(dictCode string, excludeID ...uint64) (*system.Dict, error) {
+func (a DictRepository) GetByCode(dictCode string, excludeID ...string) (*system.Dict, error) {
 	dict := new(system.Dict)
 	db := a.db.ORM.Model(dict).Where("dict_code = ? AND is_deleted = ?", dictCode, 0)
 
-	if len(excludeID) > 0 && excludeID[0] > 0 {
+	if len(excludeID) > 0 && excludeID[0] != "" {
 		db = db.Where("id != ?", excludeID[0])
 	}
 
@@ -99,7 +99,7 @@ func (a DictRepository) GetByCode(dictCode string, excludeID ...uint64) (*system
 }
 
 // GetByIDs 根据ID列表获取字典列表
-func (a DictRepository) GetByIDs(ids []uint64) (system.Dicts, error) {
+func (a DictRepository) GetByIDs(ids []string) (system.Dicts, error) {
 	var list system.Dicts
 	if err := a.db.ORM.Model(&system.Dict{}).
 		Where("id IN ? AND is_deleted = ?", ids, 0).
@@ -121,7 +121,7 @@ func (a DictRepository) Create(dict *system.Dict) error {
 }
 
 // Update 更新字典
-func (a DictRepository) Update(id uint64, dict *system.Dict) error {
+func (a DictRepository) Update(id string, dict *system.Dict) error {
 	result := a.db.ORM.Model(&system.Dict{}).Where("id=?", id).Updates(map[string]interface{}{
 		"dict_code": dict.DictCode,
 		"name":      dict.Name,
@@ -137,7 +137,7 @@ func (a DictRepository) Update(id uint64, dict *system.Dict) error {
 }
 
 // Delete 删除字典（软删除）
-func (a DictRepository) Delete(id uint64, deletedBy uint64) error {
+func (a DictRepository) Delete(id string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.Dict{}).Where("id=?", id).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,
@@ -150,7 +150,7 @@ func (a DictRepository) Delete(id uint64, deletedBy uint64) error {
 }
 
 // DeleteByIDs 批量删除字典
-func (a DictRepository) DeleteByIDs(ids []uint64, deletedBy uint64) error {
+func (a DictRepository) DeleteByIDs(ids []string, deletedBy string) error {
 	result := a.db.ORM.Model(&system.Dict{}).Where("id IN ?", ids).Updates(map[string]interface{}{
 		"is_deleted": 1,
 		"update_by":  deletedBy,

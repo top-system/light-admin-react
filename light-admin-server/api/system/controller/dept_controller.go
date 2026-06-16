@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -82,7 +81,7 @@ func (a DeptController) Create(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var createdBy uint64
+	var createdBy string
 	if claims != nil {
 		createdBy = claims.ID
 	}
@@ -104,10 +103,7 @@ func (a DeptController) Create(ctx echo.Context) error {
 // @Success 200 {object} echox.Response{data=system.DeptForm} "ok"
 // @Router /api/v1/depts/{deptId}/form [get]
 func (a DeptController) GetForm(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("deptId"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("deptId")
 
 	form, err := a.deptService.GetDeptForm(id)
 	if err != nil {
@@ -126,10 +122,7 @@ func (a DeptController) GetForm(ctx echo.Context) error {
 // @Success 200 {object} echox.Response "ok"
 // @Router /api/v1/depts/{deptId} [put]
 func (a DeptController) Update(ctx echo.Context) error {
-	id, err := strconv.ParseUint(ctx.Param("deptId"), 10, 64)
-	if err != nil {
-		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
-	}
+	id := ctx.Param("deptId")
 
 	form := new(system.DeptForm)
 	if err := ctx.Bind(form); err != nil {
@@ -137,13 +130,13 @@ func (a DeptController) Update(ctx echo.Context) error {
 	}
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var updatedBy uint64
+	var updatedBy string
 	if claims != nil {
 		updatedBy = claims.ID
 	}
 
 	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	_, err = a.deptService.WithTrx(trxHandle).UpdateDept(id, form, updatedBy)
+	_, err := a.deptService.WithTrx(trxHandle).UpdateDept(id, form, updatedBy)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -162,7 +155,7 @@ func (a DeptController) Delete(ctx echo.Context) error {
 	ids := ctx.Param("ids")
 
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
-	var deletedBy uint64
+	var deletedBy string
 	if claims != nil {
 		deletedBy = claims.ID
 	}

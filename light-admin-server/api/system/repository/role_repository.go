@@ -48,7 +48,7 @@ func (a RoleRepository) Query(param *system.RoleQueryParam) (*system.RoleQueryRe
 		db = db.Where("code=?", v)
 	}
 
-	if v := param.UserID; v != 0 {
+	if v := param.UserID; v != "" {
 		subQuery := a.db.ORM.Model(&system.UserRole{}).
 			Where("user_id=?", v).
 			Select("role_id")
@@ -81,7 +81,7 @@ func (a RoleRepository) Query(param *system.RoleQueryParam) (*system.RoleQueryRe
 	return qr, nil
 }
 
-func (a RoleRepository) Get(id uint64) (*system.Role, error) {
+func (a RoleRepository) Get(id string) (*system.Role, error) {
 	role := new(system.Role)
 
 	if ok, err := QueryOne(a.db.ORM.Model(role).Where("id=? AND is_deleted=?", id, 0), role); err != nil {
@@ -114,7 +114,7 @@ func (a RoleRepository) Create(role *system.Role) error {
 	return nil
 }
 
-func (a RoleRepository) Update(id uint64, role *system.Role) error {
+func (a RoleRepository) Update(id string, role *system.Role) error {
 	result := a.db.ORM.Model(role).Where("id=?", id).Select(
 		"name", "code", "sort", "status", "data_scope", "update_by",
 	).Updates(role)
@@ -125,7 +125,7 @@ func (a RoleRepository) Update(id uint64, role *system.Role) error {
 	return nil
 }
 
-func (a RoleRepository) Delete(id uint64) error {
+func (a RoleRepository) Delete(id string) error {
 	// 软删除
 	result := a.db.ORM.Model(&system.Role{}).Where("id=?", id).Update("is_deleted", 1)
 	if result.Error != nil {
@@ -135,7 +135,7 @@ func (a RoleRepository) Delete(id uint64) error {
 	return nil
 }
 
-func (a RoleRepository) UpdateStatus(id uint64, status int) error {
+func (a RoleRepository) UpdateStatus(id string, status int) error {
 	result := a.db.ORM.Model(&system.Role{}).Where("id=?", id).Update("status", status)
 	if result.Error != nil {
 		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())

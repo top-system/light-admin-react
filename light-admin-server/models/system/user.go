@@ -8,25 +8,25 @@ import (
 // Status: 1-正常 0-禁用
 // Gender: 1-男 2-女 0-保密
 type User struct {
-	ID         uint64       `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID         string       `gorm:"primaryKey;type:char(32)" json:"id"`
 	Username   string       `gorm:"column:username;size:64;index:idx_username" json:"username"`
 	Nickname   string       `gorm:"column:nickname;size:64" json:"nickname"`
 	Gender     int          `gorm:"column:gender;default:1" json:"gender"`
 	Password   string       `gorm:"column:password;size:100" json:"password,omitempty"`
-	DeptID     uint64       `gorm:"column:dept_id;index:idx_dept_id" json:"deptId"`
+	DeptID     string       `gorm:"column:dept_id;index:idx_dept_id" json:"deptId"`
 	Avatar     string       `gorm:"column:avatar;size:255" json:"avatar"`
 	Mobile     string       `gorm:"column:mobile;size:20" json:"mobile"`
 	Status     int          `gorm:"column:status;default:1;index:idx_user_status" json:"status"`
 	Email      string       `gorm:"column:email;size:128" json:"email"`
 	CreateTime dto.DateTime `gorm:"column:create_time;autoCreateTime;index:idx_user_create_time" json:"createTime"`
-	CreateBy   uint64       `gorm:"column:create_by" json:"createBy"`
+	CreateBy   string       `gorm:"column:create_by" json:"createBy"`
 	UpdateTime dto.DateTime `gorm:"column:update_time;autoUpdateTime" json:"updateTime"`
-	UpdateBy   uint64       `gorm:"column:update_by" json:"updateBy"`
+	UpdateBy   string       `gorm:"column:update_by" json:"updateBy"`
 	IsDeleted  int          `gorm:"column:is_deleted;default:0;index:idx_user_is_deleted" json:"isDeleted"`
 	OpenID     string       `gorm:"column:openid;size:28" json:"openid,omitempty"`
 
 	// 非数据库字段
-	RoleIds  []uint64 `gorm:"-" json:"roleIds,omitempty"`
+	RoleIds  []string `gorm:"-" json:"roleIds,omitempty"`
 	DeptName string   `gorm:"-" json:"deptName,omitempty"`
 }
 
@@ -38,7 +38,7 @@ func (User) TableName() string {
 type Users []*User
 
 type UserInfo struct {
-	ID       uint64 `json:"userId"`
+	ID       string `json:"userId"`
 	Username string `json:"username"`
 	Nickname string `json:"nickname"`
 	Roles    Roles  `json:"roles"`
@@ -54,8 +54,8 @@ type UserQueryParam struct {
 	QueryValue     string   `query:"query_value"`
 	Keywords       string   `query:"keywords"`
 	Status         *int     `query:"status"`
-	DeptID         uint64   `query:"deptId"`
-	RoleIDs        []uint64 `query:"-"`
+	DeptID         string   `query:"deptId"`
+	RoleIDs        []string `query:"-"`
 	CreateTimeFrom string   `query:"createTime[0]"`
 	CreateTimeTo   string   `query:"createTime[1]"`
 }
@@ -70,8 +70,8 @@ func (a *User) CleanSecure() *User {
 	return a
 }
 
-func (a Users) ToIDs() []uint64 {
-	ids := make([]uint64, len(a))
+func (a Users) ToIDs() []string {
+	ids := make([]string, len(a))
 	for i, item := range a {
 		ids[i] = item.ID
 	}
@@ -80,7 +80,7 @@ func (a Users) ToIDs() []uint64 {
 
 // UserForm 用户表单
 type UserForm struct {
-	ID       uint64   `json:"id"`
+	ID       string   `json:"id"`
 	Username string   `json:"username"`
 	Nickname string   `json:"nickname"`
 	Mobile   string   `json:"mobile"`
@@ -88,13 +88,13 @@ type UserForm struct {
 	Avatar   string   `json:"avatar"`
 	Email    string   `json:"email"`
 	Status   int      `json:"status"`
-	DeptId   uint64   `json:"deptId"`
-	RoleIds  []uint64 `json:"roleIds"`
+	DeptId   string   `json:"deptId"`
+	RoleIds  []string `json:"roleIds"`
 }
 
 // UserOption 用户下拉选项
 type UserOption struct {
-	Value uint64 `json:"value"`
+	Value string `json:"value"`
 	Label string `json:"label"`
 }
 

@@ -35,8 +35,8 @@ import type {
 } from '@/types/light-admin/domain';
 
 type EditState =
-  | { mode: 'create'; parentId?: number }
-  | { mode: 'edit'; id: number };
+  | { mode: 'create'; parentId?: string }
+  | { mode: 'edit'; id: string };
 
 const TYPE_LABEL: Record<MenuTypeCode, string> = {
   M: '目录',
@@ -51,10 +51,10 @@ const MenuPage: React.FC = () => {
   const [editInitial, setEditInitial] = useState<MenuForm | undefined>();
   const [selectedType, setSelectedType] = useState<MenuTypeCode>('C');
 
-  const openCreate = (parentId?: number) => {
+  const openCreate = (parentId?: string) => {
     setEditInitial({
       name: '',
-      parentId: parentId ?? 0,
+      parentId: parentId ?? '',
       type: 'C',
       visible: 1,
       sort: 0,
@@ -63,7 +63,7 @@ const MenuPage: React.FC = () => {
     setEdit({ mode: 'create', parentId });
   };
 
-  const openEdit = useCallback(async (id: number) => {
+  const openEdit = useCallback(async (id: string) => {
     const form = await getMenuForm(id);
     setEditInitial(form);
     setSelectedType(
@@ -76,7 +76,8 @@ const MenuPage: React.FC = () => {
     if (!edit) return false;
     const payload: MenuForm = {
       ...values,
-      visible: values.visible !== undefined ? Number(values.visible) : undefined,
+      visible:
+        values.visible !== undefined ? Number(values.visible) : undefined,
     };
     if (edit.mode === 'create') {
       await createMenu(payload);
@@ -90,7 +91,7 @@ const MenuPage: React.FC = () => {
     return true;
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     await deleteMenu(id);
     message.success('已删除');
     actionRef.current?.reload();
@@ -201,11 +202,11 @@ const MenuPage: React.FC = () => {
           label="上级"
           request={async () =>
             [
-              { value: 0, label: '顶级', children: await getMenuOptions() },
+              { value: '', label: '顶级', children: await getMenuOptions() },
             ] as never
           }
           fieldProps={{ treeDefaultExpandAll: true }}
-          initialValue={0}
+          initialValue=""
         />
         {selectedType !== 'B' && (
           <>

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -51,7 +50,7 @@ func (a DictItemService) GetDictItems(dictCode string) ([]*system.DictItemOption
 }
 
 // GetDictItemForm 获取字典项表单数据
-func (a DictItemService) GetDictItemForm(id uint64) (*system.DictItemForm, error) {
+func (a DictItemService) GetDictItemForm(id string) (*system.DictItemForm, error) {
 	item, err := a.dictItemRepository.Get(id)
 	if err != nil {
 		return nil, err
@@ -70,7 +69,7 @@ func (a DictItemService) GetDictItemForm(id uint64) (*system.DictItemForm, error
 }
 
 // SaveDictItem 新增字典项
-func (a DictItemService) SaveDictItem(form *system.DictItemForm, createdBy uint64) error {
+func (a DictItemService) SaveDictItem(form *system.DictItemForm, createdBy string) error {
 	item := &system.DictItem{
 		DictCode: form.DictCode,
 		Label:    form.Label,
@@ -86,7 +85,7 @@ func (a DictItemService) SaveDictItem(form *system.DictItemForm, createdBy uint6
 }
 
 // UpdateDictItem 更新字典项
-func (a DictItemService) UpdateDictItem(id uint64, form *system.DictItemForm, updatedBy uint64) error {
+func (a DictItemService) UpdateDictItem(id string, form *system.DictItemForm, updatedBy string) error {
 	// 检查字典项是否存在
 	_, err := a.dictItemRepository.Get(id)
 	if err != nil {
@@ -109,16 +108,16 @@ func (a DictItemService) UpdateDictItem(id uint64, form *system.DictItemForm, up
 }
 
 // DeleteDictItemByIds 删除字典项
-func (a DictItemService) DeleteDictItemByIds(ids string, deletedBy uint64) error {
+func (a DictItemService) DeleteDictItemByIds(ids string, deletedBy string) error {
 	if ids == "" {
 		return errors.New("删除的字典项数据为空")
 	}
 
 	idStrs := strings.Split(ids, ",")
-	idList := make([]uint64, 0, len(idStrs))
+	idList := make([]string, 0, len(idStrs))
 	for _, idStr := range idStrs {
-		id, err := strconv.ParseUint(strings.TrimSpace(idStr), 10, 64)
-		if err != nil {
+		id := strings.TrimSpace(idStr)
+		if id == "" {
 			continue
 		}
 		idList = append(idList, id)

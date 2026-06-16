@@ -40,19 +40,19 @@ export function createUser(data: UserForm) {
   return requestData<void>('/users', 'POST', { data });
 }
 
-export function getUserForm(id: number) {
+export function getUserForm(id: string) {
   return requestData<UserForm>(`/users/${id}/form`, 'GET');
 }
 
-export function updateUser(id: number, data: UserForm) {
+export function updateUser(id: string, data: UserForm) {
   return requestData<void>(`/users/${id}`, 'PUT', { data });
 }
 
-export function deleteUser(id: number) {
+export function deleteUser(id: string) {
   return requestData<void>(`/users/${id}`, 'DELETE');
 }
 
-export function resetUserPassword(id: number, password?: string) {
+export function resetUserPassword(id: string, password?: string) {
   return requestData<void>(`/users/${id}/password/reset`, 'PUT', {
     data: password ? { password } : undefined,
   });

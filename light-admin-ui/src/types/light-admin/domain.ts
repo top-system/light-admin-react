@@ -24,7 +24,7 @@ export type LoginResponse = {
 };
 
 export type CurrentUser = {
-  userId: number;
+  userId: string;
   username: string;
   nickname: string;
   avatar: string;
@@ -43,16 +43,16 @@ export type UserProfileUpdate = Partial<
 >;
 
 export type UserOption = {
-  value: number | string;
+  value: string;
   label: string;
 };
 
 export type User = {
-  id: number;
+  id: string;
   username: string;
   nickname: string;
   gender: number;
-  deptId: number;
+  deptId: string;
   deptName: string;
   avatar: string;
   mobile: string;
@@ -60,11 +60,11 @@ export type User = {
   email: string;
   createTime: string;
   updateTime: string;
-  roleIds: number[];
+  roleIds: string[];
 };
 
 export type UserForm = {
-  id?: number;
+  id?: string;
   username: string;
   nickname: string;
   password?: string;
@@ -73,21 +73,21 @@ export type UserForm = {
   avatar?: string;
   email?: string;
   status?: number;
-  deptId?: number;
-  roleIds?: number[];
+  deptId?: string;
+  roleIds?: string[];
 };
 
 export type UserQuery = {
   username?: string;
   nickname?: string;
   status?: number;
-  deptId?: number;
+  deptId?: string;
   pageNum?: number;
   pageSize?: number;
 };
 
 export type Role = {
-  id: number;
+  id: string;
   name: string;
   code: string;
   sort: number;
@@ -98,7 +98,7 @@ export type Role = {
 };
 
 export type RoleForm = {
-  id?: number;
+  id?: string;
   name: string;
   code: string;
   sort?: number;
@@ -106,13 +106,13 @@ export type RoleForm = {
   dataScope?: number;
 };
 
-export type RoleOption = { value: number; label: string };
+export type RoleOption = { value: string; label: string };
 
 export type MenuTypeCode = 'M' | 'C' | 'B';
 
 export type MenuNode = {
-  id: number;
-  parentId: number;
+  id: string;
+  parentId: string;
   name: string;
   type: MenuTypeCode;
   routeName?: string;
@@ -129,8 +129,8 @@ export type MenuNode = {
 };
 
 export type MenuForm = {
-  id?: number;
-  parentId: number;
+  id?: string;
+  parentId: string;
   name: string;
   type: MenuTypeCode;
   routeName?: string;
@@ -146,16 +146,16 @@ export type MenuForm = {
 };
 
 export type MenuOption = {
-  value: number;
+  value: string;
   label: string;
   children?: MenuOption[];
 };
 
 export type Dept = {
-  id: number;
+  id: string;
   name: string;
   code: string;
-  parentId: number;
+  parentId: string;
   sort: number;
   status: number;
   createTime: string;
@@ -164,22 +164,22 @@ export type Dept = {
 };
 
 export type DeptForm = {
-  id?: number;
+  id?: string;
   name: string;
   code: string;
-  parentId: number;
+  parentId: string;
   sort?: number;
   status?: number;
 };
 
 export type DeptOption = {
-  value: number;
+  value: string;
   label: string;
   children?: DeptOption[];
 };
 
 export type Dict = {
-  id: number;
+  id: string;
   dictCode: string;
   name: string;
   status: number;
@@ -188,7 +188,7 @@ export type Dict = {
 };
 
 export type DictForm = {
-  id?: number;
+  id?: string;
   dictCode: string;
   name: string;
   status?: number;
@@ -196,7 +196,7 @@ export type DictForm = {
 };
 
 export type DictItem = {
-  id: number;
+  id: string;
   dictCode: string;
   label: string;
   value: string;
@@ -214,7 +214,7 @@ export type DictItemOption = {
 };
 
 export type DictItemForm = {
-  id?: number;
+  id?: string;
   dictCode?: string;
   label: string;
   value: string;
@@ -230,7 +230,7 @@ export type FileUploadResult = {
 };
 
 export type Config = {
-  id: number;
+  id: string;
   configName: string;
   configKey: string;
   configValue: string;
@@ -239,7 +239,7 @@ export type Config = {
 };
 
 export type ConfigForm = {
-  id?: number;
+  id?: string;
   configName: string;
   configKey: string;
   configValue: string;
@@ -247,7 +247,7 @@ export type ConfigForm = {
 };
 
 export type LogRow = {
-  id: number;
+  id: string;
   module: string;
   requestMethod: string;
   content: string;
@@ -259,12 +259,12 @@ export type LogRow = {
   browser: string;
   browserVersion: string;
   os: string;
-  createBy: number;
+  createBy: string;
   createTime: string;
 };
 
 export type Notice = {
-  id: number;
+  id: string;
   title: string;
   type: number;
   level: string;
@@ -276,7 +276,7 @@ export type Notice = {
 };
 
 export type NoticeForm = {
-  id?: number;
+  id?: string;
   title: string;
   content?: string;
   type: number;
@@ -286,12 +286,12 @@ export type NoticeForm = {
 };
 
 export type NoticeDetail = {
-  id: number;
+  id: string;
   title: string;
   content: string;
   type: number;
   level: string;
-  publisherId: number;
+  publisherId: string;
   publisherName: string;
   publishTime: string | null;
 };
@@ -324,7 +324,7 @@ export type TaskRow = {
   type: string;
   status: TaskStatus;
   correlationId: string;
-  ownerId: number;
+  ownerId: string;
   retryCount: number;
   executedDuration: number;
   error: string;
@@ -389,8 +389,8 @@ export type CreateDownloadRequest = {
 };
 
 export type UserNotice = {
-  id: number;
-  noticeId: number;
+  id: string;
+  noticeId: string;
   title: string;
   type: number;
   level: string;

@@ -36,7 +36,7 @@ import type {
 } from '@/types/light-admin/domain';
 import { toProTableRequest } from '@/utils/response/adapter';
 
-type EditState = { mode: 'create' } | { mode: 'edit'; id: number };
+type EditState = { mode: 'create' } | { mode: 'edit'; id: string };
 
 const STATUS_ENUM: Record<number, { text: string; status: string }> = {
   0: { text: '草稿', status: 'Default' },
@@ -62,13 +62,13 @@ const NoticePage: React.FC = () => {
     setEdit({ mode: 'create' });
   };
 
-  const openEdit = useCallback(async (id: number) => {
+  const openEdit = useCallback(async (id: string) => {
     const form = await getNoticeForm(id);
     setEditInitial(form);
     setEdit({ mode: 'edit', id });
   }, []);
 
-  const openDetail = async (id: number) => {
+  const openDetail = async (id: string) => {
     setDetail(await getNoticeDetail(id));
   };
 
@@ -93,19 +93,19 @@ const NoticePage: React.FC = () => {
     return true;
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     await deleteNotices([id]);
     message.success('已删除');
     actionRef.current?.reload();
   };
 
-  const handlePublish = async (id: number) => {
+  const handlePublish = async (id: string) => {
     await publishNotice(id);
     message.success('已发布');
     actionRef.current?.reload();
   };
 
-  const handleRevoke = async (id: number) => {
+  const handleRevoke = async (id: string) => {
     await revokeNotice(id);
     message.success('已撤销');
     actionRef.current?.reload();
@@ -130,7 +130,11 @@ const NoticePage: React.FC = () => {
         width: 80,
         render: (_, row) => {
           const m = LEVEL_LABEL[row.level];
-          return m ? <Tag color={m.color}>{m.text}</Tag> : <Tag>{row.level}</Tag>;
+          return m ? (
+            <Tag color={m.color}>{m.text}</Tag>
+          ) : (
+            <Tag>{row.level}</Tag>
+          );
         },
       },
       {

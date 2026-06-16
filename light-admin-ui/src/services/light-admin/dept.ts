@@ -13,7 +13,7 @@ export function getDeptOptions() {
   return requestData<DeptOption[]>('/depts/options', 'GET');
 }
 
-export function getDeptForm(id: number) {
+export function getDeptForm(id: string) {
   return requestData<DeptForm>(`/depts/${id}/form`, 'GET');
 }
 
@@ -21,10 +21,10 @@ export function createDept(data: DeptForm) {
   return requestData<void>('/depts', 'POST', { data });
 }
 
-export function updateDept(id: number, data: DeptForm) {
+export function updateDept(id: string, data: DeptForm) {
   return requestData<void>(`/depts/${id}`, 'PUT', { data });
 }
 
-export function deleteDepts(ids: number[]) {
+export function deleteDepts(ids: string[]) {
   return requestData<void>(`/depts/${ids.join(',')}`, 'DELETE');
 }
