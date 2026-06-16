@@ -23,6 +23,7 @@ Auth:
     - /swagger
     - /api/v1/auth/captcha
     - /api/v1/auth/login
+    - /api/v1/member
 
 Captcha:
   Enable: false
@@ -39,6 +40,7 @@ Casbin:
     - /api/v1/menus/routes
     - /api/v1/auth/captcha
     - /api/v1/auth/login
+    - /api/v1/member
 
 # Cache configuration
 # Type: memory or redis
@@ -110,3 +112,12 @@ OSS:
   #   AccessKeyID: your-access-key-id
   #   AccessKeySecret: your-access-key-secret
   #   BucketName: your-bucket-name
+
+# 多租户配置
+# Enable: 多租户总开关；false 时所有会员归属 DefaultTenant 指定的固定租户
+# Resolver: 租户解析方式 header | subdomain | path
+MultiTenant:
+  Enable: true
+  DefaultTenant: default
+  Resolver: header
+  HeaderName: X-Tenant-Code
