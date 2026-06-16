@@ -31,7 +31,7 @@ func (a TenantService) ResolveByCode(code string) (*tenant.Tenant, error) {
 	}
 	t, err := a.tenantRepo.GetByCode(code)
 	if err != nil {
-		return nil, errors.TenantNotFound
+		return nil, err
 	}
 	if t.Status != 1 {
 		return nil, errors.TenantDisabled

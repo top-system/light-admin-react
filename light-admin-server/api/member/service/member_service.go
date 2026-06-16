@@ -1,6 +1,8 @@
 package service
 
 import (
+	stderrors "errors"
+
 	"github.com/top-system/light-admin/api/member/repository"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -52,7 +54,7 @@ func (a MemberService) Register(tenantID string, form *dto.MemberRegister) (*mem
 func (a MemberService) Verify(tenantID, username, password string) (*member.Member, error) {
 	m, err := a.memberRepo.GetByUsername(tenantID, username)
 	if err != nil {
-		if err == errors.MemberRecordNotFound {
+		if stderrors.Is(err, errors.MemberRecordNotFound) {
 			return nil, errors.MemberInvalidLogin // 不区分"不存在/密码错"，防枚举
 		}
 		return nil, err // 真实 DB 错误透传（→ 500），不伪装成 401
@@ -67,7 +69,9 @@ func (a MemberService) Verify(tenantID, username, password string) (*member.Memb
 }
 
 func (a MemberService) RecordLogin(tenantID, id, ip string) {
-	_ = a.memberRepo.UpdateLoginInfo(tenantID, id, ip)
+	if err := a.memberRepo.UpdateLoginInfo(tenantID, id, ip); err != nil {
+		a.logger.Zap.Warnf("failed to record login for member %s: %v", id, err)
+	}
 }
 
 func (a MemberService) GetProfile(tenantID, id string) (*member.Member, error) {
