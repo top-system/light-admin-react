@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"gorm.io/gorm"
+
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/member"
@@ -18,24 +20,30 @@ func NewMemberRepository(db lib.Database, logger lib.Logger) MemberRepository {
 
 func (a MemberRepository) GetByUsername(tenantID, username string) (*member.Member, error) {
 	var m member.Member
-	err := a.db.ORM.Model(&member.Member{}).
+	result := a.db.ORM.Model(&member.Member{}).
 		Scopes(scopes.Tenant(tenantID)).
 		Where("username = ? AND is_deleted = ?", username, 0).
-		First(&m).Error
-	if err != nil {
-		return nil, errors.MemberRecordNotFound
+		First(&m)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, errors.MemberRecordNotFound
+		}
+		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
 	}
 	return &m, nil
 }
 
 func (a MemberRepository) GetByID(tenantID, id string) (*member.Member, error) {
 	var m member.Member
-	err := a.db.ORM.Model(&member.Member{}).
+	result := a.db.ORM.Model(&member.Member{}).
 		Scopes(scopes.Tenant(tenantID)).
 		Where("id = ? AND is_deleted = ?", id, 0).
-		First(&m).Error
-	if err != nil {
-		return nil, errors.MemberRecordNotFound
+		First(&m)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, errors.MemberRecordNotFound
+		}
+		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
 	}
 	return &m, nil
 }
@@ -59,12 +67,17 @@ func (a MemberRepository) Create(m *member.Member) error {
 	return nil
 }
 
-func (a MemberRepository) UpdateProfile(tenantID, id string, m *member.Member) error {
+func (a MemberRepository) UpdateProfile(tenantID, id string, form *member.MemberProfileForm) error {
 	err := a.db.ORM.Model(&member.Member{}).
 		Scopes(scopes.Tenant(tenantID)).
 		Where("id = ?", id).
-		Select("nickname", "avatar", "gender", "mobile", "email").
-		Updates(m).Error
+		Updates(map[string]interface{}{
+			"nickname": form.Nickname,
+			"avatar":   form.Avatar,
+			"gender":   form.Gender,
+			"mobile":   form.Mobile,
+			"email":    form.Email,
+		}).Error
 	if err != nil {
 		return errors.Wrap(errors.DatabaseInternalError, err.Error())
 	}
@@ -124,7 +137,8 @@ func (a MemberRepository) Query(param *member.MemberQueryParam) (*member.MemberQ
 	}
 
 	var list member.Members
-	err := db.Order(param.ParseOrder()).
+	err := db.Omit("password").
+		Order(param.ParseOrder()).
 		Offset((param.GetPageNum() - 1) * param.GetPageSize()).
 		Limit(param.GetPageSize()).
 		Find(&list).Error

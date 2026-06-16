@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"gorm.io/gorm"
+
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/tenant"
@@ -44,18 +46,24 @@ func (a TenantRepository) Query(param *tenant.TenantQueryParam) (*tenant.TenantQ
 
 func (a TenantRepository) GetByCode(code string) (*tenant.Tenant, error) {
 	var t tenant.Tenant
-	err := a.db.ORM.Where("code = ? AND is_deleted = ?", code, 0).First(&t).Error
-	if err != nil {
-		return nil, errors.TenantNotFound
+	result := a.db.ORM.Where("code = ? AND is_deleted = ?", code, 0).First(&t)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, errors.TenantNotFound
+		}
+		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
 	}
 	return &t, nil
 }
 
 func (a TenantRepository) Get(id string) (*tenant.Tenant, error) {
 	var t tenant.Tenant
-	err := a.db.ORM.Where("id = ? AND is_deleted = ?", id, 0).First(&t).Error
-	if err != nil {
-		return nil, errors.TenantNotFound
+	result := a.db.ORM.Where("id = ? AND is_deleted = ?", id, 0).First(&t)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, errors.TenantNotFound
+		}
+		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
 	}
 	return &t, nil
 }
