@@ -130,6 +130,16 @@ export default [
     ],
   },
   {
+    path: '/member',
+    name: 'member',
+    icon: 'team',
+    routes: [
+      { path: '/member', redirect: '/member/tenant' },
+      { name: 'tenant', path: '/member/tenant', component: './member/tenant' },
+      { name: 'list', path: '/member/list', component: './member/list' },
+    ],
+  },
+  {
     name: 'profile',
     path: '/profile',
     icon: 'user',
