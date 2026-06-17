@@ -12,6 +12,9 @@ var Module = fx.Options(
 	fx.Provide(NewLogMiddleware),
 	fx.Provide(NewRateLimitMiddleware),
 	fx.Provide(NewMiddlewares),
+	// 路由组级中间件（不进入全局 NewMiddlewares 列表，不通过 engine.Use 执行）
+	fx.Provide(NewTenantMiddleware),
+	fx.Provide(NewMemberAuthMiddleware),
 )
 
 // IMiddleware middleware interface

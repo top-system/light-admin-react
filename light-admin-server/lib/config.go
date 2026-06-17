@@ -34,6 +34,7 @@ var defaultConfig = Config{
 		MaxIdleConns: 50,
 	},
 	OSS: &OSSConfig{Type: "local", Local: &LocalOSSConfig{StoragePath: "./uploads"}},
+	MultiTenant: &MultiTenantConfig{Enable: false, DefaultTenant: "default", Resolver: "header", HeaderName: "X-Tenant-Code"},
 }
 
 func NewConfig() Config {
@@ -80,6 +81,8 @@ type Config struct {
 	Cache      *CacheConfig      `mapstructure:"Cache"`
 	Database   *DatabaseConfig   `mapstructure:"Database"`
 	OSS        *OSSConfig        `mapstructure:"OSS"`
+
+	MultiTenant *MultiTenantConfig `mapstructure:"MultiTenant"`
 
 	// ====== 扩展功能配置 (可选) ======
 	Queue      *QueueConfig      `mapstructure:"Queue"`
@@ -237,6 +240,37 @@ type AliyunOSSConfig struct {
 	AccessKeyID     string `mapstructure:"AccessKeyID"`
 	AccessKeySecret string `mapstructure:"AccessKeySecret"`
 	BucketName      string `mapstructure:"BucketName"`
+}
+
+// MultiTenantConfig 多租户配置
+// Enable=false 时所有会员归属 DefaultTenant 指定的固定租户
+type MultiTenantConfig struct {
+	Enable        bool   `mapstructure:"Enable"`        // 多租户总开关
+	DefaultTenant string `mapstructure:"DefaultTenant"` // 关闭时归属的租户 code
+	Resolver      string `mapstructure:"Resolver"`      // header | subdomain | path
+	HeaderName    string `mapstructure:"HeaderName"`    // Resolver=header 时的请求头名
+}
+
+// IsEnabled 是否启用多租户
+func (a *MultiTenantConfig) IsEnabled() bool {
+	return a != nil && a.Enable
+}
+
+// ResolverHeaderName 返回租户码请求头名，默认 X-Tenant-Code
+// 仅在 Resolver == "header" 时有意义。
+func (a *MultiTenantConfig) ResolverHeaderName() string {
+	if a == nil || a.HeaderName == "" {
+		return "X-Tenant-Code"
+	}
+	return a.HeaderName
+}
+
+// FallbackTenantCode 关闭多租户时的默认租户 code，默认 "default"
+func (a *MultiTenantConfig) FallbackTenantCode() string {
+	if a == nil || a.DefaultTenant == "" {
+		return "default"
+	}
+	return a.DefaultTenant
 }
 
 // ============================================================================

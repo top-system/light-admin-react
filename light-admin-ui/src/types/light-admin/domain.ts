@@ -410,3 +410,33 @@ export type RouteItem = {
   children?: RouteItem[];
   type?: 'dir' | 'menu' | 'button';
 };
+
+// --- 多租户 / 会员 ---------------------------------------------------------
+
+export type Tenant = {
+  id: string;
+  code: string;
+  name: string;
+  status: number;
+  createTime?: string;
+  updateTime?: string;
+};
+
+export type TenantForm = {
+  id?: string;
+  code: string;
+  name: string;
+  status?: number;
+};
+
+export type MemberRow = {
+  id: string;
+  tenantId: string;
+  username: string;
+  nickname: string;
+  email: string;
+  mobile: string;
+  status: number;
+  lastLoginTime?: string;
+  createTime?: string;
+};

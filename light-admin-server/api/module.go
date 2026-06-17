@@ -1,6 +1,8 @@
 package api
 
 import (
+	"github.com/top-system/light-admin/api/member"
+	memberRoute "github.com/top-system/light-admin/api/member/route"
 	"github.com/top-system/light-admin/api/middlewares"
 	"github.com/top-system/light-admin/api/platform"
 	platformRoute "github.com/top-system/light-admin/api/platform/route"
@@ -16,6 +18,7 @@ var Module = fx.Options(
 	middlewares.Module,
 	system.Module,
 	platform.Module,
+	member.Module,
 	fx.Provide(NewRoutes),
 )
 
@@ -23,16 +26,19 @@ var Module = fx.Options(
 type Routes struct {
 	System   systemRoute.Routes
 	Platform platformRoute.Routes
+	Member   memberRoute.Routes
 }
 
 // NewRoutes creates aggregated routes
 func NewRoutes(
 	system systemRoute.Routes,
 	platform platformRoute.Routes,
+	member memberRoute.Routes,
 ) Routes {
 	return Routes{
 		System:   system,
 		Platform: platform,
+		Member:   member,
 	}
 }
 
@@ -40,4 +46,5 @@ func NewRoutes(
 func (r Routes) Setup() {
 	r.System.Setup()
 	r.Platform.Setup()
+	r.Member.Setup()
 }

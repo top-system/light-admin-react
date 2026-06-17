@@ -14,6 +14,10 @@ const CaptchaExpireTimes = 90
 const CurrentUser = "current-user"
 const RoutesCacheKey = "routes"
 
+// 多租户 / 会员 上下文 key
+const CurrentTenantID = "current-tenant-id" // 解析出的租户 ID
+const CurrentMember = "current-member"      // 会员 JWT claims
+
 // RedisDB
 const RedisMainDB = 0
 const RedisTaskDB = 1

@@ -11,6 +11,7 @@ import (
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
+	"github.com/top-system/light-admin/models/tenant"
 	"github.com/top-system/light-admin/pkg/file"
 	"github.com/top-system/light-admin/pkg/hash"
 )
@@ -242,6 +243,22 @@ var StartCmd = &cobra.Command{
 			}
 		}
 		logger.Zap.Info("Step 6: Dict item data initialized successfully")
+
+		// Step 7: 预置 default 租户（多租户关闭时的兜底归属）
+		var tenantCount int64
+		db.ORM.Model(&tenant.Tenant{}).Where("code = ?", "default").Count(&tenantCount)
+		if tenantCount == 0 {
+			if err := db.ORM.Create(&tenant.Tenant{
+				Code:   "default",
+				Name:   "默认租户",
+				Status: 1,
+			}).Error; err != nil {
+				logger.Zap.Fatalf("create default tenant err: %v", err)
+			}
+			logger.Zap.Info("Step 7: default tenant created successfully")
+		} else {
+			logger.Zap.Info("Step 7: default tenant already exists, skipping creation")
+		}
 
 		logger.Zap.Info("========================================")
 		logger.Zap.Info("Setup completed!")
