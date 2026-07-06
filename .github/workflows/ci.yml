@@ -1,0 +1,61 @@
+name: server-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["light-admin-server/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["light-admin-server/**", ".github/workflows/ci.yml"]
+
+defaults:
+  run:
+    working-directory: light-admin-server
+
+jobs:
+  build-test:
+    name: build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: light-admin-server/go.sum
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test ./...
+
+  static-analysis:
+    # Advisory until pre-existing vet/lint findings (e.g. download_service
+    # value-receiver mutex) are cleared, then flip continue-on-error to false
+    # and make this a required check.
+    name: vet & lint (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: light-admin-server/go.sum
+
+      - name: gofmt check
+        run: |
+          fmtout="$(gofmt -s -l $(find . -name '*.go' -not -path './db/sqlc/*'))"
+          if [ -n "$fmtout" ]; then
+            echo "These files are not gofmt-ed:"; echo "$fmtout"; exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: light-admin-server

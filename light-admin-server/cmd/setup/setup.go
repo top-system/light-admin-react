@@ -1,13 +1,17 @@
 package setup
 
 import (
+	"context"
 	"os"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	memberrepo "github.com/top-system/light-admin/api/member/repository"
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/api/system/service"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
@@ -38,20 +42,31 @@ var StartCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		config := lib.NewConfig()
 		logger := lib.NewLogger(config)
-		db := lib.NewDatabase(config, logger)
+
+		// pgx pool + sqlc Queries for the migrated (sqlc-backed) repositories.
+		pool, err := pgxpool.New(context.Background(), config.Database.PgxDSN())
+		if err != nil {
+			logger.Zap.Fatalf("failed to create pgx pool: %v", err)
+		}
+		defer pool.Close()
+		queries := sqlc.New(pool)
+
+		// TxManager for services that compose sqlc repositories in a transaction.
+		txManager := lib.NewTxManager(lib.PgxPool{Pool: pool}, logger)
 
 		// 初始化 repositories
-		menuRepo := repository.NewMenuRepository(db, logger)
-		roleMenuRepo := repository.NewRoleMenuRepository(db, logger)
-		roleRepo := repository.NewRoleRepository(db, logger)
-		userRepo := repository.NewUserRepository(db, logger)
-		userRoleRepo := repository.NewUserRoleRepository(db, logger)
-		dictRepo := repository.NewDictRepository(db, logger)
-		dictItemRepo := repository.NewDictItemRepository(db, logger)
+		menuRepo := repository.NewMenuRepository(queries, logger)
+		roleMenuRepo := repository.NewRoleMenuRepository(queries, logger)
+		roleRepo := repository.NewRoleRepository(queries, logger)
+		userRepo := repository.NewUserRepository(queries, logger)
+		userRoleRepo := repository.NewUserRoleRepository(queries, logger)
+		dictRepo := repository.NewDictRepository(queries, logger)
+		dictItemRepo := repository.NewDictItemRepository(queries, logger)
 
 		// 初始化 services
 		menuService := service.NewMenuService(
 			logger,
+			txManager,
 			menuRepo,
 			roleMenuRepo,
 		)
@@ -245,19 +260,18 @@ var StartCmd = &cobra.Command{
 		logger.Zap.Info("Step 6: Dict item data initialized successfully")
 
 		// Step 7: 预置 default 租户（多租户关闭时的兜底归属）
-		var tenantCount int64
-		db.ORM.Model(&tenant.Tenant{}).Where("code = ?", "default").Count(&tenantCount)
-		if tenantCount == 0 {
-			if err := db.ORM.Create(&tenant.Tenant{
+		tenantRepo := memberrepo.NewTenantRepository(queries, logger)
+		if _, err := tenantRepo.GetByCode("default"); err == nil {
+			logger.Zap.Info("Step 7: default tenant already exists, skipping creation")
+		} else {
+			if err := tenantRepo.Create(&tenant.Tenant{
 				Code:   "default",
 				Name:   "默认租户",
 				Status: 1,
-			}).Error; err != nil {
+			}); err != nil {
 				logger.Zap.Fatalf("create default tenant err: %v", err)
 			}
 			logger.Zap.Info("Step 7: default tenant created successfully")
-		} else {
-			logger.Zap.Info("Step 7: default tenant already exists, skipping creation")
 		}
 
 		logger.Zap.Info("========================================")

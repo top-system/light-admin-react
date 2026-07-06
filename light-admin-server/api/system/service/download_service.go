@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"sync"
 
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -40,28 +38,28 @@ func (l *downloaderLogger) Error(format string, args ...interface{}) {
 
 // DownloadService service layer
 type DownloadService struct {
-	logger               lib.Logger
-	config               lib.Config
-	db                   lib.Database
-	downloadRepository   repository.DownloadRepository
-	downloaders          map[string]downloader.Downloader
-	downloaderRegistry   *queue.DownloaderRegistry
-	taskQueue            lib.TaskQueue
-	mu                   sync.RWMutex
+	logger             lib.Logger
+	config             lib.Config
+	taskRepo           queue.TaskRepository
+	downloadRepository repository.DownloadRepository
+	downloaders        map[string]downloader.Downloader
+	downloaderRegistry *queue.DownloaderRegistry
+	taskQueue          lib.TaskQueue
+	mu                 sync.RWMutex
 }
 
 // NewDownloadService creates a new download service
 func NewDownloadService(
 	logger lib.Logger,
 	config lib.Config,
-	db lib.Database,
+	taskRepo queue.TaskRepository,
 	downloadRepository repository.DownloadRepository,
 	taskQueue lib.TaskQueue,
 ) DownloadService {
 	svc := DownloadService{
 		logger:             logger,
 		config:             config,
-		db:                 db,
+		taskRepo:           taskRepo,
 		downloadRepository: downloadRepository,
 		downloaders:        make(map[string]downloader.Downloader),
 		downloaderRegistry: queue.NewDownloaderRegistry(),
@@ -132,12 +130,6 @@ func (a *DownloadService) getDefaultDownloader() string {
 		return name
 	}
 	return ""
-}
-
-// WithTrx delegates transaction to repository database
-func (a DownloadService) WithTrx(trxHandle *gorm.DB) DownloadService {
-	a.downloadRepository = a.downloadRepository.WithTrx(trxHandle)
-	return a
 }
 
 // Query 分页查询下载任务（从队列任务表查询）
@@ -503,8 +495,7 @@ func (a DownloadService) getRemoteDownloadState(queueTaskID int) *queue.RemoteDo
 	}
 
 	// 从数据库获取队列任务的 PrivateState
-	var taskModel queue.TaskModel
-	if err := a.db.ORM.First(&taskModel, queueTaskID).Error; err == nil && taskModel.PrivateState != "" {
+	if taskModel, err := a.taskRepo.GetByID(context.Background(), uint64(queueTaskID)); err == nil && taskModel.PrivateState != "" {
 		state := &queue.RemoteDownloadTaskState{}
 		if err := json.Unmarshal([]byte(taskModel.PrivateState), state); err == nil {
 			return state

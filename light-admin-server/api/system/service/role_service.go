@@ -1,9 +1,10 @@
 package service
 
 import (
-	"gorm.io/gorm"
+	"context"
 
 	"github.com/top-system/light-admin/api/system/repository"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -13,6 +14,7 @@ import (
 // RoleService service layer
 type RoleService struct {
 	logger             lib.Logger
+	txManager          lib.TxManager
 	userRepository     repository.UserRepository
 	roleRepository     repository.RoleRepository
 	roleMenuRepository repository.RoleMenuRepository
@@ -23,6 +25,7 @@ type RoleService struct {
 // NewRoleService creates a new role service
 func NewRoleService(
 	logger lib.Logger,
+	txManager lib.TxManager,
 	userRepository repository.UserRepository,
 	roleRepository repository.RoleRepository,
 	roleMenuRepository repository.RoleMenuRepository,
@@ -31,21 +34,13 @@ func NewRoleService(
 ) RoleService {
 	return RoleService{
 		logger:             logger,
+		txManager:          txManager,
 		userRepository:     userRepository,
 		roleRepository:     roleRepository,
 		roleMenuRepository: roleMenuRepository,
 		menuRepository:     menuRepository,
 		permissionCache:    permissionCache,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a RoleService) WithTrx(trxHandle *gorm.DB) RoleService {
-	a.roleRepository = a.roleRepository.WithTrx(trxHandle)
-	a.userRepository = a.userRepository.WithTrx(trxHandle)
-	a.roleMenuRepository = a.roleMenuRepository.WithTrx(trxHandle)
-
-	return a
 }
 
 func (a RoleService) Query(param *system.RoleQueryParam) (roleQR *system.RoleQueryResult, err error) {
@@ -111,15 +106,23 @@ func (a RoleService) Create(role *system.Role) (string, error) {
 		return "", err
 	}
 
-	if err := a.roleRepository.Create(role); err != nil {
-		return "", err
-	}
-
-	// Create role menu associations
-	if len(role.MenuIds) > 0 {
-		if err := a.assignMenusToRole(role.ID, role.MenuIds); err != nil {
-			return "", err
+	// Create the role and its menu associations atomically.
+	err := a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		roleRepo := a.roleRepository.WithTx(q)
+		if err := roleRepo.Create(role); err != nil {
+			return err
 		}
+
+		if len(role.MenuIds) > 0 {
+			roleMenuRepo := a.roleMenuRepository.WithTx(q)
+			if err := a.assignMenusToRole(roleMenuRepo, role.ID, role.MenuIds); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
 	}
 
 	return role.ID, nil
@@ -174,16 +177,13 @@ func (a RoleService) Delete(id string) error {
 	// 先清除该角色相关用户的权限缓存
 	a.permissionCache.InvalidateRoleCache(id)
 
-	// Delete role menu associations
-	if err := a.roleMenuRepository.DeleteByRoleID(id); err != nil {
-		return err
-	}
-
-	if err := a.roleRepository.Delete(id); err != nil {
-		return err
-	}
-
-	return nil
+	// Remove menu associations and soft-delete the role atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		if err := a.roleMenuRepository.WithTx(q).DeleteByRoleID(id); err != nil {
+			return err
+		}
+		return a.roleRepository.WithTx(q).Delete(id)
+	})
 }
 
 func (a RoleService) UpdateStatus(id string, status int) error {
@@ -207,12 +207,18 @@ func (a RoleService) AssignMenusToRole(roleID string, menuIDs []string) error {
 		return err
 	}
 
-	// Delete existing associations
-	if err := a.roleMenuRepository.DeleteByRoleID(roleID); err != nil {
-		return err
-	}
+	// Replace the role's menu associations atomically.
+	err = a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		roleMenuRepo := a.roleMenuRepository.WithTx(q)
 
-	if err := a.assignMenusToRole(roleID, menuIDs); err != nil {
+		// Delete existing associations
+		if err := roleMenuRepo.DeleteByRoleID(roleID); err != nil {
+			return err
+		}
+
+		return a.assignMenusToRole(roleMenuRepo, roleID, menuIDs)
+	})
+	if err != nil {
 		return err
 	}
 
@@ -222,7 +228,9 @@ func (a RoleService) AssignMenusToRole(roleID string, menuIDs []string) error {
 	return nil
 }
 
-func (a RoleService) assignMenusToRole(roleID string, menuIDs []string) error {
+// assignMenusToRole inserts the given menu associations using the supplied
+// (possibly transaction-bound) role-menu repository.
+func (a RoleService) assignMenusToRole(roleMenuRepo repository.RoleMenuRepository, roleID string, menuIDs []string) error {
 	if len(menuIDs) == 0 {
 		return nil
 	}
@@ -235,7 +243,7 @@ func (a RoleService) assignMenusToRole(roleID string, menuIDs []string) error {
 		})
 	}
 
-	return a.roleMenuRepository.BatchCreate(roleMenus)
+	return roleMenuRepo.BatchCreate(roleMenus)
 }
 
 // ListRoleOptions 获取角色下拉选项

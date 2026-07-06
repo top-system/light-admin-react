@@ -3,15 +3,13 @@ package controller
 import (
 	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/pkg/echox"
-	"github.com/labstack/echo/v4"
-
-	"gorm.io/gorm"
 )
 
 type NoticeController struct {
@@ -124,8 +122,7 @@ func (a NoticeController) Create(ctx echo.Context) error {
 		createdBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.noticeService.WithTrx(trxHandle).Create(form, createdBy); err != nil {
+	if err := a.noticeService.Create(form, createdBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -154,8 +151,7 @@ func (a NoticeController) Update(ctx echo.Context) error {
 		updatedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.noticeService.WithTrx(trxHandle).Update(id, form, updatedBy); err != nil {
+	if err := a.noticeService.Update(id, form, updatedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -178,8 +174,7 @@ func (a NoticeController) Delete(ctx echo.Context) error {
 		deletedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.noticeService.WithTrx(trxHandle).Delete(ids, deletedBy); err != nil {
+	if err := a.noticeService.Delete(ids, deletedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -202,8 +197,7 @@ func (a NoticeController) Publish(ctx echo.Context) error {
 		publisherId = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.noticeService.WithTrx(trxHandle).Publish(id, publisherId); err != nil {
+	if err := a.noticeService.Publish(id, publisherId); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -226,8 +220,7 @@ func (a NoticeController) Revoke(ctx echo.Context) error {
 		updatedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.noticeService.WithTrx(trxHandle).Revoke(id, updatedBy); err != nil {
+	if err := a.noticeService.Revoke(id, updatedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 

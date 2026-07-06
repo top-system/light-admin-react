@@ -1,21 +1,22 @@
 package service
 
 import (
+	"context"
 	"sort"
-
-	"gorm.io/gorm"
 
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/constants"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 )
 
 // MenuService service layer
 type MenuService struct {
 	logger             lib.Logger
+	txManager          lib.TxManager
 	menuRepository     repository.MenuRepository
 	roleMenuRepository repository.RoleMenuRepository
 }
@@ -23,21 +24,16 @@ type MenuService struct {
 // NewMenuService creates a new menu service
 func NewMenuService(
 	logger lib.Logger,
+	txManager lib.TxManager,
 	menuRepository repository.MenuRepository,
 	roleMenuRepository repository.RoleMenuRepository,
 ) MenuService {
 	return MenuService{
 		logger:             logger,
+		txManager:          txManager,
 		menuRepository:     menuRepository,
 		roleMenuRepository: roleMenuRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a MenuService) WithTrx(trxHandle *gorm.DB) MenuService {
-	a.menuRepository = a.menuRepository.WithTrx(trxHandle)
-	a.roleMenuRepository = a.roleMenuRepository.WithTrx(trxHandle)
-	return a
 }
 
 func (a MenuService) Check(item *system.Menu) error {
@@ -175,15 +171,16 @@ func (a MenuService) Update(id string, menu *system.Menu) error {
 		menu.TreePath = oMenu.TreePath
 	}
 
-	if err = a.UpdateChildTreePath(oMenu, menu); err != nil {
-		return err
-	}
+	// Rewriting descendant tree paths and updating the menu itself must be atomic.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		menuRepo := a.menuRepository.WithTx(q)
 
-	if err = a.menuRepository.Update(id, menu); err != nil {
-		return err
-	}
+		if err := a.updateChildTreePath(menuRepo, oMenu, menu); err != nil {
+			return err
+		}
 
-	return nil
+		return menuRepo.Update(id, menu)
+	})
 }
 
 func (a MenuService) Delete(id string) error {
@@ -202,16 +199,13 @@ func (a MenuService) Delete(id string) error {
 		return errors.MenuNotAllowDeleteWithChild
 	}
 
-	// Delete role_menu associations
-	if err = a.roleMenuRepository.DeleteByMenuID(id); err != nil {
-		return err
-	}
-
-	if err = a.menuRepository.Delete(id); err != nil {
-		return err
-	}
-
-	return nil
+	// Remove role_menu associations and delete the menu atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		if err := a.roleMenuRepository.WithTx(q).DeleteByMenuID(id); err != nil {
+			return err
+		}
+		return a.menuRepository.WithTx(q).Delete(id)
+	})
 }
 
 func (a MenuService) UpdateVisible(id string, visible int) error {
@@ -245,13 +239,16 @@ func (a MenuService) JoinTreePath(parent string, id string) string {
 	return idStr
 }
 
-func (a MenuService) UpdateChildTreePath(oMenu, nMenu *system.Menu) error {
+// updateChildTreePath rewrites the tree_path of every descendant when a menu is
+// re-parented. It runs on the supplied (transaction-bound) menu repository so the
+// rewrites share the caller's transaction.
+func (a MenuService) updateChildTreePath(menuRepo repository.MenuRepository, oMenu, nMenu *system.Menu) error {
 	if oMenu.ParentID == nMenu.ParentID {
 		return nil
 	}
 
 	oPath := a.JoinTreePath(oMenu.TreePath, oMenu.ID)
-	menuQR, err := a.menuRepository.Query(&system.MenuQueryParam{
+	menuQR, err := menuRepo.Query(&system.MenuQueryParam{
 		PrefixTreePath: oPath,
 	})
 
@@ -261,7 +258,7 @@ func (a MenuService) UpdateChildTreePath(oMenu, nMenu *system.Menu) error {
 
 	nPath := a.JoinTreePath(nMenu.TreePath, nMenu.ID)
 	for _, menu := range menuQR.List {
-		err = a.menuRepository.UpdateTreePath(menu.ID, nPath+menu.TreePath[len(oPath):])
+		err = menuRepo.UpdateTreePath(menu.ID, nPath+menu.TreePath[len(oPath):])
 		if err != nil {
 			return err
 		}

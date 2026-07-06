@@ -1,8 +1,6 @@
 package service
 
 import (
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
@@ -23,12 +21,6 @@ func NewLogService(
 		logger:        logger,
 		logRepository: logRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a LogService) WithTrx(trxHandle *gorm.DB) LogService {
-	a.logRepository = a.logRepository.WithTrx(trxHandle)
-	return a
 }
 
 // Query 分页查询日志

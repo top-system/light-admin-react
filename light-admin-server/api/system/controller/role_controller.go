@@ -3,15 +3,13 @@ package controller
 import (
 	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/pkg/echox"
-	"github.com/labstack/echo/v4"
-
-	"gorm.io/gorm"
 )
 
 type RoleController struct {
@@ -109,11 +107,10 @@ func (a RoleController) Create(ctx echo.Context) error {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
 	role.CreateBy = claims.ID
 
-	id, err := a.roleService.WithTrx(trxHandle).Create(role)
+	id, err := a.roleService.Create(role)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -141,8 +138,7 @@ func (a RoleController) Update(ctx echo.Context) error {
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
 	role.UpdateBy = claims.ID
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.roleService.WithTrx(trxHandle).Update(id, role); err != nil {
+	if err := a.roleService.Update(id, role); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -160,8 +156,7 @@ func (a RoleController) Update(ctx echo.Context) error {
 func (a RoleController) Delete(ctx echo.Context) error {
 	id := ctx.Param("id")
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.roleService.WithTrx(trxHandle).Delete(id); err != nil {
+	if err := a.roleService.Delete(id); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -204,8 +199,7 @@ func (a RoleController) AssignMenus(ctx echo.Context) error {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.roleService.WithTrx(trxHandle).AssignMenusToRole(id, menuIDs); err != nil {
+	if err := a.roleService.AssignMenusToRole(id, menuIDs); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 

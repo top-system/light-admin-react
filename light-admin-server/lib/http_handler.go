@@ -9,10 +9,11 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/top-system/light-admin/pkg/echox"
-	"github.com/top-system/light-admin/pkg/slice"
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/top-system/light-admin/pkg/echox"
+	"github.com/top-system/light-admin/pkg/slice"
 )
 
 type HttpHandler struct {
@@ -50,6 +51,12 @@ func NewHttpHandler(logger Logger, config Config) HttpHandler {
 	engine.HidePort = true
 	engine.HideBanner = true
 	engine.Binder = &BinderWithValidation{}
+
+	// Panic recovery. Previously provided by the (now removed) GORM transaction
+	// "core" middleware; the sqlc data layer needs no per-request transaction
+	// wrapper, so recovery is registered directly on the engine as the outermost
+	// middleware.
+	engine.Use(middleware.Recover())
 
 	// set http handler
 	httpHandler := HttpHandler{

@@ -1,145 +1,239 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
-// RoleRepository database structure
+// RoleRepository is the sqlc/pgx-backed persistence layer for roles.
+//
+// It holds a sqlc.Querier (the pool-bound *sqlc.Queries by default). Within a
+// transaction, callers obtain a transaction-scoped copy via WithTx so every
+// statement runs on the same pgx transaction.
 type RoleRepository struct {
-	db     lib.Database
+	q      sqlc.Querier
 	logger lib.Logger
 }
 
-// NewRoleRepository creates a new role repository
-func NewRoleRepository(db lib.Database, logger lib.Logger) RoleRepository {
+// NewRoleRepository creates a new role repository bound to the pool-level Queries.
+func NewRoleRepository(q *sqlc.Queries, logger lib.Logger) RoleRepository {
 	return RoleRepository{
-		db:     db,
+		q:      q,
 		logger: logger,
 	}
 }
 
-// WithTrx enables repository with transaction
-func (a RoleRepository) WithTrx(trxHandle *gorm.DB) RoleRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context. ")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy of the repository bound to the given transaction-scoped
+// Queries. Use it inside lib.TxManager.RunInTx to share a single transaction
+// across multiple repositories.
+func (a RoleRepository) WithTx(q *sqlc.Queries) RoleRepository {
+	a.q = q
 	return a
 }
 
+// Query lists roles matching the given filters with pagination. It preserves the
+// pagination semantics of the previous implementation: an unset page size
+// defaults to 15 (see dto.PaginationParam.GetPageSize) and a zero total skips the
+// list query entirely.
 func (a RoleRepository) Query(param *system.RoleQueryParam) (*system.RoleQueryResult, error) {
-	db := a.db.ORM.Model(&system.Role{}).Where("is_deleted = ?", 0)
+	ctx := context.Background()
 
-	if v := param.IDs; len(v) > 0 {
-		db = db.Where("id IN (?)", v)
+	filter := newRoleFilter(param)
+
+	total, err := a.q.CountRoles(ctx, filter.count())
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	if v := param.Name; v != "" {
-		db = db.Where("name=?", v)
-	}
-
-	if v := param.Code; v != "" {
-		db = db.Where("code=?", v)
-	}
-
-	if v := param.UserID; v != "" {
-		subQuery := a.db.ORM.Model(&system.UserRole{}).
-			Where("user_id=?", v).
-			Select("role_id")
-
-		db = db.Where("id IN (?)", subQuery)
-	}
-
-	if v := param.QueryValue; v != "" {
-		v = "%" + v + "%"
-		db = db.Where("name LIKE ? OR code LIKE ?", v, v)
-	}
-
-	if v := param.Status; v != 0 {
-		db = db.Where("status=?", v)
-	}
-
-	db = db.Order(param.OrderParam.ParseOrder())
 
 	list := make(system.Roles, 0)
-	pagination, err := QueryPagination(db, param.PaginationParam, &list)
-	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if total > 0 {
+		limit, offset := pageBounds(param.PaginationParam)
+		rows, err := a.q.ListRoles(ctx, filter.list(limit, offset))
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+		}
+		for _, r := range rows {
+			list = append(list, toDomainRole(r))
+		}
 	}
 
-	qr := &system.RoleQueryResult{
-		Pagination: pagination,
-		List:       list,
-	}
-
-	return qr, nil
+	return &system.RoleQueryResult{
+		Pagination: &dto.Pagination{
+			PageNum:  param.PaginationParam.GetPageNum(),
+			PageSize: param.PaginationParam.GetPageSize(),
+			Total:    total,
+		},
+		List: list,
+	}, nil
 }
 
+// Get returns a single non-deleted role by ID.
 func (a RoleRepository) Get(id string) (*system.Role, error) {
-	role := new(system.Role)
-
-	if ok, err := QueryOne(a.db.ORM.Model(role).Where("id=? AND is_deleted=?", id, 0), role); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetRole(context.Background(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return role, nil
+	return toDomainRole(row), nil
 }
 
+// GetByCode returns a single non-deleted role by code.
 func (a RoleRepository) GetByCode(code string) (*system.Role, error) {
-	role := new(system.Role)
-
-	if ok, err := QueryOne(a.db.ORM.Model(role).Where("code=? AND is_deleted=?", code, 0), role); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetRoleByCode(context.Background(), code)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return role, nil
+	return toDomainRole(row), nil
 }
 
+// Create inserts a new role, assigning a UUID when the ID is empty (mirroring the
+// previous GORM create-time callback). The role's ID is written back so callers
+// can reference it after creation.
 func (a RoleRepository) Create(role *system.Role) error {
-	result := a.db.ORM.Model(role).Create(role)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if role.ID == "" {
+		role.ID = uuid.NewID()
 	}
 
+	err := a.q.CreateRole(context.Background(), sqlc.CreateRoleParams{
+		ID:        role.ID,
+		Name:      role.Name,
+		Code:      role.Code,
+		Sort:      int32(role.Sort),
+		Status:    int32(role.Status),
+		DataScope: int32(role.DataScope),
+		CreateBy:  role.CreateBy,
+		UpdateBy:  role.UpdateBy,
+		IsDeleted: int32(role.IsDeleted),
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
+// Update updates the mutable fields of a role (mirrors the previous Select-scoped
+// GORM update: name, code, sort, status, data_scope, update_by).
 func (a RoleRepository) Update(id string, role *system.Role) error {
-	result := a.db.ORM.Model(role).Where("id=?", id).Select(
-		"name", "code", "sort", "status", "data_scope", "update_by",
-	).Updates(role)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	err := a.q.UpdateRole(context.Background(), sqlc.UpdateRoleParams{
+		ID:        id,
+		Name:      role.Name,
+		Code:      role.Code,
+		Sort:      int32(role.Sort),
+		Status:    int32(role.Status),
+		DataScope: int32(role.DataScope),
+		UpdateBy:  role.UpdateBy,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
+// Delete soft-deletes a role (is_deleted = 1).
 func (a RoleRepository) Delete(id string) error {
-	// 软删除
-	result := a.db.ORM.Model(&system.Role{}).Where("id=?", id).Update("is_deleted", 1)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.SoftDeleteRole(context.Background(), id); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
+// UpdateStatus updates a role's status.
 func (a RoleRepository) UpdateStatus(id string, status int) error {
-	result := a.db.ORM.Model(&system.Role{}).Where("id=?", id).Update("status", status)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	err := a.q.UpdateRoleStatus(context.Background(), sqlc.UpdateRoleStatusParams{
+		ID:     id,
+		Status: int32(status),
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
+}
+
+// roleFilter translates a RoleQueryParam into sqlc filter arguments once, so the
+// list and count queries stay in sync. A zero-value field disables its predicate,
+// matching the previous GORM query builder (e.g. Status == 0 means "any status").
+type roleFilter struct {
+	ids        []string
+	name       *string
+	code       *string
+	userID     *string
+	queryValue *string
+	status     *int32
+}
+
+func newRoleFilter(param *system.RoleQueryParam) roleFilter {
+	f := roleFilter{}
+	if len(param.IDs) > 0 {
+		f.ids = param.IDs
+	}
+	if param.Name != "" {
+		f.name = ptr(param.Name)
+	}
+	if param.Code != "" {
+		f.code = ptr(param.Code)
+	}
+	if param.UserID != "" {
+		f.userID = ptr(param.UserID)
+	}
+	if param.QueryValue != "" {
+		f.queryValue = ptr("%" + param.QueryValue + "%")
+	}
+	if param.Status != 0 {
+		f.status = ptr(int32(param.Status))
+	}
+	return f
+}
+
+func (f roleFilter) list(limit, offset *int32) sqlc.ListRolesParams {
+	return sqlc.ListRolesParams{
+		Ids:        f.ids,
+		Name:       f.name,
+		Code:       f.code,
+		UserID:     f.userID,
+		QueryValue: f.queryValue,
+		Status:     f.status,
+		Limit:      limit,
+		Offset:     offset,
+	}
+}
+
+func (f roleFilter) count() sqlc.CountRolesParams {
+	return sqlc.CountRolesParams{
+		Ids:        f.ids,
+		Name:       f.name,
+		Code:       f.code,
+		UserID:     f.userID,
+		QueryValue: f.queryValue,
+		Status:     f.status,
+	}
+}
+
+func toDomainRole(r sqlc.TRole) *system.Role {
+	return &system.Role{
+		ID:         r.ID,
+		Name:       r.Name,
+		Code:       r.Code,
+		Sort:       int(r.Sort),
+		Status:     int(r.Status),
+		DataScope:  int(r.DataScope),
+		CreateBy:   r.CreateBy,
+		CreateTime: dto.DateTime(r.CreateTime.Time),
+		UpdateBy:   r.UpdateBy,
+		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		IsDeleted:  int(r.IsDeleted),
+	}
 }

@@ -1,8 +1,6 @@
 package service
 
 import (
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
@@ -23,12 +21,6 @@ func NewTaskService(
 		logger:         logger,
 		taskRepository: taskRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a TaskService) WithTrx(trxHandle *gorm.DB) TaskService {
-	a.taskRepository = a.taskRepository.WithTrx(trxHandle)
-	return a
 }
 
 // Query 分页查询任务

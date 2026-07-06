@@ -28,30 +28,17 @@ func bootstrap(
 	logger lib.Logger,
 	config lib.Config,
 	middlewares middlewares.Middlewares,
-	database lib.Database,
 	websocketController controller.WebSocketController, // 注入 WebSocket 控制器
 	logMiddleware middlewares.LogMiddleware, // 注入日志中间件以支持 graceful shutdown
 ) {
-	db, err := database.ORM.DB()
-	if err != nil {
-		logger.Zap.Fatalf("Error to get database connection: %v", err)
-	}
+	// Database connectivity and pooling are owned by the pgx pool (lib.NewPgxPool),
+	// which pings on startup and closes via its own fx lifecycle hook.
 
 	// server 提升到外层，供 OnStop 使用
 	var server *http.Server
 
 	lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			if err := db.Ping(); err != nil {
-				logger.Zap.Fatalf("Error to ping database connection: %v", err)
-			}
-
-			// set conn
-			db.SetMaxOpenConns(config.Database.MaxOpenConns)
-			db.SetMaxIdleConns(config.Database.MaxIdleConns)
-			db.SetConnMaxLifetime(time.Duration(config.Database.MaxLifetime) * time.Second)
-			db.SetConnMaxIdleTime(10 * time.Minute)
-
 			go func() {
 				middlewares.Setup()
 				routes.Setup()
@@ -103,7 +90,7 @@ func bootstrap(
 			// 等待日志中间件 flush 剩余日志
 			logMiddleware.Shutdown()
 
-			db.Close()
+			// The pgx pool is closed by its own fx OnStop hook (lib.NewPgxPool).
 			return nil
 		},
 	})

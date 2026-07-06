@@ -1,155 +1,173 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
-// DeptRepository database structure
+// DeptRepository is the sqlc/pgx-backed persistence layer for departments.
 type DeptRepository struct {
-	db       lib.Database
-	logger   lib.Logger
-	dbCompat lib.DBCompat
+	q      sqlc.Querier
+	logger lib.Logger
 }
 
-// NewDeptRepository creates a new dept repository
-func NewDeptRepository(db lib.Database, logger lib.Logger, dbCompat lib.DBCompat) DeptRepository {
+// NewDeptRepository creates a new dept repository bound to the pool-level Queries.
+func NewDeptRepository(q *sqlc.Queries, logger lib.Logger) DeptRepository {
 	return DeptRepository{
-		db:       db,
-		logger:   logger,
-		dbCompat: dbCompat,
+		q:      q,
+		logger: logger,
 	}
 }
 
-// WithTrx enables repository with transaction
-func (a DeptRepository) WithTrx(trxHandle *gorm.DB) DeptRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context.")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy bound to the given transaction-scoped Queries.
+func (a DeptRepository) WithTx(q *sqlc.Queries) DeptRepository {
+	a.q = q
 	return a
 }
 
-// Query 查询部门列表
+// Query 查询部门列表. Ordering is fixed to sort ASC (the previous default).
 func (a DeptRepository) Query(param *system.DeptQueryParam) (system.Depts, error) {
-	db := a.db.ORM.Model(&system.Dept{}).Where("is_deleted = ?", 0)
-
-	if v := param.Keywords; v != "" {
-		db = db.Where("name LIKE ?", "%"+v+"%")
+	var keywords *string
+	if param.Keywords != "" {
+		keywords = ptr("%" + param.Keywords + "%")
+	}
+	var status *int32
+	if param.Status != nil {
+		status = ptr(int32(*param.Status))
 	}
 
-	if v := param.Status; v != nil {
-		db = db.Where("status = ?", *v)
+	rows, err := a.q.ListDepts(context.Background(), sqlc.ListDeptsParams{
+		Keywords: keywords,
+		Status:   status,
+	})
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 
-	db = db.Order("sort ASC")
-
-	var list system.Depts
-	if err := db.Find(&list).Error; err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	list := make(system.Depts, 0, len(rows))
+	for _, r := range rows {
+		list = append(list, toDomainDept(r))
 	}
-
 	return list, nil
 }
 
 // Get 获取部门
 func (a DeptRepository) Get(id string) (*system.Dept, error) {
-	dept := new(system.Dept)
-
-	if ok, err := QueryOne(a.db.ORM.Model(dept).Where("id=? AND is_deleted=?", id, 0), dept); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetDept(context.Background(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return dept, nil
+	return toDomainDept(row), nil
 }
 
-// GetByCode 根据编码获取部门
+// GetByCode 根据编码获取部门. Returns (nil, nil) when no matching department
+// exists, preserving the previous behaviour used by uniqueness checks.
 func (a DeptRepository) GetByCode(code string, excludeID ...string) (*system.Dept, error) {
-	dept := new(system.Dept)
-	db := a.db.ORM.Model(dept).Where("code = ? AND is_deleted = ?", code, 0)
-
+	params := sqlc.GetDeptByCodeParams{Code: code}
 	if len(excludeID) > 0 && excludeID[0] != "" {
-		db = db.Where("id != ?", excludeID[0])
+		params.ExcludeID = ptr(excludeID[0])
 	}
 
-	if ok, err := QueryOne(db, dept); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, nil
+	row, err := a.q.GetDeptByCode(context.Background(), params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return dept, nil
+	return toDomainDept(row), nil
 }
 
-// Create 创建部门
+// Create 创建部门, assigning a UUID when the ID is empty.
 func (a DeptRepository) Create(dept *system.Dept) error {
-	result := a.db.ORM.Create(dept)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if dept.ID == "" {
+		dept.ID = uuid.NewID()
 	}
 
+	err := a.q.CreateDept(context.Background(), sqlc.CreateDeptParams{
+		ID:        dept.ID,
+		Name:      dept.Name,
+		Code:      dept.Code,
+		ParentID:  dept.ParentID,
+		TreePath:  dept.TreePath,
+		Sort:      int32(dept.Sort),
+		Status:    int32(dept.Status),
+		CreateBy:  dept.CreateBy,
+		UpdateBy:  dept.UpdateBy,
+		IsDeleted: int32(dept.IsDeleted),
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
-// Update 更新部门
+// Update 更新部门 (name, code, parent_id, tree_path, sort, status, update_by).
 func (a DeptRepository) Update(id string, dept *system.Dept) error {
-	result := a.db.ORM.Model(dept).Where("id=?", id).Select(
-		"name", "code", "parent_id", "tree_path", "sort", "status", "update_by",
-	).Updates(dept)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	err := a.q.UpdateDept(context.Background(), sqlc.UpdateDeptParams{
+		ID:       id,
+		Name:     dept.Name,
+		Code:     dept.Code,
+		ParentID: dept.ParentID,
+		TreePath: dept.TreePath,
+		Sort:     int32(dept.Sort),
+		Status:   int32(dept.Status),
+		UpdateBy: dept.UpdateBy,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
 // Delete 删除部门（软删除）
 func (a DeptRepository) Delete(id string, deletedBy string) error {
-	result := a.db.ORM.Model(&system.Dept{}).Where("id=?", id).Updates(map[string]interface{}{
-		"is_deleted": 1,
-		"update_by":  deletedBy,
+	err := a.q.SoftDeleteDept(context.Background(), sqlc.SoftDeleteDeptParams{
+		ID:       id,
+		UpdateBy: deletedBy,
 	})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
 // DeleteByTreePath 根据tree_path删除部门及子部门
 func (a DeptRepository) DeleteByTreePath(deptId string, deletedBy string) error {
-	// 删除部门本身和所有子部门（tree_path包含该部门ID的）
-	treePathExpr := a.dbCompat.TreePathLike("tree_path")
-	result := a.db.ORM.Model(&system.Dept{}).
-		Where("id = ? OR "+treePathExpr+" LIKE ?", deptId, "%,"+deptId+",%").
-		Updates(map[string]interface{}{
-			"is_deleted": 1,
-			"update_by":  deletedBy,
-		})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	err := a.q.SoftDeleteDeptByTreePath(context.Background(), sqlc.SoftDeleteDeptByTreePathParams{
+		ID:           deptId,
+		UpdateBy:     deletedBy,
+		TreePathLike: "%," + deptId + ",%",
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
 // GetAllEnabled 获取所有启用的部门
 func (a DeptRepository) GetAllEnabled() (system.Depts, error) {
-	var list system.Depts
-	if err := a.db.ORM.Model(&system.Dept{}).
-		Where("is_deleted = ? AND status = ?", 0, 1).
-		Order("sort ASC").
-		Find(&list).Error; err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	rows, err := a.q.ListEnabledDepts(context.Background())
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 
+	list := make(system.Depts, 0, len(rows))
+	for _, r := range rows {
+		list = append(list, toDomainDept(r))
+	}
 	return list, nil
 }
 
@@ -159,17 +177,32 @@ func (a DeptRepository) GetByIDs(ids []string) (map[string]*system.Dept, error) 
 		return nil, nil
 	}
 
-	var list system.Depts
-	if err := a.db.ORM.Model(&system.Dept{}).
-		Where("id IN (?) AND is_deleted = ?", ids, 0).
-		Find(&list).Error; err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	rows, err := a.q.ListDeptsByIDs(context.Background(), ids)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 
-	result := make(map[string]*system.Dept)
-	for _, dept := range list {
+	result := make(map[string]*system.Dept, len(rows))
+	for _, r := range rows {
+		dept := toDomainDept(r)
 		result[dept.ID] = dept
 	}
-
 	return result, nil
+}
+
+func toDomainDept(r sqlc.TDept) *system.Dept {
+	return &system.Dept{
+		ID:         r.ID,
+		Name:       r.Name,
+		Code:       r.Code,
+		ParentID:   r.ParentID,
+		TreePath:   r.TreePath,
+		Sort:       int(r.Sort),
+		Status:     int(r.Status),
+		CreateBy:   r.CreateBy,
+		CreateTime: dto.DateTime(r.CreateTime.Time),
+		UpdateBy:   r.UpdateBy,
+		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		IsDeleted:  int(r.IsDeleted),
+	}
 }

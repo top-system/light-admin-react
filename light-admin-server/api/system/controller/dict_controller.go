@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
@@ -107,8 +106,7 @@ func (a DictController) SaveDict(ctx echo.Context) error {
 		createdBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.dictService.WithTrx(trxHandle).SaveDict(form, createdBy); err != nil {
+	if err := a.dictService.SaveDict(form, createdBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -140,8 +138,7 @@ func (a DictController) UpdateDict(ctx echo.Context) error {
 		updatedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.dictService.WithTrx(trxHandle).UpdateDict(id, form, updatedBy); err != nil {
+	if err := a.dictService.UpdateDict(id, form, updatedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -175,8 +172,7 @@ func (a DictController) DeleteDict(ctx echo.Context) error {
 		deletedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.dictService.WithTrx(trxHandle).DeleteDictByIds(ids, deletedBy); err != nil {
+	if err := a.dictService.DeleteDictByIds(ids, deletedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -284,8 +280,7 @@ func (a DictController) SaveDictItem(ctx echo.Context) error {
 		createdBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.dictItemService.WithTrx(trxHandle).SaveDictItem(form, createdBy); err != nil {
+	if err := a.dictItemService.SaveDictItem(form, createdBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -320,8 +315,7 @@ func (a DictController) UpdateDictItem(ctx echo.Context) error {
 		updatedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.dictItemService.WithTrx(trxHandle).UpdateDictItem(itemId, form, updatedBy); err != nil {
+	if err := a.dictItemService.UpdateDictItem(itemId, form, updatedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -349,8 +343,7 @@ func (a DictController) DeleteDictItem(ctx echo.Context) error {
 		deletedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.dictItemService.WithTrx(trxHandle).DeleteDictItemByIds(itemIds, deletedBy); err != nil {
+	if err := a.dictItemService.DeleteDictItemByIds(itemIds, deletedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 

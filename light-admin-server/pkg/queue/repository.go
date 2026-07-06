@@ -2,10 +2,15 @@ package queue
 
 import (
 	"context"
+	"errors"
 
 	"github.com/gofrs/uuid"
-	"gorm.io/gorm"
 )
+
+// ErrTaskNotFound is returned by TaskRepository implementations when no task
+// matches the requested ID. It keeps pkg/queue free of any storage-framework
+// error type (e.g. gorm.ErrRecordNotFound); callers match with errors.Is.
+var ErrTaskNotFound = errors.New("queue: task not found")
 
 // TaskRepository interface for task persistence
 type TaskRepository interface {
@@ -19,51 +24,6 @@ type TaskRepository interface {
 	GetPendingTasks(ctx context.Context, types ...string) ([]*TaskModel, error)
 	// Delete deletes a task by ID
 	Delete(ctx context.Context, id uint64) error
-}
-
-// GormTaskRepository implements TaskRepository using GORM
-type GormTaskRepository struct {
-	db *gorm.DB
-}
-
-// NewGormTaskRepository creates a new GORM task repository
-func NewGormTaskRepository(db *gorm.DB) TaskRepository {
-	return &GormTaskRepository{db: db}
-}
-
-func (r *GormTaskRepository) Create(ctx context.Context, task *TaskModel) error {
-	return r.db.WithContext(ctx).Create(task).Error
-}
-
-func (r *GormTaskRepository) Update(ctx context.Context, task *TaskModel) error {
-	return r.db.WithContext(ctx).Save(task).Error
-}
-
-func (r *GormTaskRepository) GetByID(ctx context.Context, id uint64) (*TaskModel, error) {
-	var task TaskModel
-	if err := r.db.WithContext(ctx).First(&task, id).Error; err != nil {
-		return nil, err
-	}
-	return &task, nil
-}
-
-func (r *GormTaskRepository) GetPendingTasks(ctx context.Context, types ...string) ([]*TaskModel, error) {
-	var tasks []*TaskModel
-	query := r.db.WithContext(ctx).
-		Where("status IN ?", []Status{StatusQueued, StatusProcessing, StatusSuspending})
-
-	if len(types) > 0 {
-		query = query.Where("type IN ?", types)
-	}
-
-	if err := query.Find(&tasks).Error; err != nil {
-		return nil, err
-	}
-	return tasks, nil
-}
-
-func (r *GormTaskRepository) Delete(ctx context.Context, id uint64) error {
-	return r.db.WithContext(ctx).Delete(&TaskModel{}, id).Error
 }
 
 // TaskArgs represents arguments for creating or updating a task
@@ -106,7 +66,7 @@ func (r *InMemoryTaskRepository) GetByID(ctx context.Context, id uint64) (*TaskM
 	if task, ok := r.tasks[id]; ok {
 		return task, nil
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, ErrTaskNotFound
 }
 
 func (r *InMemoryTaskRepository) GetPendingTasks(ctx context.Context, types ...string) ([]*TaskModel, error) {

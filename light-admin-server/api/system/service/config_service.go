@@ -1,8 +1,6 @@
 package service
 
 import (
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -27,12 +25,6 @@ func NewConfigService(
 		cache:            cache,
 		configRepository: configRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a ConfigService) WithTrx(trxHandle *gorm.DB) ConfigService {
-	a.configRepository = a.configRepository.WithTrx(trxHandle)
-	return a
 }
 
 // Query 分页查询系统配置

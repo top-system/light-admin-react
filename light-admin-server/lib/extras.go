@@ -70,8 +70,12 @@ type queueLogger struct {
 	prefix string
 }
 
-func (l *queueLogger) Info(format string, args ...interface{})  { l.logger.Zap.Infof(l.prefix+format, args...) }
-func (l *queueLogger) Debug(format string, args ...interface{}) { l.logger.Zap.Debugf(l.prefix+format, args...) }
+func (l *queueLogger) Info(format string, args ...interface{}) {
+	l.logger.Zap.Infof(l.prefix+format, args...)
+}
+func (l *queueLogger) Debug(format string, args ...interface{}) {
+	l.logger.Zap.Debugf(l.prefix+format, args...)
+}
 func (l *queueLogger) Warning(format string, args ...interface{}) {
 	l.logger.Zap.Warnf(l.prefix+format, args...)
 }
@@ -83,7 +87,10 @@ func (l *queueLogger) CopyWithPrefix(prefix string) queue.Logger {
 }
 
 // NewTaskQueue 创建任务队列
-func NewTaskQueue(lc fx.Lifecycle, config Config, logger Logger, db Database) TaskQueue {
+//
+// taskRepo 是应用层注入的 sqlc 持久化实现（queue.TaskRepository 接口），
+// pkg/queue 本身不依赖任何具体的数据库框架。
+func NewTaskQueue(lc fx.Lifecycle, config Config, logger Logger, taskRepo queue.TaskRepository) TaskQueue {
 	cfg := config.Queue
 	if cfg == nil || !cfg.Enable {
 		logger.Zap.Info("Queue is disabled")
@@ -92,9 +99,6 @@ func NewTaskQueue(lc fx.Lifecycle, config Config, logger Logger, db Database) Ta
 
 	// 创建任务注册表
 	registry := queue.NewTaskRegistry()
-
-	// 创建任务仓库（用于持久化）
-	taskRepo := queue.NewGormTaskRepository(db.ORM)
 
 	// 配置选项
 	opts := []queue.Option{

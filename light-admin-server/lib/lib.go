@@ -7,8 +7,10 @@ var Module = fx.Options(
 	fx.Provide(NewHttpHandler),
 	fx.Provide(NewConfig),
 	fx.Provide(NewLogger),
-	fx.Provide(NewDatabase),
-	fx.Provide(NewDBCompat),
+	fx.Provide(NewPgxPool),             // PostgreSQL pgxpool for the sqlc data layer
+	fx.Provide(NewQueries),             // pool-bound *sqlc.Queries
+	fx.Provide(NewTxManager),           // pgx transaction manager (replaces GORM WithTrx)
+	fx.Provide(NewQueueTaskRepository), // sqlc-backed queue.TaskRepository (injected into pkg/queue)
 	fx.Provide(NewCache),
 	fx.Provide(NewCaptcha),
 	fx.Provide(NewWebSocket),

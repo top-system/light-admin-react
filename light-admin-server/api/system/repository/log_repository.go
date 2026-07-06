@@ -1,114 +1,172 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
-// LogRepository database structure
+// LogRepository is the sqlc/pgx-backed persistence layer for operation logs.
 type LogRepository struct {
-	db     lib.Database
+	q      sqlc.Querier
 	logger lib.Logger
 }
 
-// NewLogRepository creates a new log repository
-func NewLogRepository(db lib.Database, logger lib.Logger) LogRepository {
+// NewLogRepository creates a new log repository bound to the pool-level Queries.
+func NewLogRepository(q *sqlc.Queries, logger lib.Logger) LogRepository {
 	return LogRepository{
-		db:     db,
+		q:      q,
 		logger: logger,
 	}
 }
 
-// WithTrx enables repository with transaction
-func (a LogRepository) WithTrx(trxHandle *gorm.DB) LogRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context.")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy bound to the given transaction-scoped Queries.
+func (a LogRepository) WithTx(q *sqlc.Queries) LogRepository {
+	a.q = q
 	return a
 }
 
-// Query 查询日志列表
+// Query 查询日志列表. Ordering is fixed to create_time DESC (the previous default).
 func (a LogRepository) Query(param *system.LogQueryParam) (*system.LogQueryResult, error) {
-	db := a.db.ORM.Model(&system.Log{})
+	ctx := context.Background()
 
-	if v := param.Module; v != "" {
-		db = db.Where("module = ?", v)
+	var module *string
+	if param.Module != "" {
+		module = ptr(param.Module)
 	}
-
-	if v := param.Keywords; v != "" {
-		v = "%" + v + "%"
-		db = db.Where("content LIKE ? OR request_uri LIKE ?", v, v)
+	var keywords *string
+	if param.Keywords != "" {
+		keywords = ptr("%" + param.Keywords + "%")
 	}
+	createFrom := startOfDayFilter(param.CreateTimeFrom)
+	createTo := endOfDayFilter(param.CreateTimeTo)
 
-	if v := param.CreateTimeFrom; v != "" {
-		db = db.Where("create_time >= ?", v)
+	total, err := a.q.CountLogs(ctx, sqlc.CountLogsParams{
+		Module:     module,
+		Keywords:   keywords,
+		CreateFrom: createFrom,
+		CreateTo:   createTo,
+	})
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	if v := param.CreateTimeTo; v != "" {
-		db = db.Where("create_time <= ?", v+" 23:59:59")
-	}
-
-	db = db.Order("create_time DESC")
 
 	list := make(system.Logs, 0)
-	pagination, err := QueryPagination(db, param.PaginationParam, &list)
-	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if total > 0 {
+		limit, offset := pageBounds(param.PaginationParam)
+		rows, err := a.q.ListLogs(ctx, sqlc.ListLogsParams{
+			Module:     module,
+			Keywords:   keywords,
+			CreateFrom: createFrom,
+			CreateTo:   createTo,
+			Limit:      limit,
+			Offset:     offset,
+		})
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+		}
+		for _, r := range rows {
+			list = append(list, toDomainLog(r))
+		}
 	}
 
-	qr := &system.LogQueryResult{
-		Pagination: pagination,
-		List:       list,
-	}
-
-	return qr, nil
+	return &system.LogQueryResult{
+		Pagination: &dto.Pagination{
+			PageNum:  param.PaginationParam.GetPageNum(),
+			PageSize: param.PaginationParam.GetPageSize(),
+			Total:    total,
+		},
+		List: list,
+	}, nil
 }
 
 // Get 获取日志详情
 func (a LogRepository) Get(id string) (*system.Log, error) {
-	log := new(system.Log)
-
-	if ok, err := QueryOne(a.db.ORM.Model(log).Where("id=?", id), log); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetLog(context.Background(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return log, nil
+	return toDomainLog(row), nil
 }
 
-// Create 创建日志
+// Create 创建日志, assigning a UUID when the ID is empty.
 func (a LogRepository) Create(log *system.Log) error {
-	result := a.db.ORM.Create(log)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if log.ID == "" {
+		log.ID = uuid.NewID()
 	}
 
+	err := a.q.CreateLog(context.Background(), sqlc.CreateLogParams{
+		ID:              log.ID,
+		Module:          log.Module,
+		RequestMethod:   log.RequestMethod,
+		RequestParams:   log.RequestParams,
+		ResponseContent: log.ResponseContent,
+		Content:         log.Content,
+		RequestUri:      log.RequestURI,
+		Method:          log.Method,
+		Ip:              log.IP,
+		Province:        log.Province,
+		City:            log.City,
+		ExecutionTime:   log.ExecutionTime,
+		Browser:         log.Browser,
+		BrowserVersion:  log.BrowserVersion,
+		Os:              log.OS,
+		CreateBy:        log.CreateBy,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
-// Delete 删除日志
+// Delete 删除日志 (hard delete; sys_log has no soft-delete column).
 func (a LogRepository) Delete(id string) error {
-	result := a.db.ORM.Where("id=?", id).Delete(&system.Log{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.DeleteLog(context.Background(), id); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
 // BatchDelete 批量删除日志
 func (a LogRepository) BatchDelete(ids []string) error {
-	result := a.db.ORM.Where("id IN ?", ids).Delete(&system.Log{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if len(ids) == 0 {
+		return nil
 	}
-
+	if err := a.q.BatchDeleteLogs(context.Background(), ids); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
+}
+
+func toDomainLog(r sqlc.SysLog) *system.Log {
+	return &system.Log{
+		ID:              r.ID,
+		Module:          r.Module,
+		RequestMethod:   r.RequestMethod,
+		RequestParams:   r.RequestParams,
+		ResponseContent: r.ResponseContent,
+		Content:         r.Content,
+		RequestURI:      r.RequestUri,
+		Method:          r.Method,
+		IP:              r.Ip,
+		Province:        r.Province,
+		City:            r.City,
+		ExecutionTime:   r.ExecutionTime,
+		Browser:         r.Browser,
+		BrowserVersion:  r.BrowserVersion,
+		OS:              r.Os,
+		CreateBy:        r.CreateBy,
+		CreateTime:      dto.DateTime(r.CreateTime.Time),
+	}
 }

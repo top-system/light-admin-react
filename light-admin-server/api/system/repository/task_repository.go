@@ -1,156 +1,162 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/pkg/queue"
 )
 
-// TaskRepository database structure
+// TaskRepository is the sqlc/pgx-backed persistence layer for the admin Job module.
+//
+// It reads and hard-deletes rows in sys_tasks. This is deliberately distinct from
+// the pkg/queue engine's own TaskRepository (which owns task lifecycle writes and
+// uses soft-delete): the admin side neither filters nor sets deleted_at, mirroring
+// the previous models/system.Task GORM behaviour (that model has no DeletedAt).
 type TaskRepository struct {
-	db     lib.Database
+	q      sqlc.Querier
 	logger lib.Logger
 }
 
-// NewTaskRepository creates a new task repository
-func NewTaskRepository(db lib.Database, logger lib.Logger) TaskRepository {
-	return TaskRepository{
-		db:     db,
-		logger: logger,
-	}
+// NewTaskRepository creates a new task repository bound to the pool-level Queries.
+func NewTaskRepository(q *sqlc.Queries, logger lib.Logger) TaskRepository {
+	return TaskRepository{q: q, logger: logger}
 }
 
-// WithTrx enables repository with transaction
-func (a TaskRepository) WithTrx(trxHandle *gorm.DB) TaskRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context.")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy bound to the given transaction-scoped Queries.
+func (a TaskRepository) WithTx(q *sqlc.Queries) TaskRepository {
+	a.q = q
 	return a
 }
 
-// Query 查询任务列表
+// Query 查询任务列表. Ordering is fixed to created_at DESC.
 func (a TaskRepository) Query(param *system.TaskQueryParam) (*system.TaskQueryResult, error) {
-	db := a.db.ORM.Model(&system.Task{})
+	ctx := context.Background()
 
-	if v := param.Type; v != "" {
-		db = db.Where("type = ?", v)
+	var taskType, status, correlationID, keywords *string
+	if param.Type != "" {
+		taskType = ptr(param.Type)
 	}
-
-	if v := param.Status; v != "" {
-		db = db.Where("status = ?", v)
+	if param.Status != "" {
+		status = ptr(param.Status)
 	}
-
-	if v := param.CorrelationID; v != "" {
-		db = db.Where("correlation_id = ?", v)
+	if param.CorrelationID != "" {
+		correlationID = ptr(param.CorrelationID)
 	}
-
-	if v := param.Keywords; v != "" {
-		v = "%" + v + "%"
-		db = db.Where("type LIKE ? OR correlation_id LIKE ? OR public_error LIKE ?", v, v, v)
+	if param.Keywords != "" {
+		keywords = ptr("%" + param.Keywords + "%")
 	}
+	createFrom := startOfDayFilter(param.CreateTimeFrom)
+	createTo := endOfDayFilter(param.CreateTimeTo)
 
-	if v := param.CreateTimeFrom; v != "" {
-		db = db.Where("created_at >= ?", v)
+	total, err := a.q.CountTasks(ctx, sqlc.CountTasksParams{
+		Type:          taskType,
+		Status:        status,
+		CorrelationID: correlationID,
+		Keywords:      keywords,
+		CreateFrom:    createFrom,
+		CreateTo:      createTo,
+	})
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	if v := param.CreateTimeTo; v != "" {
-		db = db.Where("created_at <= ?", v+" 23:59:59")
-	}
-
-	db = db.Order("created_at DESC")
 
 	list := make(system.Tasks, 0)
-	pagination, err := QueryPagination(db, param.PaginationParam, &list)
-	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if total > 0 {
+		limit, offset := pageBounds(param.PaginationParam)
+		rows, err := a.q.ListTasks(ctx, sqlc.ListTasksParams{
+			Type:          taskType,
+			Status:        status,
+			CorrelationID: correlationID,
+			Keywords:      keywords,
+			CreateFrom:    createFrom,
+			CreateTo:      createTo,
+			Limit:         limit,
+			Offset:        offset,
+		})
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+		}
+		for _, r := range rows {
+			list = append(list, toDomainTask(r))
+		}
 	}
 
-	qr := &system.TaskQueryResult{
-		Pagination: pagination,
-		List:       list,
-	}
-
-	return qr, nil
+	return &system.TaskQueryResult{
+		Pagination: &dto.Pagination{
+			PageNum:  param.PaginationParam.GetPageNum(),
+			PageSize: param.PaginationParam.GetPageSize(),
+			Total:    total,
+		},
+		List: list,
+	}, nil
 }
 
 // Get 获取任务详情
 func (a TaskRepository) Get(id uint64) (*system.Task, error) {
-	task := new(system.Task)
-
-	if ok, err := QueryOne(a.db.ORM.Model(task).Where("id=?", id), task); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetTask(context.Background(), int64(id))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return task, nil
+	return toDomainTask(row), nil
 }
 
-// Delete 删除任务
+// Delete 删除任务 (hard delete, matching the previous admin behaviour).
 func (a TaskRepository) Delete(id uint64) error {
-	result := a.db.ORM.Where("id=?", id).Delete(&system.Task{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.DeleteTask(context.Background(), int64(id)); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
 // BatchDelete 批量删除任务
 func (a TaskRepository) BatchDelete(ids []uint64) error {
-	result := a.db.ORM.Where("id IN ?", ids).Delete(&system.Task{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if len(ids) == 0 {
+		return nil
 	}
-
+	int64IDs := make([]int64, len(ids))
+	for i, id := range ids {
+		int64IDs[i] = int64(id)
+	}
+	if err := a.q.BatchDeleteTasks(context.Background(), int64IDs); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
 // GetTaskTypes 获取所有任务类型
 func (a TaskRepository) GetTaskTypes() ([]system.TaskTypeVO, error) {
-	var types []string
-	result := a.db.ORM.Model(&system.Task{}).Distinct("type").Pluck("type", &types)
-	if result.Error != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	types, err := a.q.ListTaskTypes(context.Background())
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 
 	taskTypes := make([]system.TaskTypeVO, 0, len(types))
 	for _, t := range types {
-		taskTypes = append(taskTypes, system.TaskTypeVO{
-			Label: t,
-			Value: t,
-		})
+		taskTypes = append(taskTypes, system.TaskTypeVO{Label: t, Value: t})
 	}
-
 	return taskTypes, nil
 }
 
 // GetStatusCounts 获取各状态的任务数量
 func (a TaskRepository) GetStatusCounts() (*system.TaskStatsVO, error) {
+	rows, err := a.q.ListTaskStatusCounts(context.Background())
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
+
 	stats := &system.TaskStatsVO{}
-
-	// 查询各状态数量
-	var counts []struct {
-		Status string
-		Count  int64
-	}
-
-	result := a.db.ORM.Model(&system.Task{}).
-		Select("status, count(*) as count").
-		Group("status").
-		Scan(&counts)
-
-	if result.Error != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
-	}
-
-	for _, c := range counts {
+	for _, c := range rows {
 		switch queue.Status(c.Status) {
 		case queue.StatusQueued:
 			stats.QueuedCount = c.Count
@@ -164,6 +170,23 @@ func (a TaskRepository) GetStatusCounts() (*system.TaskStatsVO, error) {
 			stats.CanceledCount = c.Count
 		}
 	}
-
 	return stats, nil
+}
+
+func toDomainTask(r sqlc.SysTask) *system.Task {
+	return &system.Task{
+		ID:               uint64(r.ID),
+		Type:             r.Type,
+		Status:           queue.Status(r.Status),
+		CorrelationID:    r.CorrelationID,
+		OwnerID:          r.OwnerID,
+		PrivateState:     r.PrivateState,
+		RetryCount:       int(r.PublicRetryCount),
+		ExecutedDuration: r.PublicExecutedDuration,
+		Error:            r.PublicError,
+		ErrorHistory:     r.PublicErrorHistory,
+		ResumeTime:       r.PublicResumeTime,
+		CreatedAt:        r.CreatedAt.Time,
+		UpdatedAt:        r.UpdatedAt.Time,
+	}
 }

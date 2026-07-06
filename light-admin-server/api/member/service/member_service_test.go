@@ -1,45 +1,90 @@
 package service
 
 import (
+	"context"
 	stderrors "errors"
 	"testing"
 
-	"github.com/glebarez/sqlite"
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/gorm"
 
 	"github.com/top-system/light-admin/api/member/repository"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
-	"github.com/top-system/light-admin/models/member"
 )
 
-// newTestService 构造基于内存 sqlite 的真实 MemberRepository + MemberService。
-// 被测路径（Register/Verify）不会解引用 logger，故传入零值 lib.Logger{}。
-func newTestService(t *testing.T) (MemberService, *gorm.DB) {
-	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	assert.NoError(t, err)
-	assert.NoError(t, db.AutoMigrate(&member.Member{}))
+// memberStoreQuerier is a tiny in-memory stand-in for the member subset of
+// sqlc.Querier. It keeps the Register/Verify/SetStatus paths honest without a
+// real database, replacing the previous in-memory sqlite GORM fixture.
+type memberStoreQuerier struct {
+	sqlc.Querier
+	rows []sqlc.TMember
+}
 
-	repo := repository.NewMemberRepository(lib.Database{ORM: db}, lib.Logger{})
-	return NewMemberService(lib.Logger{}, repo), db
+func (m *memberStoreQuerier) CountMembersByUsername(_ context.Context, arg sqlc.CountMembersByUsernameParams) (int64, error) {
+	var n int64
+	for _, r := range m.rows {
+		if r.TenantID == arg.TenantID && r.Username == arg.Username && r.IsDeleted == 0 {
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (m *memberStoreQuerier) CreateMember(_ context.Context, arg sqlc.CreateMemberParams) error {
+	m.rows = append(m.rows, sqlc.TMember{
+		ID:        arg.ID,
+		TenantID:  arg.TenantID,
+		Username:  arg.Username,
+		Email:     arg.Email,
+		Mobile:    arg.Mobile,
+		Password:  arg.Password,
+		Nickname:  arg.Nickname,
+		Avatar:    arg.Avatar,
+		Gender:    arg.Gender,
+		Status:    arg.Status,
+		IsDeleted: arg.IsDeleted,
+	})
+	return nil
+}
+
+func (m *memberStoreQuerier) GetMemberByUsername(_ context.Context, arg sqlc.GetMemberByUsernameParams) (sqlc.TMember, error) {
+	for _, r := range m.rows {
+		if r.TenantID == arg.TenantID && r.Username == arg.Username && r.IsDeleted == 0 {
+			return r, nil
+		}
+	}
+	return sqlc.TMember{}, pgx.ErrNoRows
+}
+
+func (m *memberStoreQuerier) UpdateMemberStatus(_ context.Context, arg sqlc.UpdateMemberStatusParams) error {
+	for i := range m.rows {
+		if m.rows[i].TenantID == arg.TenantID && m.rows[i].ID == arg.ID {
+			m.rows[i].Status = arg.Status
+		}
+	}
+	return nil
+}
+
+// newTestService 构造基于内存 mock Querier 的真实 MemberRepository + MemberService。
+func newTestService(t *testing.T) (MemberService, *memberStoreQuerier) {
+	t.Helper()
+	store := &memberStoreQuerier{}
+	repo := repository.NewMemberRepositoryWithQuerier(store, lib.Logger{})
+	return NewMemberService(lib.Logger{}, repo), store
 }
 
 func TestRegister_Then_Verify_Succeeds(t *testing.T) {
-	// Arrange
 	svc, _ := newTestService(t)
 	form := &dto.MemberRegister{Username: "alice", Password: "secret123", Nickname: "Alice"}
 
-	// Act
 	registered, err := svc.Register("tA", form)
 	assert.NoError(t, err)
 	assert.NotNil(t, registered)
 
 	got, err := svc.Verify("tA", "alice", "secret123")
-
-	// Assert
 	assert.NoError(t, err)
 	assert.NotNil(t, got)
 	assert.Equal(t, "alice", got.Username)
@@ -47,56 +92,40 @@ func TestRegister_Then_Verify_Succeeds(t *testing.T) {
 }
 
 func TestRegister_DuplicateUsername_ReturnsAlreadyExists(t *testing.T) {
-	// Arrange
 	svc, _ := newTestService(t)
 	form := &dto.MemberRegister{Username: "alice", Password: "secret123"}
 	_, err := svc.Register("tA", form)
 	assert.NoError(t, err)
 
-	// Act
 	_, err = svc.Register("tA", &dto.MemberRegister{Username: "alice", Password: "another"})
-
-	// Assert
 	assert.True(t, stderrors.Is(err, errors.MemberAlreadyExists))
 }
 
 func TestVerify_WrongPassword_ReturnsInvalidLogin(t *testing.T) {
-	// Arrange
 	svc, _ := newTestService(t)
 	_, err := svc.Register("tA", &dto.MemberRegister{Username: "alice", Password: "secret123"})
 	assert.NoError(t, err)
 
-	// Act
 	_, err = svc.Verify("tA", "alice", "wrongpass")
-
-	// Assert
 	assert.True(t, stderrors.Is(err, errors.MemberInvalidLogin))
 }
 
 func TestVerify_NonexistentUser_ReturnsInvalidLogin(t *testing.T) {
-	// Arrange
 	svc, _ := newTestService(t)
 
-	// Act — 用户不存在也必须返回 InvalidLogin（防枚举），不得泄露 NotFound
+	// 用户不存在也必须返回 InvalidLogin（防枚举），不得泄露 NotFound
 	_, err := svc.Verify("tA", "ghost", "whatever")
-
-	// Assert
 	assert.True(t, stderrors.Is(err, errors.MemberInvalidLogin))
 }
 
 func TestVerify_DisabledMember_ReturnsDisabled(t *testing.T) {
-	// Arrange
-	svc, db := newTestService(t)
+	svc, _ := newTestService(t)
 	registered, err := svc.Register("tA", &dto.MemberRegister{Username: "alice", Password: "secret123"})
 	assert.NoError(t, err)
 
-	// 直接通过 gorm 将该会员置为禁用
-	err = db.Model(&member.Member{}).Where("id = ?", registered.ID).Update("status", 0).Error
-	assert.NoError(t, err)
+	// 将该会员置为禁用
+	assert.NoError(t, svc.SetStatus("tA", registered.ID, 0))
 
-	// Act
 	_, err = svc.Verify("tA", "alice", "secret123")
-
-	// Assert
 	assert.True(t, stderrors.Is(err, errors.MemberIsDisabled))
 }

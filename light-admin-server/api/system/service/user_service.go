@@ -1,15 +1,15 @@
 package service
 
 import (
+	"context"
 	"sort"
 
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/pkg/hash"
 )
 
@@ -17,7 +17,7 @@ import (
 type UserService struct {
 	logger             lib.Logger
 	config             lib.Config
-	db                 lib.Database
+	txManager          lib.TxManager
 	userRepository     repository.UserRepository
 	userRoleRepository repository.UserRoleRepository
 	menuRepository     repository.MenuRepository
@@ -31,7 +31,7 @@ type UserService struct {
 func NewUserService(
 	logger lib.Logger,
 	config lib.Config,
-	db lib.Database,
+	txManager lib.TxManager,
 	userRepository repository.UserRepository,
 	userRoleRepository repository.UserRoleRepository,
 	roleRepository repository.RoleRepository,
@@ -43,7 +43,7 @@ func NewUserService(
 	return UserService{
 		logger:             logger,
 		config:             config,
-		db:                 db,
+		txManager:          txManager,
 		userRepository:     userRepository,
 		userRoleRepository: userRoleRepository,
 		roleRepository:     roleRepository,
@@ -70,14 +70,6 @@ func (a UserService) IsSuperAdmin(username string) bool {
 // GetUserRoleIDs 获取用户角色ID列表
 func (a UserService) GetUserRoleIDs(userID string) ([]string, error) {
 	return a.userRoleRepository.GetRoleIDsByUserID(userID)
-}
-
-// WithTrx delegates transaction to repository database
-func (a UserService) WithTrx(trxHandle *gorm.DB) UserService {
-	a.userRepository = a.userRepository.WithTrx(trxHandle)
-	a.userRoleRepository = a.userRoleRepository.WithTrx(trxHandle)
-
-	return a
 }
 
 func (a UserService) Query(param *system.UserQueryParam) (userQR *system.UserQueryResult, err error) {
@@ -378,15 +370,23 @@ func (a UserService) Create(user *system.User) (string, error) {
 	}
 	user.Password = hashedPassword
 
-	if err := a.userRepository.Create(user); err != nil {
-		return "", err
-	}
-
-	// Create user role associations
-	if len(user.RoleIds) > 0 {
-		if err := a.assignRolesToUser(user.ID, user.RoleIds); err != nil {
-			return "", err
+	// Create the user and its role associations atomically.
+	err = a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		userRepo := a.userRepository.WithTx(q)
+		if err := userRepo.Create(user); err != nil {
+			return err
 		}
+
+		if len(user.RoleIds) > 0 {
+			userRoleRepo := a.userRoleRepository.WithTx(q)
+			if err := a.assignRolesToUser(userRoleRepo, user.ID, user.RoleIds); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
 	}
 
 	return user.ID, nil
@@ -420,26 +420,20 @@ func (a UserService) Update(id string, user *system.User) error {
 	// Update user role associations if provided
 	if user.RoleIds != nil {
 		// 使用事务保证角色更新的原子性
-		tx := a.db.ORM.Begin()
-		svc := a.WithTrx(tx)
+		err := a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+			userRepo := a.userRepository.WithTx(q)
+			userRoleRepo := a.userRoleRepository.WithTx(q)
 
-		// Delete existing associations
-		if err := svc.userRoleRepository.DeleteByUserID(id); err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		if err := svc.assignRolesToUser(id, user.RoleIds); err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		if err := svc.userRepository.Update(id, user); err != nil {
-			tx.Rollback()
-			return err
-		}
-
-		if err := tx.Commit().Error; err != nil {
+			// Delete existing associations
+			if err := userRoleRepo.DeleteByUserID(id); err != nil {
+				return err
+			}
+			if err := a.assignRolesToUser(userRoleRepo, id, user.RoleIds); err != nil {
+				return err
+			}
+			return userRepo.Update(id, user)
+		})
+		if err != nil {
 			return err
 		}
 
@@ -455,7 +449,9 @@ func (a UserService) Update(id string, user *system.User) error {
 	return nil
 }
 
-func (a UserService) assignRolesToUser(userID string, roleIDs []string) error {
+// assignRolesToUser inserts the given role associations using the supplied
+// (possibly transaction-bound) user-role repository.
+func (a UserService) assignRolesToUser(userRoleRepo repository.UserRoleRepository, userID string, roleIDs []string) error {
 	if len(roleIDs) == 0 {
 		return nil
 	}
@@ -468,7 +464,7 @@ func (a UserService) assignRolesToUser(userID string, roleIDs []string) error {
 		})
 	}
 
-	return a.userRoleRepository.BatchCreate(userRoles)
+	return userRoleRepo.BatchCreate(userRoles)
 }
 
 func (a UserService) Delete(id string) error {
@@ -480,11 +476,13 @@ func (a UserService) Delete(id string) error {
 	// 清除用户权限缓存
 	a.permissionCache.InvalidateUserCache(id)
 
-	if err := a.userRoleRepository.DeleteByUserID(id); err != nil {
-		return err
-	}
-
-	return a.userRepository.Delete(id)
+	// Remove role associations and soft-delete the user atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		if err := a.userRoleRepository.WithTx(q).DeleteByUserID(id); err != nil {
+			return err
+		}
+		return a.userRepository.WithTx(q).Delete(id)
+	})
 }
 
 func (a UserService) UpdateStatus(id string, status int) error {

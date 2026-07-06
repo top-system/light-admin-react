@@ -1,11 +1,11 @@
 package service
 
 import (
+	"context"
 	"strings"
 
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
@@ -14,6 +14,7 @@ import (
 // DictService service layer
 type DictService struct {
 	logger             lib.Logger
+	txManager          lib.TxManager
 	dictRepository     repository.DictRepository
 	dictItemRepository repository.DictItemRepository
 }
@@ -21,21 +22,16 @@ type DictService struct {
 // NewDictService creates a new dict service
 func NewDictService(
 	logger lib.Logger,
+	txManager lib.TxManager,
 	dictRepository repository.DictRepository,
 	dictItemRepository repository.DictItemRepository,
 ) DictService {
 	return DictService{
 		logger:             logger,
+		txManager:          txManager,
 		dictRepository:     dictRepository,
 		dictItemRepository: dictItemRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a DictService) WithTrx(trxHandle *gorm.DB) DictService {
-	a.dictRepository = a.dictRepository.WithTrx(trxHandle)
-	a.dictItemRepository = a.dictItemRepository.WithTrx(trxHandle)
-	return a
 }
 
 // GetDictPage 获取字典分页列表
@@ -99,19 +95,16 @@ func (a DictService) UpdateDict(id string, form *system.DictForm, updatedBy stri
 		return err
 	}
 
+	codeChanged := existDict.DictCode != form.DictCode
+
 	// 校验字典编码是否存在（排除自身）
-	if existDict.DictCode != form.DictCode {
+	if codeChanged {
 		dupDict, err := a.dictRepository.GetByCode(form.DictCode, id)
 		if err != nil {
 			return err
 		}
 		if dupDict != nil {
 			return errors.New("字典编码已存在")
-		}
-
-		// 如果字典编码变更，需要更新字典项的字典编码
-		if err := a.dictRepository.UpdateDictItemsCode(existDict.DictCode, form.DictCode); err != nil {
-			return err
 		}
 	}
 
@@ -124,7 +117,16 @@ func (a DictService) UpdateDict(id string, form *system.DictForm, updatedBy stri
 		UpdateBy: updatedBy,
 	}
 
-	return a.dictRepository.Update(id, dict)
+	// Cascade the code rename onto dict items and update the dictionary atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		dictRepo := a.dictRepository.WithTx(q)
+		if codeChanged {
+			if err := dictRepo.UpdateDictItemsCode(existDict.DictCode, form.DictCode); err != nil {
+				return err
+			}
+		}
+		return dictRepo.Update(id, dict)
+	})
 }
 
 // DeleteDictByIds 删除字典
@@ -153,23 +155,23 @@ func (a DictService) DeleteDictByIds(ids string, deletedBy string) error {
 		return err
 	}
 
-	// 删除字典
-	if err := a.dictRepository.DeleteByIDs(idList, deletedBy); err != nil {
-		return err
+	dictCodes := make([]string, 0, len(dictList))
+	for _, dict := range dictList {
+		dictCodes = append(dictCodes, dict.DictCode)
 	}
 
-	// 删除字典项
-	if len(dictList) > 0 {
-		dictCodes := make([]string, 0, len(dictList))
-		for _, dict := range dictList {
-			dictCodes = append(dictCodes, dict.DictCode)
-		}
-		if err := a.dictItemRepository.DeleteByDictCodes(dictCodes, deletedBy); err != nil {
+	// Delete the dictionaries and their items atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		if err := a.dictRepository.WithTx(q).DeleteByIDs(idList, deletedBy); err != nil {
 			return err
 		}
-	}
-
-	return nil
+		if len(dictCodes) > 0 {
+			if err := a.dictItemRepository.WithTx(q).DeleteByDictCodes(dictCodes, deletedBy); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // GetDictCodesByIds 根据字典ID列表获取字典编码列表

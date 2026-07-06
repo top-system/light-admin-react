@@ -1,143 +1,206 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
+	"time"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
-// NoticeRepository database structure
+// NoticeRepository is the sqlc/pgx-backed persistence layer for notices.
 type NoticeRepository struct {
-	db       lib.Database
-	logger   lib.Logger
-	dbCompat lib.DBCompat
+	q      sqlc.Querier
+	logger lib.Logger
 }
 
-// NewNoticeRepository creates a new notice repository
-func NewNoticeRepository(db lib.Database, logger lib.Logger, dbCompat lib.DBCompat) NoticeRepository {
+// NewNoticeRepository creates a new notice repository bound to the pool-level Queries.
+func NewNoticeRepository(q *sqlc.Queries, logger lib.Logger) NoticeRepository {
 	return NoticeRepository{
-		db:       db,
-		logger:   logger,
-		dbCompat: dbCompat,
+		q:      q,
+		logger: logger,
 	}
 }
 
-// WithTrx enables repository with transaction
-func (a NoticeRepository) WithTrx(trxHandle *gorm.DB) NoticeRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context.")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy bound to the given transaction-scoped Queries.
+func (a NoticeRepository) WithTx(q *sqlc.Queries) NoticeRepository {
+	a.q = q
 	return a
 }
 
+// Query 分页查询通知公告. Ordering is fixed to create_time DESC.
 func (a NoticeRepository) Query(param *system.NoticeQueryParam) (*system.NoticeQueryResult, error) {
-	db := a.db.ORM.Model(&system.Notice{}).Where("is_deleted = ?", 0)
+	ctx := context.Background()
 
-	if v := param.Title; v != "" {
-		db = db.Where("title LIKE ?", "%"+v+"%")
+	var title *string
+	if param.Title != "" {
+		title = ptr("%" + param.Title + "%")
+	}
+	var noticeType *int32
+	if param.Type != 0 {
+		noticeType = ptr(int32(param.Type))
+	}
+	var publishStatus *int32
+	if param.PublishStatus != nil {
+		publishStatus = ptr(int32(*param.PublishStatus))
 	}
 
-	if v := param.Type; v != 0 {
-		db = db.Where("type = ?", v)
+	total, err := a.q.CountNotices(ctx, sqlc.CountNoticesParams{
+		Title:         title,
+		Type:          noticeType,
+		PublishStatus: publishStatus,
+	})
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	if v := param.PublishStatus; v != nil {
-		db = db.Where("publish_status = ?", *v)
-	}
-
-	db = db.Order("create_time DESC")
 
 	list := make(system.Notices, 0)
-	pagination, err := QueryPagination(db, param.PaginationParam, &list)
-	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if total > 0 {
+		limit, offset := pageBounds(param.PaginationParam)
+		rows, err := a.q.ListNotices(ctx, sqlc.ListNoticesParams{
+			Title:         title,
+			Type:          noticeType,
+			PublishStatus: publishStatus,
+			Limit:         limit,
+			Offset:        offset,
+		})
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+		}
+		for _, r := range rows {
+			list = append(list, toDomainNotice(r))
+		}
 	}
 
-	qr := &system.NoticeQueryResult{
-		Pagination: pagination,
-		List:       list,
-	}
-
-	return qr, nil
+	return &system.NoticeQueryResult{
+		Pagination: &dto.Pagination{
+			PageNum:  param.PaginationParam.GetPageNum(),
+			PageSize: param.PaginationParam.GetPageSize(),
+			Total:    total,
+		},
+		List: list,
+	}, nil
 }
 
 func (a NoticeRepository) Get(id string) (*system.Notice, error) {
-	notice := new(system.Notice)
-
-	if ok, err := QueryOne(a.db.ORM.Model(notice).Where("id=? AND is_deleted=?", id, 0), notice); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetNotice(context.Background(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return notice, nil
+	return toDomainNotice(row), nil
 }
 
+// Create inserts a new notice, assigning a UUID when the ID is empty.
 func (a NoticeRepository) Create(notice *system.Notice) error {
-	result := a.db.ORM.Model(notice).Create(notice)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if notice.ID == "" {
+		notice.ID = uuid.NewID()
 	}
 
+	err := a.q.CreateNotice(context.Background(), sqlc.CreateNoticeParams{
+		ID:            notice.ID,
+		Title:         notice.Title,
+		Content:       notice.Content,
+		Type:          int32(notice.Type),
+		Level:         notice.Level,
+		TargetType:    int32(notice.TargetType),
+		TargetUserIds: notice.TargetUserIds,
+		PublishStatus: int32(notice.PublishStatus),
+		CreateBy:      notice.CreateBy,
+		IsDeleted:     int32(notice.IsDeleted),
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
+// Update updates the mutable content fields of a notice.
 func (a NoticeRepository) Update(id string, notice *system.Notice) error {
-	result := a.db.ORM.Model(notice).Where("id=?", id).Select(
-		"title", "content", "type", "level", "target_type",
-		"target_user_ids", "update_by",
-	).Updates(notice)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	err := a.q.UpdateNotice(context.Background(), sqlc.UpdateNoticeParams{
+		ID:            id,
+		Title:         notice.Title,
+		Content:       notice.Content,
+		Type:          int32(notice.Type),
+		Level:         notice.Level,
+		TargetType:    int32(notice.TargetType),
+		TargetUserIds: notice.TargetUserIds,
+		UpdateBy:      notice.UpdateBy,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
+// UpdateStatus updates the publish status, stamping publish_time when publishing
+// (status == 1) or revoke_time when revoking (status == -1).
 func (a NoticeRepository) UpdateStatus(id string, status int, publisherId string) error {
-	updates := map[string]interface{}{
-		"publish_status": status,
-		"publisher_id":   publisherId,
+	params := sqlc.UpdateNoticeStatusParams{
+		ID:            id,
+		PublishStatus: int32(status),
+		PublisherID:   publisherId,
 	}
+	now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
 	if status == 1 {
-		updates["publish_time"] = a.dbCompat.Now()
+		params.PublishTime = now
 	} else if status == -1 {
-		updates["revoke_time"] = a.dbCompat.Now()
+		params.RevokeTime = now
 	}
 
-	result := a.db.ORM.Model(&system.Notice{}).Where("id=?", id).Updates(updates)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.UpdateNoticeStatus(context.Background(), params); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
+// Delete soft-deletes a single notice.
 func (a NoticeRepository) Delete(id string, deletedBy string) error {
-	result := a.db.ORM.Model(&system.Notice{}).Where("id=?", id).Updates(map[string]interface{}{
-		"is_deleted": 1,
-		"update_by":  deletedBy,
-	})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
-	}
+	return a.BatchDelete([]string{id}, deletedBy)
+}
 
+// BatchDelete soft-deletes multiple notices.
+func (a NoticeRepository) BatchDelete(ids []string, deletedBy string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	err := a.q.SoftDeleteNoticesByIDs(context.Background(), sqlc.SoftDeleteNoticesByIDsParams{
+		Ids:      ids,
+		UpdateBy: deletedBy,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
-func (a NoticeRepository) BatchDelete(ids []string, deletedBy string) error {
-	result := a.db.ORM.Model(&system.Notice{}).Where("id IN ?", ids).Updates(map[string]interface{}{
-		"is_deleted": 1,
-		"update_by":  deletedBy,
-	})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+func toDomainNotice(r sqlc.TNotice) *system.Notice {
+	return &system.Notice{
+		ID:            r.ID,
+		Title:         r.Title,
+		Content:       r.Content,
+		Type:          int(r.Type),
+		Level:         r.Level,
+		TargetType:    int(r.TargetType),
+		TargetUserIds: r.TargetUserIds,
+		PublisherId:   r.PublisherID,
+		PublishStatus: int(r.PublishStatus),
+		PublishTime:   dto.NullDateTime{Time: r.PublishTime.Time, Valid: r.PublishTime.Valid},
+		RevokeTime:    dto.NullDateTime{Time: r.RevokeTime.Time, Valid: r.RevokeTime.Valid},
+		CreateBy:      r.CreateBy,
+		CreateTime:    dto.DateTime(r.CreateTime.Time),
+		UpdateBy:      r.UpdateBy,
+		UpdateTime:    dto.DateTime(r.UpdateTime.Time),
+		IsDeleted:     int(r.IsDeleted),
 	}
-
-	return nil
 }

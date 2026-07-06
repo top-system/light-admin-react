@@ -2,10 +2,11 @@ package lib
 
 import (
 	"fmt"
+	"net/url"
 
-	"github.com/top-system/light-admin/pkg/file"
 	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
+	"github.com/top-system/light-admin/pkg/file"
 )
 
 var configPath = "./config.yml"
@@ -33,7 +34,7 @@ var defaultConfig = Config{
 		MaxOpenConns: 150,
 		MaxIdleConns: 50,
 	},
-	OSS: &OSSConfig{Type: "local", Local: &LocalOSSConfig{StoragePath: "./uploads"}},
+	OSS:         &OSSConfig{Type: "local", Local: &LocalOSSConfig{StoragePath: "./uploads"}},
 	MultiTenant: &MultiTenantConfig{Enable: false, DefaultTenant: "default", Resolver: "header", HeaderName: "X-Tenant-Code"},
 }
 
@@ -204,6 +205,26 @@ func (a *DatabaseConfig) PostgresDSN() string {
 		a.Host, a.Port, a.Username, a.Password, a.Name)
 }
 
+// PgxDSN returns a libpq key/value DSN suitable for pgx/pgxpool. Unlike
+// PostgresDSN it omits GORM-specific keywords (TimeZone) that pgx rejects.
+func (a *DatabaseConfig) PgxDSN() string {
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		a.Host, a.Port, a.Username, a.Password, a.Name)
+}
+
+// PgxURL returns a URL-form connection string (pgx5://...) used by golang-migrate
+// to select the pgx/v5 database driver. Credentials are URL-encoded.
+func (a *DatabaseConfig) PgxURL() string {
+	u := url.URL{
+		Scheme:   "pgx5",
+		User:     url.UserPassword(a.Username, a.Password),
+		Host:     fmt.Sprintf("%s:%d", a.Host, a.Port),
+		Path:     "/" + a.Name,
+		RawQuery: "sslmode=disable",
+	}
+	return u.String()
+}
+
 func (a *HttpConfig) ListenAddr() string {
 	if err := validator.New().Struct(a); err != nil {
 		panic(fmt.Sprintf("Invalid HTTP configuration: %v\nPlease check Http.Host (must be valid IPv4) and Http.Port (must be 1-65535) in your config file.", err))
@@ -214,9 +235,9 @@ func (a *HttpConfig) ListenAddr() string {
 
 // OSSConfig 对象存储配置
 type OSSConfig struct {
-	Type   string          `mapstructure:"Type"` // local, minio, aliyun
-	Local  *LocalOSSConfig `mapstructure:"Local"`
-	Minio  *MinioOSSConfig `mapstructure:"Minio"`
+	Type   string           `mapstructure:"Type"` // local, minio, aliyun
+	Local  *LocalOSSConfig  `mapstructure:"Local"`
+	Minio  *MinioOSSConfig  `mapstructure:"Minio"`
 	Aliyun *AliyunOSSConfig `mapstructure:"Aliyun"`
 }
 

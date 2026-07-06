@@ -1,136 +1,184 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
-// ConfigRepository database structure
+// ConfigRepository is the sqlc/pgx-backed persistence layer for system configs.
 type ConfigRepository struct {
-	db     lib.Database
+	q      sqlc.Querier
 	logger lib.Logger
 }
 
-// NewConfigRepository creates a new config repository
-func NewConfigRepository(db lib.Database, logger lib.Logger) ConfigRepository {
+// NewConfigRepository creates a new config repository bound to the pool-level Queries.
+func NewConfigRepository(q *sqlc.Queries, logger lib.Logger) ConfigRepository {
 	return ConfigRepository{
-		db:     db,
+		q:      q,
 		logger: logger,
 	}
 }
 
-// WithTrx enables repository with transaction
-func (a ConfigRepository) WithTrx(trxHandle *gorm.DB) ConfigRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context.")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy bound to the given transaction-scoped Queries.
+func (a ConfigRepository) WithTx(q *sqlc.Queries) ConfigRepository {
+	a.q = q
 	return a
 }
 
+// Query lists configs matching the keyword filter. Ordering is fixed to id DESC.
 func (a ConfigRepository) Query(param *system.ConfigQueryParam) (*system.ConfigQueryResult, error) {
-	db := a.db.ORM.Model(&system.Config{}).Where("is_deleted = ?", 0)
+	ctx := context.Background()
 
-	if v := param.Keywords; v != "" {
-		v = "%" + v + "%"
-		db = db.Where("config_name LIKE ? OR config_key LIKE ?", v, v)
+	var keywords *string
+	if param.Keywords != "" {
+		keywords = ptr("%" + param.Keywords + "%")
 	}
 
-	db = db.Order(param.OrderParam.ParseOrder())
+	total, err := a.q.CountConfigs(ctx, keywords)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 
 	list := make(system.Configs, 0)
-	pagination, err := QueryPagination(db, param.PaginationParam, &list)
-	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if total > 0 {
+		limit, offset := pageBounds(param.PaginationParam)
+		rows, err := a.q.ListConfigs(ctx, sqlc.ListConfigsParams{Keywords: keywords, Limit: limit, Offset: offset})
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+		}
+		for _, r := range rows {
+			list = append(list, toDomainConfig(r))
+		}
 	}
 
-	qr := &system.ConfigQueryResult{
-		Pagination: pagination,
-		List:       list,
-	}
-
-	return qr, nil
+	return &system.ConfigQueryResult{
+		Pagination: &dto.Pagination{
+			PageNum:  param.PaginationParam.GetPageNum(),
+			PageSize: param.PaginationParam.GetPageSize(),
+			Total:    total,
+		},
+		List: list,
+	}, nil
 }
 
 func (a ConfigRepository) Get(id string) (*system.Config, error) {
-	config := new(system.Config)
-
-	if ok, err := QueryOne(a.db.ORM.Model(config).Where("id=? AND is_deleted=?", id, 0), config); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetConfig(context.Background(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return config, nil
+	return toDomainConfig(row), nil
 }
 
 func (a ConfigRepository) GetByKey(key string) (*system.Config, error) {
-	config := new(system.Config)
-
-	if ok, err := QueryOne(a.db.ORM.Model(config).Where("config_key=? AND is_deleted=?", key, 0), config); err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	} else if !ok {
-		return nil, errors.DatabaseRecordNotFound
+	row, err := a.q.GetConfigByKey(context.Background(), key)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.DatabaseRecordNotFound
+		}
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
-	return config, nil
+	return toDomainConfig(row), nil
 }
 
 func (a ConfigRepository) GetAll() (system.Configs, error) {
-	list := make(system.Configs, 0)
-	result := a.db.ORM.Model(&system.Config{}).Where("is_deleted = ?", 0).Find(&list)
-	if result.Error != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	rows, err := a.q.ListAllConfigs(context.Background())
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
+
+	list := make(system.Configs, 0, len(rows))
+	for _, r := range rows {
+		list = append(list, toDomainConfig(r))
 	}
 	return list, nil
 }
 
 func (a ConfigRepository) ExistsByKey(key string, excludeID string) (bool, error) {
-	var count int64
-	db := a.db.ORM.Model(&system.Config{}).Where("config_key=? AND is_deleted=?", key, 0)
+	params := sqlc.CountConfigsByKeyParams{ConfigKey: key}
 	if excludeID != "" {
-		db = db.Where("id != ?", excludeID)
+		params.ExcludeID = ptr(excludeID)
 	}
-	result := db.Count(&count)
-	if result.Error != nil {
-		return false, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+
+	count, err := a.q.CountConfigsByKey(context.Background(), params)
+	if err != nil {
+		return false, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return count > 0, nil
 }
 
+// Create inserts a new config, assigning a UUID when the ID is empty.
 func (a ConfigRepository) Create(config *system.Config) error {
-	result := a.db.ORM.Model(config).Create(config)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if config.ID == "" {
+		config.ID = uuid.NewID()
 	}
 
-	return nil
-}
-
-func (a ConfigRepository) Update(id string, config *system.Config) error {
-	result := a.db.ORM.Model(config).Where("id=?", id).Select(
-		"config_name", "config_key", "config_value", "remark", "update_by",
-	).Updates(config)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
-	}
-
-	return nil
-}
-
-func (a ConfigRepository) Delete(id string, deletedBy string) error {
-	result := a.db.ORM.Model(&system.Config{}).Where("id=?", id).Updates(map[string]interface{}{
-		"is_deleted": 1,
-		"update_by":  deletedBy,
+	err := a.q.CreateConfig(context.Background(), sqlc.CreateConfigParams{
+		ID:          config.ID,
+		ConfigName:  config.ConfigName,
+		ConfigKey:   config.ConfigKey,
+		ConfigValue: config.ConfigValue,
+		Remark:      config.Remark,
+		CreateBy:    config.CreateBy,
+		UpdateBy:    config.UpdateBy,
+		IsDeleted:   int32(config.IsDeleted),
 	})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
+}
+
+// Update updates the mutable fields of a config.
+func (a ConfigRepository) Update(id string, config *system.Config) error {
+	err := a.q.UpdateConfig(context.Background(), sqlc.UpdateConfigParams{
+		ID:          id,
+		ConfigName:  config.ConfigName,
+		ConfigKey:   config.ConfigKey,
+		ConfigValue: config.ConfigValue,
+		Remark:      config.Remark,
+		UpdateBy:    config.UpdateBy,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
+	return nil
+}
+
+// Delete soft-deletes a config.
+func (a ConfigRepository) Delete(id string, deletedBy string) error {
+	err := a.q.SoftDeleteConfig(context.Background(), sqlc.SoftDeleteConfigParams{
+		ID:       id,
+		UpdateBy: deletedBy,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
+	return nil
+}
+
+func toDomainConfig(r sqlc.TConfig) *system.Config {
+	return &system.Config{
+		ID:          r.ID,
+		ConfigName:  r.ConfigName,
+		ConfigKey:   r.ConfigKey,
+		ConfigValue: r.ConfigValue,
+		Remark:      r.Remark,
+		CreateTime:  dto.DateTime(r.CreateTime.Time),
+		CreateBy:    r.CreateBy,
+		UpdateTime:  dto.DateTime(r.UpdateTime.Time),
+		UpdateBy:    r.UpdateBy,
+		IsDeleted:   int(r.IsDeleted),
+	}
 }

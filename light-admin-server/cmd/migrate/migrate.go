@@ -1,20 +1,22 @@
 package migrate
 
 import (
-	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/member"
-	"github.com/top-system/light-admin/models/system"
-	"github.com/top-system/light-admin/models/tenant"
-	"github.com/top-system/light-admin/pkg/queue"
 	"github.com/spf13/cobra"
+
+	"github.com/top-system/light-admin/db"
+	"github.com/top-system/light-admin/lib"
 )
 
-var configFile string
+var (
+	configFile string
+	down       bool
+)
 
 func init() {
 	pf := StartCmd.PersistentFlags()
 	pf.StringVarP(&configFile, "config", "c",
 		"config/config.yaml", "this parameter is used to start the service application")
+	pf.BoolVar(&down, "down", false, "roll back the most recent sqlc/golang-migrate migration and exit")
 }
 
 var StartCmd = &cobra.Command{
@@ -28,33 +30,23 @@ var StartCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		config := lib.NewConfig()
 		logger := lib.NewLogger(config)
-		db := lib.NewDatabase(config, logger)
 
-		if err := db.ORM.AutoMigrate(
-			&system.User{},
-			&system.UserRole{},
-			&system.Role{},
-			&system.RoleMenu{},
-			&system.Menu{},
-			&system.Config{},
-			&system.Notice{},
-			&system.UserNotice{},
-			&system.Dept{},
-			&system.Dict{},
-			&system.DictItem{},
-			&system.Log{},
-
-			// 多租户 / 会员
-			&tenant.Tenant{},
-			&member.Member{},
-
-			// 扩展功能模型 (可选)
-			&queue.TaskModel{},    // 任务队列
-			&system.DownloadTask{}, // 下载任务
-		); err != nil {
-			logger.Zap.Fatalf("Error to migrate database: %v", err)
+		// golang-migrate owns the sqlc-managed tables (t_user, t_user_role, ...).
+		if down {
+			if err := db.Down(config.Database.PgxURL()); err != nil {
+				logger.Zap.Fatalf("Error rolling back migration: %v", err)
+			}
+			logger.Zap.Info("Migration rolled back successfully")
+			return
 		}
 
+		if err := db.Up(config.Database.PgxURL()); err != nil {
+			logger.Zap.Fatalf("Error applying golang-migrate migrations: %v", err)
+		}
+		logger.Zap.Info("golang-migrate migrations applied successfully")
+
+		// All modules have been migrated to sqlc: golang-migrate now owns every
+		// table (through 000011), so there is no remaining GORM AutoMigrate step.
 		logger.Zap.Info("Database migration completed successfully")
 	},
 }

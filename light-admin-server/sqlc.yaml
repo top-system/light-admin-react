@@ -1,0 +1,17 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    # Schema is the golang-migrate migration set; sqlc reads *.up.sql and
+    # ignores *.down.sql, so migrations remain the single source of truth.
+    schema: "db/migrations"
+    queries: "db/queries"
+    gen:
+      go:
+        package: "sqlc"
+        out: "db/sqlc"
+        sql_package: "pgx/v5"
+        emit_interface: true                 # Querier interface -> mockable in tests
+        emit_pointers_for_null_types: true    # nullable args/cols -> *T instead of pgtype.X
+        emit_empty_slices: true               # :many returns []T{} not nil
+        emit_exact_table_names: false
+        emit_json_tags: false

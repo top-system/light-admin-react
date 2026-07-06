@@ -4,13 +4,12 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/pkg/echox"
 )
 
@@ -86,8 +85,7 @@ func (a DeptController) Create(ctx echo.Context) error {
 		createdBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	id, err := a.deptService.WithTrx(trxHandle).SaveDept(form, createdBy)
+	id, err := a.deptService.SaveDept(form, createdBy)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -135,8 +133,7 @@ func (a DeptController) Update(ctx echo.Context) error {
 		updatedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	_, err := a.deptService.WithTrx(trxHandle).UpdateDept(id, form, updatedBy)
+	_, err := a.deptService.UpdateDept(id, form, updatedBy)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -160,8 +157,7 @@ func (a DeptController) Delete(ctx echo.Context) error {
 		deletedBy = claims.ID
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.deptService.WithTrx(trxHandle).DeleteByIds(ids, deletedBy); err != nil {
+	if err := a.deptService.DeleteByIds(ids, deletedBy); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 

@@ -4,35 +4,33 @@ import (
 	"time"
 
 	"github.com/gofrs/uuid"
-	"gorm.io/gorm"
 )
 
-// TaskModel represents the task model in database
+// TaskModel represents the task model in database.
+//
+// It is a plain domain struct: pkg/queue stays framework-agnostic and persists it
+// through the TaskRepository interface. Column mapping (including the sys_tasks
+// table name and the public_ prefixed columns) lives in the injected sqlc-backed
+// implementation in the application layer.
 type TaskModel struct {
-	ID            uint64         `gorm:"primaryKey;autoIncrement" json:"id"`
-	Type          string         `gorm:"size:100;not null;index" json:"type"`
-	Status        Status         `gorm:"size:50;not null;index" json:"status"`
-	CorrelationID uuid.UUID      `gorm:"type:char(36);index" json:"correlationId"`
-	OwnerID       string         `gorm:"type:char(32);index" json:"ownerId"`
-	PrivateState  string         `gorm:"type:text" json:"privateState"`
-	PublicState   TaskPublicState `gorm:"embedded;embeddedPrefix:public_" json:"publicState"`
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-}
-
-// TableName returns the table name for TaskModel
-func (TaskModel) TableName() string {
-	return "sys_tasks"
+	ID            uint64          `json:"id"`
+	Type          string          `json:"type"`
+	Status        Status          `json:"status"`
+	CorrelationID uuid.UUID       `json:"correlationId"`
+	OwnerID       string          `json:"ownerId"`
+	PrivateState  string          `json:"privateState"`
+	PublicState   TaskPublicState `json:"publicState"`
+	CreatedAt     time.Time       `json:"createdAt"`
+	UpdatedAt     time.Time       `json:"updatedAt"`
 }
 
 // TaskPublicState represents the public state of a task
 type TaskPublicState struct {
-	RetryCount       int           `gorm:"default:0" json:"retryCount"`
-	ExecutedDuration time.Duration `gorm:"default:0" json:"executedDuration"`
-	Error            string        `gorm:"type:text" json:"error"`
-	ErrorHistory     StringSlice   `gorm:"type:text" json:"errorHistory"`
-	ResumeTime       int64         `gorm:"default:0" json:"resumeTime"`
+	RetryCount       int           `json:"retryCount"`
+	ExecutedDuration time.Duration `json:"executedDuration"`
+	Error            string        `json:"error"`
+	ErrorHistory     StringSlice   `json:"errorHistory"`
+	ResumeTime       int64         `json:"resumeTime"`
 }
 
 // TaskOwner represents the owner of a task (simplified user interface)

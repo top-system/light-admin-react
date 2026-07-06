@@ -3,8 +3,6 @@ package service
 import (
 	"strings"
 
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -26,12 +24,6 @@ func NewDictItemService(
 		logger:             logger,
 		dictItemRepository: dictItemRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a DictItemService) WithTrx(trxHandle *gorm.DB) DictItemService {
-	a.dictItemRepository = a.dictItemRepository.WithTrx(trxHandle)
-	return a
 }
 
 // GetDictItemPage 获取字典项分页列表

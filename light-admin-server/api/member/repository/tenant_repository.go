@@ -1,43 +1,64 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
+	"errors"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/tenant"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
+// TenantRepository is the sqlc/pgx-backed persistence layer for tenants.
 type TenantRepository struct {
-	db     lib.Database
+	q      sqlc.Querier
 	logger lib.Logger
 }
 
-func NewTenantRepository(db lib.Database, logger lib.Logger) TenantRepository {
-	return TenantRepository{db: db, logger: logger}
+// NewTenantRepository creates a new tenant repository bound to the pool-level Queries.
+func NewTenantRepository(q *sqlc.Queries, logger lib.Logger) TenantRepository {
+	return TenantRepository{q: q, logger: logger}
 }
 
+// WithTx returns a copy bound to the given transaction-scoped Queries.
+func (a TenantRepository) WithTx(q *sqlc.Queries) TenantRepository {
+	a.q = q
+	return a
+}
+
+// Query lists tenants. Ordering is fixed to id DESC (the previous default).
 func (a TenantRepository) Query(param *tenant.TenantQueryParam) (*tenant.TenantQueryResult, error) {
-	db := a.db.ORM.Model(&tenant.Tenant{}).Where("is_deleted = ?", 0)
-	if v := param.Keywords; v != "" {
-		db = db.Where("code LIKE ? OR name LIKE ?", "%"+v+"%", "%"+v+"%")
+	ctx := context.Background()
+
+	var keywords *string
+	if param.Keywords != "" {
+		keywords = ptr("%" + param.Keywords + "%")
 	}
-	if v := param.Status; v != nil {
-		db = db.Where("status = ?", *v)
+	var status *int32
+	if param.Status != nil {
+		status = ptr(int32(*param.Status))
 	}
 
-	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	}
-
-	var list tenant.Tenants
-	err := db.Order(param.ParseOrder()).
-		Offset((param.GetPageNum() - 1) * param.GetPageSize()).
-		Limit(param.GetPageSize()).
-		Find(&list).Error
+	total, err := a.q.CountTenants(ctx, sqlc.CountTenantsParams{Keywords: keywords, Status: status})
 	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
+
+	list := make(tenant.Tenants, 0)
+	if total > 0 {
+		limit, offset := pageBounds(param.PaginationParam)
+		rows, err := a.q.ListTenants(ctx, sqlc.ListTenantsParams{Keywords: keywords, Status: status, Limit: limit, Offset: offset})
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+		}
+		for _, r := range rows {
+			list = append(list, toDomainTenant(r))
+		}
 	}
 
 	p := dtoPagination(total, param.GetPageNum(), param.GetPageSize())
@@ -45,50 +66,77 @@ func (a TenantRepository) Query(param *tenant.TenantQueryParam) (*tenant.TenantQ
 }
 
 func (a TenantRepository) GetByCode(code string) (*tenant.Tenant, error) {
-	var t tenant.Tenant
-	result := a.db.ORM.Where("code = ? AND is_deleted = ?", code, 0).First(&t)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return nil, errors.TenantNotFound
+	row, err := a.q.GetTenantByCode(context.Background(), code)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.TenantNotFound
 		}
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-	return &t, nil
+	return toDomainTenant(row), nil
 }
 
 func (a TenantRepository) Get(id string) (*tenant.Tenant, error) {
-	var t tenant.Tenant
-	result := a.db.ORM.Where("id = ? AND is_deleted = ?", id, 0).First(&t)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return nil, errors.TenantNotFound
+	row, err := a.q.GetTenant(context.Background(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, apperrors.TenantNotFound
 		}
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-	return &t, nil
+	return toDomainTenant(row), nil
 }
 
+// Create inserts a new tenant, assigning a UUID when the ID is empty.
 func (a TenantRepository) Create(t *tenant.Tenant) error {
-	if err := a.db.ORM.Create(t).Error; err != nil {
-		return errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if t.ID == "" {
+		t.ID = uuid.NewID()
+	}
+	err := a.q.CreateTenant(context.Background(), sqlc.CreateTenantParams{
+		ID:        t.ID,
+		Code:      t.Code,
+		Name:      t.Name,
+		Status:    int32(t.Status),
+		CreateBy:  t.CreateBy,
+		IsDeleted: int32(t.IsDeleted),
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return nil
 }
 
 func (a TenantRepository) Update(id string, t *tenant.Tenant) error {
-	err := a.db.ORM.Model(&tenant.Tenant{}).Where("id = ?", id).
-		Select("code", "name", "status", "update_by").Updates(t).Error
+	err := a.q.UpdateTenant(context.Background(), sqlc.UpdateTenantParams{
+		ID:       id,
+		Code:     t.Code,
+		Name:     t.Name,
+		Status:   int32(t.Status),
+		UpdateBy: t.UpdateBy,
+	})
 	if err != nil {
-		return errors.Wrap(errors.DatabaseInternalError, err.Error())
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return nil
 }
 
 func (a TenantRepository) Delete(id string) error {
-	err := a.db.ORM.Model(&tenant.Tenant{}).Where("id = ?", id).
-		Update("is_deleted", 1).Error
-	if err != nil {
-		return errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if err := a.q.SoftDeleteTenant(context.Background(), id); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return nil
+}
+
+func toDomainTenant(r sqlc.TTenant) *tenant.Tenant {
+	return &tenant.Tenant{
+		ID:         r.ID,
+		Code:       r.Code,
+		Name:       r.Name,
+		Status:     int(r.Status),
+		CreateTime: dto.DateTime(r.CreateTime.Time),
+		CreateBy:   r.CreateBy,
+		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		UpdateBy:   r.UpdateBy,
+		IsDeleted:  int(r.IsDeleted),
+	}
 }

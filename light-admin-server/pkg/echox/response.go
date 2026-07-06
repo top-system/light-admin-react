@@ -5,15 +5,13 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 
 	"github.com/top-system/light-admin/errors"
 )
 
 // Context key constants
 const (
-	KeyDBTransaction = "db_trx"
-	KeyCurrentUser   = "current_user"
+	KeyCurrentUser = "current_user"
 )
 
 // Response in order to unify the returned response structure
@@ -86,14 +84,6 @@ func Fail(ctx echo.Context, err error) error {
 // FailWithCode 返回带状态码的失败响应
 func FailWithCode(ctx echo.Context, code int, err error) error {
 	return Response{Code: code, Message: err}.JSON(ctx)
-}
-
-// GetTrx 从上下文获取数据库事务
-func GetTrx(ctx echo.Context) *gorm.DB {
-	if trx, ok := ctx.Get(KeyDBTransaction).(*gorm.DB); ok {
-		return trx
-	}
-	return nil
 }
 
 // GetPathID 从路径参数获取 ID

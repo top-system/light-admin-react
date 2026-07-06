@@ -1,11 +1,11 @@
 package service
 
 import (
+	"context"
 	"strings"
 
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
@@ -14,24 +14,21 @@ import (
 // DeptService service layer
 type DeptService struct {
 	logger         lib.Logger
+	txManager      lib.TxManager
 	deptRepository repository.DeptRepository
 }
 
 // NewDeptService creates a new dept service
 func NewDeptService(
 	logger lib.Logger,
+	txManager lib.TxManager,
 	deptRepository repository.DeptRepository,
 ) DeptService {
 	return DeptService{
 		logger:         logger,
+		txManager:      txManager,
 		deptRepository: deptRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a DeptService) WithTrx(trxHandle *gorm.DB) DeptService {
-	a.deptRepository = a.deptRepository.WithTrx(trxHandle)
-	return a
 }
 
 // GetDeptList 获取部门列表（树形）
@@ -282,19 +279,23 @@ func (a DeptService) DeleteByIds(ids string, deletedBy string) error {
 	}
 
 	idStrs := strings.Split(ids, ",")
-	for _, idStr := range idStrs {
-		id := strings.TrimSpace(idStr)
-		if id == "" {
-			continue
-		}
 
-		// 删除部门及子部门
-		if err := a.deptRepository.DeleteByTreePath(id, deletedBy); err != nil {
-			return err
-		}
-	}
+	// Delete every requested department (and its subtree) atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		deptRepo := a.deptRepository.WithTx(q)
+		for _, idStr := range idStrs {
+			id := strings.TrimSpace(idStr)
+			if id == "" {
+				continue
+			}
 
-	return nil
+			// 删除部门及子部门
+			if err := deptRepo.DeleteByTreePath(id, deletedBy); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // generateDeptTreePath 生成部门路径

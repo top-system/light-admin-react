@@ -1,131 +1,152 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
 )
 
-// UserRoleRepository database structure
+// UserRoleRepository is the sqlc/pgx-backed persistence layer for the
+// user<->role association table.
 type UserRoleRepository struct {
-	db     lib.Database
+	q      sqlc.Querier
 	logger lib.Logger
 }
 
-// NewUserRoleRepository creates a new user role repository
-func NewUserRoleRepository(db lib.Database, logger lib.Logger) UserRoleRepository {
+// NewUserRoleRepository creates a new user role repository bound to the
+// pool-level Queries.
+func NewUserRoleRepository(q *sqlc.Queries, logger lib.Logger) UserRoleRepository {
 	return UserRoleRepository{
-		db:     db,
+		q:      q,
 		logger: logger,
 	}
 }
 
-// WithTrx enables repository with transaction
-func (a UserRoleRepository) WithTrx(trxHandle *gorm.DB) UserRoleRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context. ")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy bound to the given transaction-scoped Queries.
+func (a UserRoleRepository) WithTx(q *sqlc.Queries) UserRoleRepository {
+	a.q = q
 	return a
 }
 
+// Query lists user-role associations by user filters. Ordering is fixed to
+// user_id DESC (matching the previous default) and pagination follows the same
+// default-page-size-15 semantics as the rest of the system.
 func (a UserRoleRepository) Query(param *system.UserRoleQueryParam) (*system.UserRoleQueryResult, error) {
-	db := a.db.ORM.Model(system.UserRole{})
+	ctx := context.Background()
 
-	if v := param.UserID; v != "" {
-		db = db.Where("user_id=?", v)
+	var userID *string
+	if param.UserID != "" {
+		userID = ptr(param.UserID)
 	}
-	if v := param.UserIDs; len(v) > 0 {
-		db = db.Where("user_id IN (?)", v)
+	var userIDs []string
+	if len(param.UserIDs) > 0 {
+		userIDs = param.UserIDs
 	}
 
-	// UserRole table doesn't have id column, order by user_id instead
-	if param.OrderParam.Key == "" || param.OrderParam.Key == "id" {
-		db = db.Order("user_id DESC")
-	} else {
-		db = db.Order(param.OrderParam.ParseOrder())
+	total, err := a.q.CountUserRoles(ctx, sqlc.CountUserRolesParams{
+		UserID:  userID,
+		UserIds: userIDs,
+	})
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 
 	list := make(system.UserRoles, 0)
-	pagination, err := QueryPagination(db, param.PaginationParam, &list)
-	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
+	if total > 0 {
+		limit, offset := pageBounds(param.PaginationParam)
+		rows, err := a.q.ListUserRoles(ctx, sqlc.ListUserRolesParams{
+			UserID:  userID,
+			UserIds: userIDs,
+			Limit:   limit,
+			Offset:  offset,
+		})
+		if err != nil {
+			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+		}
+		for _, r := range rows {
+			list = append(list, &system.UserRole{UserID: r.UserID, RoleID: r.RoleID})
+		}
 	}
 
-	qr := &system.UserRoleQueryResult{
-		Pagination: pagination,
-		List:       list,
-	}
-
-	return qr, nil
+	return &system.UserRoleQueryResult{
+		Pagination: &dto.Pagination{
+			PageNum:  param.PaginationParam.GetPageNum(),
+			PageSize: param.PaginationParam.GetPageSize(),
+			Total:    total,
+		},
+		List: list,
+	}, nil
 }
 
+// GetRoleIDsByUserID returns the role IDs assigned to a user.
 func (a UserRoleRepository) GetRoleIDsByUserID(userID string) ([]string, error) {
-	var roleIDs []string
-	result := a.db.ORM.Model(&system.UserRole{}).
-		Where("user_id=?", userID).
-		Pluck("role_id", &roleIDs)
-
-	if result.Error != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	roleIDs, err := a.q.GetRoleIDsByUserID(context.Background(), userID)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return roleIDs, nil
 }
 
-// GetUserIDsByRoleID 根据角色ID获取用户ID列表
+// GetUserIDsByRoleID returns the user IDs assigned to a role.
 func (a UserRoleRepository) GetUserIDsByRoleID(roleID string) ([]string, error) {
-	var userIDs []string
-	result := a.db.ORM.Model(&system.UserRole{}).
-		Where("role_id=?", roleID).
-		Pluck("user_id", &userIDs)
-
-	if result.Error != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	userIDs, err := a.q.GetUserIDsByRoleID(context.Background(), roleID)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return userIDs, nil
 }
 
+// Create inserts a single user-role association (idempotent).
 func (a UserRoleRepository) Create(userRole *system.UserRole) error {
-	result := a.db.ORM.Model(userRole).Create(userRole)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	err := a.q.CreateUserRole(context.Background(), sqlc.CreateUserRoleParams{
+		UserID: userRole.UserID,
+		RoleID: userRole.RoleID,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
+// BatchCreate inserts multiple associations atomically in a single statement.
 func (a UserRoleRepository) BatchCreate(userRoles []*system.UserRole) error {
 	if len(userRoles) == 0 {
 		return nil
 	}
-	result := a.db.ORM.Create(&userRoles)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+
+	userIDs := make([]string, len(userRoles))
+	roleIDs := make([]string, len(userRoles))
+	for i, ur := range userRoles {
+		userIDs[i] = ur.UserID
+		roleIDs[i] = ur.RoleID
 	}
 
+	err := a.q.BatchCreateUserRoles(context.Background(), sqlc.BatchCreateUserRolesParams{
+		UserIds: userIDs,
+		RoleIds: roleIDs,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
+// DeleteByUserID removes all associations for a user.
 func (a UserRoleRepository) DeleteByUserID(userID string) error {
-	result := a.db.ORM.Where("user_id=?", userID).Delete(&system.UserRole{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.DeleteUserRolesByUserID(context.Background(), userID); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
+// DeleteByRoleID removes all associations for a role.
 func (a UserRoleRepository) DeleteByRoleID(roleID string) error {
-	result := a.db.ORM.Where("role_id=?", roleID).Delete(&system.UserRole{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.DeleteUserRolesByRoleID(context.Background(), roleID); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }

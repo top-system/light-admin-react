@@ -3,15 +3,13 @@ package controller
 import (
 	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/pkg/echox"
-	"github.com/labstack/echo/v4"
-
-	"gorm.io/gorm"
 )
 
 type MenuController struct {
@@ -99,9 +97,7 @@ func (a MenuController) Create(ctx echo.Context) error {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-
-	id, err := a.menuService.WithTrx(trxHandle).Create(form.ToMenu())
+	id, err := a.menuService.Create(form.ToMenu())
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -126,8 +122,7 @@ func (a MenuController) Update(ctx echo.Context) error {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.menuService.WithTrx(trxHandle).Update(id, form.ToMenu()); err != nil {
+	if err := a.menuService.Update(id, form.ToMenu()); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 
@@ -145,8 +140,7 @@ func (a MenuController) Update(ctx echo.Context) error {
 func (a MenuController) Delete(ctx echo.Context) error {
 	id := ctx.Param("id")
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	if err := a.menuService.WithTrx(trxHandle).Delete(id); err != nil {
+	if err := a.menuService.Delete(id); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 

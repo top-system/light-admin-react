@@ -1,20 +1,21 @@
 package service
 
 import (
+	"context"
 	"strings"
 
-	"gorm.io/gorm"
-
 	"github.com/top-system/light-admin/api/system/repository"
+	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 )
 
 // NoticeService service layer
 type NoticeService struct {
 	logger               lib.Logger
+	txManager            lib.TxManager
 	noticeRepository     repository.NoticeRepository
 	userNoticeRepository repository.UserNoticeRepository
 	userRepository       repository.UserRepository
@@ -23,23 +24,18 @@ type NoticeService struct {
 // NewNoticeService creates a new notice service
 func NewNoticeService(
 	logger lib.Logger,
+	txManager lib.TxManager,
 	noticeRepository repository.NoticeRepository,
 	userNoticeRepository repository.UserNoticeRepository,
 	userRepository repository.UserRepository,
 ) NoticeService {
 	return NoticeService{
 		logger:               logger,
+		txManager:            txManager,
 		noticeRepository:     noticeRepository,
 		userNoticeRepository: userNoticeRepository,
 		userRepository:       userRepository,
 	}
-}
-
-// WithTrx delegates transaction to repository database
-func (a NoticeService) WithTrx(trxHandle *gorm.DB) NoticeService {
-	a.noticeRepository = a.noticeRepository.WithTrx(trxHandle)
-	a.userNoticeRepository = a.userNoticeRepository.WithTrx(trxHandle)
-	return a
 }
 
 // Query 分页查询通知公告
@@ -175,13 +171,13 @@ func (a NoticeService) Delete(ids string, deletedBy string) error {
 		return errors.New("删除的通知公告数据为空")
 	}
 
-	// 删除通知公告
-	if err := a.noticeRepository.BatchDelete(idList, deletedBy); err != nil {
-		return err
-	}
-
-	// 删除用户通知状态
-	return a.userNoticeRepository.DeleteByNoticeIDs(idList)
+	// Delete the notices and their per-user state atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		if err := a.noticeRepository.WithTx(q).BatchDelete(idList, deletedBy); err != nil {
+			return err
+		}
+		return a.userNoticeRepository.WithTx(q).DeleteByNoticeIDs(idList)
+	})
 }
 
 // Publish 发布通知公告
@@ -198,14 +194,6 @@ func (a NoticeService) Publish(id string, publisherId string) error {
 	if notice.TargetType == 2 && notice.TargetUserIds == "" {
 		return errors.New("推送指定用户不能为空")
 	}
-
-	// 更新发布状态
-	if err := a.noticeRepository.UpdateStatus(id, 1, publisherId); err != nil {
-		return err
-	}
-
-	// 删除该通告之前的用户通知数据（可能是重新发布）
-	_ = a.userNoticeRepository.DeleteByNoticeID(id)
 
 	// 获取目标用户列表
 	var targetUsers system.Users
@@ -252,11 +240,21 @@ func (a NoticeService) Publish(id string, publisherId string) error {
 		})
 	}
 
-	if len(userNotices) > 0 {
-		return a.userNoticeRepository.BatchCreate(userNotices)
-	}
-
-	return nil
+	// Publish the notice, clear any prior recipient state (re-publish), and fan out
+	// the new per-user records atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		if err := a.noticeRepository.WithTx(q).UpdateStatus(id, 1, publisherId); err != nil {
+			return err
+		}
+		userNoticeRepo := a.userNoticeRepository.WithTx(q)
+		if err := userNoticeRepo.DeleteByNoticeID(id); err != nil {
+			return err
+		}
+		if len(userNotices) > 0 {
+			return userNoticeRepo.BatchCreate(userNotices)
+		}
+		return nil
+	})
 }
 
 // Revoke 撤回通知公告
@@ -270,13 +268,13 @@ func (a NoticeService) Revoke(id string, updatedBy string) error {
 		return errors.New("通知公告未发布或已撤回")
 	}
 
-	// 更新撤回状态
-	if err := a.noticeRepository.UpdateStatus(id, -1, updatedBy); err != nil {
-		return err
-	}
-
-	// 删除用户通知状态
-	return a.userNoticeRepository.DeleteByNoticeID(id)
+	// Revoke the notice and clear its per-user state atomically.
+	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		if err := a.noticeRepository.WithTx(q).UpdateStatus(id, -1, updatedBy); err != nil {
+			return err
+		}
+		return a.userNoticeRepository.WithTx(q).DeleteByNoticeID(id)
+	})
 }
 
 // GetMyNoticePage 获取我的通知公告分页列表

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/labstack/echo/v4"
 	platformService "github.com/top-system/light-admin/api/platform/service"
 	"github.com/top-system/light-admin/api/system/service"
 	"github.com/top-system/light-admin/constants"
@@ -13,9 +14,6 @@ import (
 	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/pkg/echox"
-	"github.com/labstack/echo/v4"
-
-	"gorm.io/gorm"
 )
 
 type UserController struct {
@@ -120,7 +118,6 @@ func (a UserController) GetOptions(ctx echo.Context) error {
 // @router /api/v1/users [post]
 func (a UserController) Create(ctx echo.Context) error {
 	user := new(system.User)
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
 
 	if err := ctx.Bind(user); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
@@ -131,7 +128,7 @@ func (a UserController) Create(ctx echo.Context) error {
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
 	user.CreateBy = claims.ID
 
-	qr, err := a.userService.WithTrx(trxHandle).Create(user)
+	qr, err := a.userService.Create(user)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -171,7 +168,6 @@ func (a UserController) Update(ctx echo.Context) error {
 	id := ctx.Param("id")
 
 	user := new(system.User)
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
 
 	if err := ctx.Bind(user); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
@@ -180,7 +176,7 @@ func (a UserController) Update(ctx echo.Context) error {
 	claims, _ := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
 	user.UpdateBy = claims.ID
 
-	err := a.userService.WithTrx(trxHandle).Update(id, user)
+	err := a.userService.Update(id, user)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
@@ -199,8 +195,7 @@ func (a UserController) Update(ctx echo.Context) error {
 func (a UserController) Delete(ctx echo.Context) error {
 	id := ctx.Param("id")
 
-	trxHandle := ctx.Get(constants.DBTransaction).(*gorm.DB)
-	err := a.userService.WithTrx(trxHandle).Delete(id)
+	err := a.userService.Delete(id)
 	if err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}

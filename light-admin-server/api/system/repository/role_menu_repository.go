@@ -1,118 +1,81 @@
 package repository
 
 import (
-	"gorm.io/gorm"
+	"context"
 
-	"github.com/top-system/light-admin/errors"
+	"github.com/top-system/light-admin/db/sqlc"
+	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
 )
 
-// RoleMenuRepository database structure
+// RoleMenuRepository is the sqlc/pgx-backed persistence layer for the role<->menu
+// association table (t_role_menu).
 type RoleMenuRepository struct {
-	db     lib.Database
+	q      sqlc.Querier
 	logger lib.Logger
 }
 
-// NewRoleMenuRepository creates a new role menu repository
-func NewRoleMenuRepository(db lib.Database, logger lib.Logger) RoleMenuRepository {
+// NewRoleMenuRepository creates a new role menu repository bound to the pool-level
+// Queries.
+func NewRoleMenuRepository(q *sqlc.Queries, logger lib.Logger) RoleMenuRepository {
 	return RoleMenuRepository{
-		db:     db,
+		q:      q,
 		logger: logger,
 	}
 }
 
-// WithTrx enables repository with transaction
-func (a RoleMenuRepository) WithTrx(trxHandle *gorm.DB) RoleMenuRepository {
-	if trxHandle == nil {
-		a.logger.Zap.Error("Transaction Database not found in echo context. ")
-		return a
-	}
-
-	a.db.ORM = trxHandle
+// WithTx returns a copy bound to the given transaction-scoped Queries. Used to
+// share a single pgx transaction across repositories via lib.TxManager.RunInTx.
+func (a RoleMenuRepository) WithTx(q *sqlc.Queries) RoleMenuRepository {
+	a.q = q
 	return a
 }
 
-func (a RoleMenuRepository) Query(param *system.RoleMenuQueryParam) (*system.RoleMenuQueryResult, error) {
-	db := a.db.ORM.Model(&system.RoleMenu{})
-
-	if v := param.RoleID; v != "" {
-		db = db.Where("role_id=?", v)
-	}
-
-	if v := param.RoleIDs; len(v) > 0 {
-		db = db.Where("role_id IN (?)", v)
-	}
-
-	// RoleMenu table doesn't have id column, order by role_id instead
-	if param.OrderParam.Key == "" || param.OrderParam.Key == "id" {
-		db = db.Order("role_id DESC")
-	} else {
-		db = db.Order(param.OrderParam.ParseOrder())
-	}
-
-	list := make([]*system.RoleMenu, 0)
-	pagination, err := QueryPagination(db, param.PaginationParam, &list)
-	if err != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, err.Error())
-	}
-
-	qr := &system.RoleMenuQueryResult{
-		Pagination: pagination,
-		List:       list,
-	}
-
-	return qr, nil
-}
-
+// GetMenuIDsByRoleID returns the menu IDs associated with a role.
 func (a RoleMenuRepository) GetMenuIDsByRoleID(roleID string) ([]string, error) {
-	var menuIDs []string
-	result := a.db.ORM.Model(&system.RoleMenu{}).
-		Where("role_id=?", roleID).
-		Pluck("menu_id", &menuIDs)
-
-	if result.Error != nil {
-		return nil, errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	menuIDs, err := a.q.GetMenuIDsByRoleID(context.Background(), roleID)
+	if err != nil {
+		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return menuIDs, nil
 }
 
-func (a RoleMenuRepository) Create(roleMenu *system.RoleMenu) error {
-	result := a.db.ORM.Model(roleMenu).Create(roleMenu)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
-	}
-
-	return nil
-}
-
+// BatchCreate inserts multiple associations atomically in a single statement.
 func (a RoleMenuRepository) BatchCreate(roleMenus []*system.RoleMenu) error {
 	if len(roleMenus) == 0 {
 		return nil
 	}
-	result := a.db.ORM.Create(&roleMenus)
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+
+	roleIDs := make([]string, len(roleMenus))
+	menuIDs := make([]string, len(roleMenus))
+	for i, rm := range roleMenus {
+		roleIDs[i] = rm.RoleID
+		menuIDs[i] = rm.MenuID
 	}
 
+	err := a.q.BatchCreateRoleMenus(context.Background(), sqlc.BatchCreateRoleMenusParams{
+		RoleIds: roleIDs,
+		MenuIds: menuIDs,
+	})
+	if err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
+	}
 	return nil
 }
 
+// DeleteByRoleID removes all associations for a role.
 func (a RoleMenuRepository) DeleteByRoleID(roleID string) error {
-	result := a.db.ORM.Where("role_id=?", roleID).Delete(&system.RoleMenu{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.DeleteRoleMenusByRoleID(context.Background(), roleID); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }
 
+// DeleteByMenuID removes all associations for a menu. Used by MenuService.Delete.
 func (a RoleMenuRepository) DeleteByMenuID(menuID string) error {
-	result := a.db.ORM.Where("menu_id=?", menuID).Delete(&system.RoleMenu{})
-	if result.Error != nil {
-		return errors.Wrap(errors.DatabaseInternalError, result.Error.Error())
+	if err := a.q.DeleteRoleMenusByMenuID(context.Background(), menuID); err != nil {
+		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
-
 	return nil
 }

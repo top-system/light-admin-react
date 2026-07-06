@@ -1,0 +1,9 @@
+.git
+build/
+uploads/
+logs/
+data/
+*.log
+*.db
+tests/
+**/*_test.go
