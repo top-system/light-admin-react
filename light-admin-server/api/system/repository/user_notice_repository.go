@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -14,13 +14,13 @@ import (
 // UserNoticeRepository is the sqlc/pgx-backed persistence layer for per-user
 // notice state (t_user_notice).
 type UserNoticeRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewUserNoticeRepository creates a new user notice repository bound to the
 // pool-level Queries.
-func NewUserNoticeRepository(q *sqlc.Queries, logger lib.Logger) UserNoticeRepository {
+func NewUserNoticeRepository(q store.Store, logger lib.Logger) UserNoticeRepository {
 	return UserNoticeRepository{
 		q:      q,
 		logger: logger,
@@ -28,7 +28,7 @@ func NewUserNoticeRepository(q *sqlc.Queries, logger lib.Logger) UserNoticeRepos
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a UserNoticeRepository) WithTx(q *sqlc.Queries) UserNoticeRepository {
+func (a UserNoticeRepository) WithTx(q store.Store) UserNoticeRepository {
 	a.q = q
 	return a
 }
@@ -46,7 +46,7 @@ func (a UserNoticeRepository) GetMyNoticePage(param *system.NoticeQueryParam) ([
 		noticeType = ptr(int32(param.Type))
 	}
 
-	total, err := a.q.CountMyNotices(ctx, sqlc.CountMyNoticesParams{
+	total, err := a.q.CountMyNotices(ctx, store.CountMyNoticesParams{
 		UserID: param.UserID,
 		Title:  title,
 		Type:   noticeType,
@@ -58,7 +58,7 @@ func (a UserNoticeRepository) GetMyNoticePage(param *system.NoticeQueryParam) ([
 	list := make([]system.UserNoticePageVO, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListMyNotices(ctx, sqlc.ListMyNoticesParams{
+		rows, err := a.q.ListMyNotices(ctx, store.ListMyNoticesParams{
 			UserID: param.UserID,
 			Title:  title,
 			Type:   noticeType,
@@ -89,7 +89,7 @@ func (a UserNoticeRepository) Create(userNotice *system.UserNotice) error {
 	if userNotice.ID == "" {
 		userNotice.ID = uuid.NewID()
 	}
-	err := a.q.CreateUserNotice(context.Background(), sqlc.CreateUserNoticeParams{
+	err := a.q.CreateUserNotice(context.Background(), store.CreateUserNoticeParams{
 		ID:       userNotice.ID,
 		NoticeID: userNotice.NoticeID,
 		UserID:   userNotice.UserID,
@@ -120,7 +120,7 @@ func (a UserNoticeRepository) BatchCreate(userNotices []*system.UserNotice) erro
 		userIDs[i] = un.UserID
 	}
 
-	err := a.q.BatchCreateUserNotices(context.Background(), sqlc.BatchCreateUserNoticesParams{
+	err := a.q.BatchCreateUserNotices(context.Background(), store.BatchCreateUserNoticesParams{
 		Ids:       ids,
 		NoticeIds: noticeIDs,
 		UserIds:   userIDs,
@@ -133,7 +133,7 @@ func (a UserNoticeRepository) BatchCreate(userNotices []*system.UserNotice) erro
 
 // MarkAsRead marks a single notice read for a user.
 func (a UserNoticeRepository) MarkAsRead(noticeID, userID string) error {
-	err := a.q.MarkUserNoticeRead(context.Background(), sqlc.MarkUserNoticeReadParams{
+	err := a.q.MarkUserNoticeRead(context.Background(), store.MarkUserNoticeReadParams{
 		NoticeID: noticeID,
 		UserID:   userID,
 	})

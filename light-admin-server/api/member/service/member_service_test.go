@@ -9,21 +9,21 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/top-system/light-admin/api/member/repository"
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
 )
 
 // memberStoreQuerier is a tiny in-memory stand-in for the member subset of
-// sqlc.Querier. It keeps the Register/Verify/SetStatus paths honest without a
+// store.Store. It keeps the Register/Verify/SetStatus paths honest without a
 // real database, replacing the previous in-memory sqlite GORM fixture.
 type memberStoreQuerier struct {
-	sqlc.Querier
-	rows []sqlc.TMember
+	store.Store
+	rows []store.TMember
 }
 
-func (m *memberStoreQuerier) CountMembersByUsername(_ context.Context, arg sqlc.CountMembersByUsernameParams) (int64, error) {
+func (m *memberStoreQuerier) CountMembersByUsername(_ context.Context, arg store.CountMembersByUsernameParams) (int64, error) {
 	var n int64
 	for _, r := range m.rows {
 		if r.TenantID == arg.TenantID && r.Username == arg.Username && r.IsDeleted == 0 {
@@ -33,8 +33,8 @@ func (m *memberStoreQuerier) CountMembersByUsername(_ context.Context, arg sqlc.
 	return n, nil
 }
 
-func (m *memberStoreQuerier) CreateMember(_ context.Context, arg sqlc.CreateMemberParams) error {
-	m.rows = append(m.rows, sqlc.TMember{
+func (m *memberStoreQuerier) CreateMember(_ context.Context, arg store.CreateMemberParams) error {
+	m.rows = append(m.rows, store.TMember{
 		ID:        arg.ID,
 		TenantID:  arg.TenantID,
 		Username:  arg.Username,
@@ -50,16 +50,16 @@ func (m *memberStoreQuerier) CreateMember(_ context.Context, arg sqlc.CreateMemb
 	return nil
 }
 
-func (m *memberStoreQuerier) GetMemberByUsername(_ context.Context, arg sqlc.GetMemberByUsernameParams) (sqlc.TMember, error) {
+func (m *memberStoreQuerier) GetMemberByUsername(_ context.Context, arg store.GetMemberByUsernameParams) (store.TMember, error) {
 	for _, r := range m.rows {
 		if r.TenantID == arg.TenantID && r.Username == arg.Username && r.IsDeleted == 0 {
 			return r, nil
 		}
 	}
-	return sqlc.TMember{}, pgx.ErrNoRows
+	return store.TMember{}, pgx.ErrNoRows
 }
 
-func (m *memberStoreQuerier) UpdateMemberStatus(_ context.Context, arg sqlc.UpdateMemberStatusParams) error {
+func (m *memberStoreQuerier) UpdateMemberStatus(_ context.Context, arg store.UpdateMemberStatusParams) error {
 	for i := range m.rows {
 		if m.rows[i].TenantID == arg.TenantID && m.rows[i].ID == arg.ID {
 			m.rows[i].Status = arg.Status

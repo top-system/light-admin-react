@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,12 +16,12 @@ import (
 
 // LogRepository is the sqlc/pgx-backed persistence layer for operation logs.
 type LogRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewLogRepository creates a new log repository bound to the pool-level Queries.
-func NewLogRepository(q *sqlc.Queries, logger lib.Logger) LogRepository {
+func NewLogRepository(q store.Store, logger lib.Logger) LogRepository {
 	return LogRepository{
 		q:      q,
 		logger: logger,
@@ -29,7 +29,7 @@ func NewLogRepository(q *sqlc.Queries, logger lib.Logger) LogRepository {
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a LogRepository) WithTx(q *sqlc.Queries) LogRepository {
+func (a LogRepository) WithTx(q store.Store) LogRepository {
 	a.q = q
 	return a
 }
@@ -49,7 +49,7 @@ func (a LogRepository) Query(param *system.LogQueryParam) (*system.LogQueryResul
 	createFrom := startOfDayFilter(param.CreateTimeFrom)
 	createTo := endOfDayFilter(param.CreateTimeTo)
 
-	total, err := a.q.CountLogs(ctx, sqlc.CountLogsParams{
+	total, err := a.q.CountLogs(ctx, store.CountLogsParams{
 		Module:     module,
 		Keywords:   keywords,
 		CreateFrom: createFrom,
@@ -62,7 +62,7 @@ func (a LogRepository) Query(param *system.LogQueryParam) (*system.LogQueryResul
 	list := make(system.Logs, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListLogs(ctx, sqlc.ListLogsParams{
+		rows, err := a.q.ListLogs(ctx, store.ListLogsParams{
 			Module:     module,
 			Keywords:   keywords,
 			CreateFrom: createFrom,
@@ -106,7 +106,7 @@ func (a LogRepository) Create(log *system.Log) error {
 		log.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateLog(context.Background(), sqlc.CreateLogParams{
+	err := a.q.CreateLog(context.Background(), store.CreateLogParams{
 		ID:              log.ID,
 		Module:          log.Module,
 		RequestMethod:   log.RequestMethod,
@@ -149,7 +149,7 @@ func (a LogRepository) BatchDelete(ids []string) error {
 	return nil
 }
 
-func toDomainLog(r sqlc.SysLog) *system.Log {
+func toDomainLog(r store.SysLog) *system.Log {
 	return &system.Log{
 		ID:              r.ID,
 		Module:          r.Module,

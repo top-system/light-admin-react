@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -13,13 +13,13 @@ import (
 // UserRoleRepository is the sqlc/pgx-backed persistence layer for the
 // user<->role association table.
 type UserRoleRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewUserRoleRepository creates a new user role repository bound to the
 // pool-level Queries.
-func NewUserRoleRepository(q *sqlc.Queries, logger lib.Logger) UserRoleRepository {
+func NewUserRoleRepository(q store.Store, logger lib.Logger) UserRoleRepository {
 	return UserRoleRepository{
 		q:      q,
 		logger: logger,
@@ -27,7 +27,7 @@ func NewUserRoleRepository(q *sqlc.Queries, logger lib.Logger) UserRoleRepositor
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a UserRoleRepository) WithTx(q *sqlc.Queries) UserRoleRepository {
+func (a UserRoleRepository) WithTx(q store.Store) UserRoleRepository {
 	a.q = q
 	return a
 }
@@ -47,7 +47,7 @@ func (a UserRoleRepository) Query(param *system.UserRoleQueryParam) (*system.Use
 		userIDs = param.UserIDs
 	}
 
-	total, err := a.q.CountUserRoles(ctx, sqlc.CountUserRolesParams{
+	total, err := a.q.CountUserRoles(ctx, store.CountUserRolesParams{
 		UserID:  userID,
 		UserIds: userIDs,
 	})
@@ -58,7 +58,7 @@ func (a UserRoleRepository) Query(param *system.UserRoleQueryParam) (*system.Use
 	list := make(system.UserRoles, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListUserRoles(ctx, sqlc.ListUserRolesParams{
+		rows, err := a.q.ListUserRoles(ctx, store.ListUserRolesParams{
 			UserID:  userID,
 			UserIds: userIDs,
 			Limit:   limit,
@@ -102,7 +102,7 @@ func (a UserRoleRepository) GetUserIDsByRoleID(roleID string) ([]string, error) 
 
 // Create inserts a single user-role association (idempotent).
 func (a UserRoleRepository) Create(userRole *system.UserRole) error {
-	err := a.q.CreateUserRole(context.Background(), sqlc.CreateUserRoleParams{
+	err := a.q.CreateUserRole(context.Background(), store.CreateUserRoleParams{
 		UserID: userRole.UserID,
 		RoleID: userRole.RoleID,
 	})
@@ -125,7 +125,7 @@ func (a UserRoleRepository) BatchCreate(userRoles []*system.UserRole) error {
 		roleIDs[i] = ur.RoleID
 	}
 
-	err := a.q.BatchCreateUserRoles(context.Background(), sqlc.BatchCreateUserRolesParams{
+	err := a.q.BatchCreateUserRoles(context.Background(), store.BatchCreateUserRolesParams{
 		UserIds: userIDs,
 		RoleIds: roleIDs,
 	})

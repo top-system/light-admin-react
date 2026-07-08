@@ -12,7 +12,7 @@ import (
 	memberrepo "github.com/top-system/light-admin/api/member/repository"
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/api/system/service"
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/pgstore"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
@@ -44,14 +44,14 @@ var StartCmd = &cobra.Command{
 		config := lib.NewConfig()
 		logger := lib.NewLogger(config)
 
-		// pgx pool + sqlc Queries for the migrated (sqlc-backed) repositories.
+		// pgx pool + engine-neutral store for the repositories.
 		pool, err := pgxpool.New(context.Background(), config.Database.PgxDSN())
 		if err != nil {
 			logger.Error(fmt.Sprintf("failed to create pgx pool: %v", err))
 			os.Exit(1)
 		}
 		defer pool.Close()
-		queries := sqlc.New(pool)
+		queries := pgstore.New(pool)
 
 		// TxManager for services that compose sqlc repositories in a transaction.
 		txManager := lib.NewTxManager(lib.PgxPool{Pool: pool}, logger)

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/top-system/light-admin/api/system/repository"
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
@@ -118,7 +118,7 @@ func (a DictService) UpdateDict(id string, form *system.DictForm, updatedBy stri
 	}
 
 	// Cascade the code rename onto dict items and update the dictionary atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		dictRepo := a.dictRepository.WithTx(q)
 		if codeChanged {
 			if err := dictRepo.UpdateDictItemsCode(existDict.DictCode, form.DictCode); err != nil {
@@ -161,7 +161,7 @@ func (a DictService) DeleteDictByIds(ids string, deletedBy string) error {
 	}
 
 	// Delete the dictionaries and their items atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		if err := a.dictRepository.WithTx(q).DeleteByIDs(idList, deletedBy); err != nil {
 			return err
 		}

@@ -1,4 +1,4 @@
-.PHONY: all fmt build start migrate migrate-up migrate-down setup swagger sqlc test lint vet tidy clean
+.PHONY: all fmt build start migrate migrate-up migrate-down setup swagger sqlc gen-store test lint vet tidy clean
 
 APP_NAME		= echo-admin
 BUILD_ROOT		= build
@@ -30,10 +30,17 @@ setup:
 swagger:
 	@swag init --parseDependency --parseInternal -g main.go
 
-# sqlc regenerates the type-safe data layer from db/queries + db/migrations.
+# sqlc regenerates the per-engine type-safe packages from db/queries + db/migrations.
 # Install once: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+# Always follow with `make gen-store` so the neutral store layer stays in sync.
 sqlc:
 	@sqlc generate
+
+# gen-store regenerates the engine-neutral data layer (db/store interface +
+# neutral models) and the per-engine adapters (db/pgstore) from the sqlc output.
+# Run after every `make sqlc`.
+gen-store:
+	@go run ./tools/gen-store
 
 test:
 	@go test ./...

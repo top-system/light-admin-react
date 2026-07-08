@@ -5,7 +5,7 @@ import (
 	"sort"
 
 	"github.com/top-system/light-admin/api/system/repository"
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -371,7 +371,7 @@ func (a UserService) Create(user *system.User) (string, error) {
 	user.Password = hashedPassword
 
 	// Create the user and its role associations atomically.
-	err = a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	err = a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		userRepo := a.userRepository.WithTx(q)
 		if err := userRepo.Create(user); err != nil {
 			return err
@@ -420,7 +420,7 @@ func (a UserService) Update(id string, user *system.User) error {
 	// Update user role associations if provided
 	if user.RoleIds != nil {
 		// 使用事务保证角色更新的原子性
-		err := a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+		err := a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 			userRepo := a.userRepository.WithTx(q)
 			userRoleRepo := a.userRoleRepository.WithTx(q)
 
@@ -477,7 +477,7 @@ func (a UserService) Delete(id string) error {
 	a.permissionCache.InvalidateUserCache(id)
 
 	// Remove role associations and soft-delete the user atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		if err := a.userRoleRepository.WithTx(q).DeleteByUserID(id); err != nil {
 			return err
 		}

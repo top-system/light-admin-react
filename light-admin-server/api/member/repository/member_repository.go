@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -17,30 +17,30 @@ import (
 // MemberRepository is the sqlc/pgx-backed persistence layer for members. Every
 // query is tenant-scoped (filtered by tenant_id) to enforce row-level isolation.
 type MemberRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewMemberRepository creates a new member repository bound to the pool-level Queries.
-func NewMemberRepository(q *sqlc.Queries, logger lib.Logger) MemberRepository {
+func NewMemberRepository(q store.Store, logger lib.Logger) MemberRepository {
 	return MemberRepository{q: q, logger: logger}
 }
 
-// NewMemberRepositoryWithQuerier builds a repository over any sqlc.Querier. It
+// NewMemberRepositoryWithQuerier builds a repository over any store.Store. It
 // exists so tests can inject an in-memory Querier; production wiring uses
-// NewMemberRepository with the pool-bound *sqlc.Queries.
-func NewMemberRepositoryWithQuerier(q sqlc.Querier, logger lib.Logger) MemberRepository {
+// NewMemberRepository with the pool-bound store.Store.
+func NewMemberRepositoryWithQuerier(q store.Store, logger lib.Logger) MemberRepository {
 	return MemberRepository{q: q, logger: logger}
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a MemberRepository) WithTx(q *sqlc.Queries) MemberRepository {
+func (a MemberRepository) WithTx(q store.Store) MemberRepository {
 	a.q = q
 	return a
 }
 
 func (a MemberRepository) GetByUsername(tenantID, username string) (*member.Member, error) {
-	row, err := a.q.GetMemberByUsername(context.Background(), sqlc.GetMemberByUsernameParams{
+	row, err := a.q.GetMemberByUsername(context.Background(), store.GetMemberByUsernameParams{
 		TenantID: tenantID,
 		Username: username,
 	})
@@ -54,7 +54,7 @@ func (a MemberRepository) GetByUsername(tenantID, username string) (*member.Memb
 }
 
 func (a MemberRepository) GetByID(tenantID, id string) (*member.Member, error) {
-	row, err := a.q.GetMemberByID(context.Background(), sqlc.GetMemberByIDParams{
+	row, err := a.q.GetMemberByID(context.Background(), store.GetMemberByIDParams{
 		TenantID: tenantID,
 		ID:       id,
 	})
@@ -68,7 +68,7 @@ func (a MemberRepository) GetByID(tenantID, id string) (*member.Member, error) {
 }
 
 func (a MemberRepository) ExistsUsername(tenantID, username string) (bool, error) {
-	count, err := a.q.CountMembersByUsername(context.Background(), sqlc.CountMembersByUsernameParams{
+	count, err := a.q.CountMembersByUsername(context.Background(), store.CountMembersByUsernameParams{
 		TenantID: tenantID,
 		Username: username,
 	})
@@ -83,7 +83,7 @@ func (a MemberRepository) Create(m *member.Member) error {
 	if m.ID == "" {
 		m.ID = uuid.NewID()
 	}
-	err := a.q.CreateMember(context.Background(), sqlc.CreateMemberParams{
+	err := a.q.CreateMember(context.Background(), store.CreateMemberParams{
 		ID:        m.ID,
 		TenantID:  m.TenantID,
 		Username:  m.Username,
@@ -103,7 +103,7 @@ func (a MemberRepository) Create(m *member.Member) error {
 }
 
 func (a MemberRepository) UpdateProfile(tenantID, id string, form *member.MemberProfileForm) error {
-	err := a.q.UpdateMemberProfile(context.Background(), sqlc.UpdateMemberProfileParams{
+	err := a.q.UpdateMemberProfile(context.Background(), store.UpdateMemberProfileParams{
 		TenantID: tenantID,
 		ID:       id,
 		Nickname: form.Nickname,
@@ -119,7 +119,7 @@ func (a MemberRepository) UpdateProfile(tenantID, id string, form *member.Member
 }
 
 func (a MemberRepository) UpdateStatus(tenantID, id string, status int) error {
-	err := a.q.UpdateMemberStatus(context.Background(), sqlc.UpdateMemberStatusParams{
+	err := a.q.UpdateMemberStatus(context.Background(), store.UpdateMemberStatusParams{
 		TenantID: tenantID,
 		ID:       id,
 		Status:   int32(status),
@@ -131,7 +131,7 @@ func (a MemberRepository) UpdateStatus(tenantID, id string, status int) error {
 }
 
 func (a MemberRepository) UpdatePassword(tenantID, id, hashed string) error {
-	err := a.q.UpdateMemberPassword(context.Background(), sqlc.UpdateMemberPasswordParams{
+	err := a.q.UpdateMemberPassword(context.Background(), store.UpdateMemberPasswordParams{
 		TenantID: tenantID,
 		ID:       id,
 		Password: hashed,
@@ -143,7 +143,7 @@ func (a MemberRepository) UpdatePassword(tenantID, id, hashed string) error {
 }
 
 func (a MemberRepository) UpdateLoginInfo(tenantID, id, ip string) error {
-	err := a.q.UpdateMemberLoginInfo(context.Background(), sqlc.UpdateMemberLoginInfoParams{
+	err := a.q.UpdateMemberLoginInfo(context.Background(), store.UpdateMemberLoginInfoParams{
 		TenantID:    tenantID,
 		ID:          id,
 		LastLoginIp: ip,
@@ -171,7 +171,7 @@ func (a MemberRepository) Query(param *member.MemberQueryParam) (*member.MemberQ
 		status = ptr(int32(*param.Status))
 	}
 
-	total, err := a.q.CountMembers(ctx, sqlc.CountMembersParams{TenantID: tenantID, Keywords: keywords, Status: status})
+	total, err := a.q.CountMembers(ctx, store.CountMembersParams{TenantID: tenantID, Keywords: keywords, Status: status})
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
@@ -179,7 +179,7 @@ func (a MemberRepository) Query(param *member.MemberQueryParam) (*member.MemberQ
 	list := make(member.Members, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListMembers(ctx, sqlc.ListMembersParams{
+		rows, err := a.q.ListMembers(ctx, store.ListMembersParams{
 			TenantID: tenantID,
 			Keywords: keywords,
 			Status:   status,
@@ -200,7 +200,7 @@ func (a MemberRepository) Query(param *member.MemberQueryParam) (*member.MemberQ
 	return &member.MemberQueryResult{List: list, Pagination: &p}, nil
 }
 
-func toDomainMember(r sqlc.TMember) *member.Member {
+func toDomainMember(r store.TMember) *member.Member {
 	return &member.Member{
 		ID:            r.ID,
 		TenantID:      r.TenantID,

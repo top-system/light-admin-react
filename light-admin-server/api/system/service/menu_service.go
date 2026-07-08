@@ -6,7 +6,7 @@ import (
 
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/constants"
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -172,7 +172,7 @@ func (a MenuService) Update(id string, menu *system.Menu) error {
 	}
 
 	// Rewriting descendant tree paths and updating the menu itself must be atomic.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		menuRepo := a.menuRepository.WithTx(q)
 
 		if err := a.updateChildTreePath(menuRepo, oMenu, menu); err != nil {
@@ -200,7 +200,7 @@ func (a MenuService) Delete(id string) error {
 	}
 
 	// Remove role_menu associations and delete the menu atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		if err := a.roleMenuRepository.WithTx(q).DeleteByMenuID(id); err != nil {
 			return err
 		}

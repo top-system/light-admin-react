@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -17,17 +17,17 @@ import (
 // The table uses a BIGSERIAL surrogate key, so IDs are int64 in the data layer and
 // converted to/from the domain model's uint64.
 type DownloadRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewDownloadRepository creates a new download repository bound to the pool-level Queries.
-func NewDownloadRepository(q *sqlc.Queries, logger lib.Logger) DownloadRepository {
+func NewDownloadRepository(q store.Store, logger lib.Logger) DownloadRepository {
 	return DownloadRepository{q: q, logger: logger}
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a DownloadRepository) WithTx(q *sqlc.Queries) DownloadRepository {
+func (a DownloadRepository) WithTx(q store.Store) DownloadRepository {
 	a.q = q
 	return a
 }
@@ -49,7 +49,7 @@ func (a DownloadRepository) Query(param *system.DownloadTaskQueryParam) (*system
 	createFrom := startOfDayFilter(param.CreateTimeFrom)
 	createTo := endOfDayFilter(param.CreateTimeTo)
 
-	total, err := a.q.CountDownloadTasks(ctx, sqlc.CountDownloadTasksParams{
+	total, err := a.q.CountDownloadTasks(ctx, store.CountDownloadTasksParams{
 		Status:     status,
 		Downloader: downloader,
 		Keywords:   keywords,
@@ -63,7 +63,7 @@ func (a DownloadRepository) Query(param *system.DownloadTaskQueryParam) (*system
 	list := make(system.DownloadTasks, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListDownloadTasks(ctx, sqlc.ListDownloadTasksParams{
+		rows, err := a.q.ListDownloadTasks(ctx, store.ListDownloadTasksParams{
 			Status:     status,
 			Downloader: downloader,
 			Keywords:   keywords,
@@ -91,24 +91,24 @@ func (a DownloadRepository) Query(param *system.DownloadTaskQueryParam) (*system
 }
 
 func (a DownloadRepository) Get(id uint64) (*system.DownloadTask, error) {
-	return a.getOne(func() (sqlc.SysDownloadTask, error) {
+	return a.getOne(func() (store.SysDownloadTask, error) {
 		return a.q.GetDownloadTask(context.Background(), int64(id))
 	})
 }
 
 func (a DownloadRepository) GetByTaskID(taskID string) (*system.DownloadTask, error) {
-	return a.getOne(func() (sqlc.SysDownloadTask, error) {
+	return a.getOne(func() (store.SysDownloadTask, error) {
 		return a.q.GetDownloadTaskByTaskID(context.Background(), taskID)
 	})
 }
 
 func (a DownloadRepository) GetByQueueTaskID(queueTaskID uint64) (*system.DownloadTask, error) {
-	return a.getOne(func() (sqlc.SysDownloadTask, error) {
+	return a.getOne(func() (store.SysDownloadTask, error) {
 		return a.q.GetDownloadTaskByQueueTaskID(context.Background(), int64(queueTaskID))
 	})
 }
 
-func (a DownloadRepository) getOne(fetch func() (sqlc.SysDownloadTask, error)) (*system.DownloadTask, error) {
+func (a DownloadRepository) getOne(fetch func() (store.SysDownloadTask, error)) (*system.DownloadTask, error) {
 	row, err := fetch()
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -121,7 +121,7 @@ func (a DownloadRepository) getOne(fetch func() (sqlc.SysDownloadTask, error)) (
 
 // Create inserts a new download task and writes the generated ID back onto the model.
 func (a DownloadRepository) Create(task *system.DownloadTask) error {
-	id, err := a.q.CreateDownloadTask(context.Background(), sqlc.CreateDownloadTaskParams{
+	id, err := a.q.CreateDownloadTask(context.Background(), store.CreateDownloadTaskParams{
 		QueueTaskID:   int64(task.QueueTaskID),
 		TaskID:        task.TaskID,
 		Hash:          task.Hash,
@@ -147,7 +147,7 @@ func (a DownloadRepository) Create(task *system.DownloadTask) error {
 
 // Update saves the full task row (mirrors the previous GORM Save).
 func (a DownloadRepository) Update(task *system.DownloadTask) error {
-	err := a.q.UpdateDownloadTask(context.Background(), sqlc.UpdateDownloadTaskParams{
+	err := a.q.UpdateDownloadTask(context.Background(), store.UpdateDownloadTaskParams{
 		ID:            int64(task.ID),
 		QueueTaskID:   int64(task.QueueTaskID),
 		TaskID:        task.TaskID,
@@ -172,7 +172,7 @@ func (a DownloadRepository) Update(task *system.DownloadTask) error {
 }
 
 func (a DownloadRepository) UpdateStatus(id uint64, status string, downloaded, total, downloadSpeed, uploaded, uploadSpeed int64, errorMessage string) error {
-	err := a.q.UpdateDownloadTaskStatus(context.Background(), sqlc.UpdateDownloadTaskStatusParams{
+	err := a.q.UpdateDownloadTaskStatus(context.Background(), store.UpdateDownloadTaskStatusParams{
 		ID:            int64(id),
 		Status:        status,
 		Downloaded:    downloaded,
@@ -256,7 +256,7 @@ func (a DownloadRepository) GetActiveTaskIDs() ([]system.DownloadTask, error) {
 // UpdateFromDownloader 从下载器同步更新任务完整信息. task_id/hash/name/save_path are
 // only overwritten when a non-empty value is supplied (handled in SQL).
 func (a DownloadRepository) UpdateFromDownloader(id uint64, taskID, hash, name, savePath, status string, downloaded, total, downloadSpeed, uploaded, uploadSpeed int64, errorMessage string) error {
-	err := a.q.UpdateDownloadTaskFromDownloader(context.Background(), sqlc.UpdateDownloadTaskFromDownloaderParams{
+	err := a.q.UpdateDownloadTaskFromDownloader(context.Background(), store.UpdateDownloadTaskFromDownloaderParams{
 		ID:            int64(id),
 		Status:        status,
 		Downloaded:    downloaded,
@@ -276,7 +276,7 @@ func (a DownloadRepository) UpdateFromDownloader(id uint64, taskID, hash, name, 
 	return nil
 }
 
-func toDomainDownloadTask(r sqlc.SysDownloadTask) *system.DownloadTask {
+func toDomainDownloadTask(r store.SysDownloadTask) *system.DownloadTask {
 	return &system.DownloadTask{
 		ID:            uint64(r.ID),
 		QueueTaskID:   uint64(r.QueueTaskID),

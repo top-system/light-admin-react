@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,36 +16,36 @@ import (
 )
 
 type menuMockQuerier struct {
-	sqlc.Querier
+	store.Store
 
-	getMenu    func(ctx context.Context, id string) (sqlc.TMenu, error)
-	countMenus func(ctx context.Context, arg sqlc.CountMenusParams) (int64, error)
-	listMenus  func(ctx context.Context, arg sqlc.ListMenusParams) ([]sqlc.TMenu, error)
+	getMenu    func(ctx context.Context, id string) (store.TMenu, error)
+	countMenus func(ctx context.Context, arg store.CountMenusParams) (int64, error)
+	listMenus  func(ctx context.Context, arg store.ListMenusParams) ([]store.TMenu, error)
 
-	lastListParams sqlc.ListMenusParams
+	lastListParams store.ListMenusParams
 }
 
-func (m *menuMockQuerier) GetMenu(ctx context.Context, id string) (sqlc.TMenu, error) {
+func (m *menuMockQuerier) GetMenu(ctx context.Context, id string) (store.TMenu, error) {
 	return m.getMenu(ctx, id)
 }
 
-func (m *menuMockQuerier) CountMenus(ctx context.Context, arg sqlc.CountMenusParams) (int64, error) {
+func (m *menuMockQuerier) CountMenus(ctx context.Context, arg store.CountMenusParams) (int64, error) {
 	return m.countMenus(ctx, arg)
 }
 
-func (m *menuMockQuerier) ListMenus(ctx context.Context, arg sqlc.ListMenusParams) ([]sqlc.TMenu, error) {
+func (m *menuMockQuerier) ListMenus(ctx context.Context, arg store.ListMenusParams) ([]store.TMenu, error) {
 	m.lastListParams = arg
 	return m.listMenus(ctx, arg)
 }
 
-func newTestMenuRepo(q sqlc.Querier) MenuRepository {
+func newTestMenuRepo(q store.Store) MenuRepository {
 	return MenuRepository{q: q, logger: lib.NopLogger()}
 }
 
 func TestMenuRepository_Get_NotFound(t *testing.T) {
 	repo := newTestMenuRepo(&menuMockQuerier{
-		getMenu: func(ctx context.Context, id string) (sqlc.TMenu, error) {
-			return sqlc.TMenu{}, pgx.ErrNoRows
+		getMenu: func(ctx context.Context, id string) (store.TMenu, error) {
+			return store.TMenu{}, pgx.ErrNoRows
 		},
 	})
 	_, err := repo.Get("x")
@@ -60,9 +60,9 @@ func TestMenuOrderMode(t *testing.T) {
 
 func TestMenuRepository_Query_ParentIDPointerAndOrder(t *testing.T) {
 	mq := &menuMockQuerier{
-		countMenus: func(ctx context.Context, arg sqlc.CountMenusParams) (int64, error) { return 1, nil },
-		listMenus: func(ctx context.Context, arg sqlc.ListMenusParams) ([]sqlc.TMenu, error) {
-			return []sqlc.TMenu{{ID: "m1", Name: "n"}}, nil
+		countMenus: func(ctx context.Context, arg store.CountMenusParams) (int64, error) { return 1, nil },
+		listMenus: func(ctx context.Context, arg store.ListMenusParams) ([]store.TMenu, error) {
+			return []store.TMenu{{ID: "m1", Name: "n"}}, nil
 		},
 	}
 	repo := newTestMenuRepo(mq)
@@ -82,9 +82,9 @@ func TestMenuRepository_Query_ParentIDPointerAndOrder(t *testing.T) {
 
 func TestMenuRepository_Query_NilParentIDDisablesFilter(t *testing.T) {
 	mq := &menuMockQuerier{
-		countMenus: func(ctx context.Context, arg sqlc.CountMenusParams) (int64, error) { return 1, nil },
-		listMenus: func(ctx context.Context, arg sqlc.ListMenusParams) ([]sqlc.TMenu, error) {
-			return []sqlc.TMenu{{ID: "m1"}}, nil
+		countMenus: func(ctx context.Context, arg store.CountMenusParams) (int64, error) { return 1, nil },
+		listMenus: func(ctx context.Context, arg store.ListMenusParams) ([]store.TMenu, error) {
+			return []store.TMenu{{ID: "m1"}}, nil
 		},
 	}
 	repo := newTestMenuRepo(mq)

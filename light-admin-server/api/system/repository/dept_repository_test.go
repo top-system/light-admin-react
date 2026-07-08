@@ -10,46 +10,46 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
 )
 
-// deptMockQuerier implements only the sqlc.Querier methods exercised by the dept
+// deptMockQuerier implements only the store.Store methods exercised by the dept
 // repository tests. Unimplemented methods panic (nil embedded interface).
 type deptMockQuerier struct {
-	sqlc.Querier
+	store.Store
 
-	getDept          func(ctx context.Context, id string) (sqlc.TDept, error)
-	getDeptByCode    func(ctx context.Context, arg sqlc.GetDeptByCodeParams) (sqlc.TDept, error)
-	listDepts        func(ctx context.Context, arg sqlc.ListDeptsParams) ([]sqlc.TDept, error)
-	softDeleteByPath func(ctx context.Context, arg sqlc.SoftDeleteDeptByTreePathParams) error
+	getDept          func(ctx context.Context, id string) (store.TDept, error)
+	getDeptByCode    func(ctx context.Context, arg store.GetDeptByCodeParams) (store.TDept, error)
+	listDepts        func(ctx context.Context, arg store.ListDeptsParams) ([]store.TDept, error)
+	softDeleteByPath func(ctx context.Context, arg store.SoftDeleteDeptByTreePathParams) error
 
-	lastListParams       sqlc.ListDeptsParams
-	lastTreePathParams   sqlc.SoftDeleteDeptByTreePathParams
-	lastCreateDeptParams sqlc.CreateDeptParams
+	lastListParams       store.ListDeptsParams
+	lastTreePathParams   store.SoftDeleteDeptByTreePathParams
+	lastCreateDeptParams store.CreateDeptParams
 }
 
-func (m *deptMockQuerier) GetDept(ctx context.Context, id string) (sqlc.TDept, error) {
+func (m *deptMockQuerier) GetDept(ctx context.Context, id string) (store.TDept, error) {
 	return m.getDept(ctx, id)
 }
 
-func (m *deptMockQuerier) GetDeptByCode(ctx context.Context, arg sqlc.GetDeptByCodeParams) (sqlc.TDept, error) {
+func (m *deptMockQuerier) GetDeptByCode(ctx context.Context, arg store.GetDeptByCodeParams) (store.TDept, error) {
 	return m.getDeptByCode(ctx, arg)
 }
 
-func (m *deptMockQuerier) ListDepts(ctx context.Context, arg sqlc.ListDeptsParams) ([]sqlc.TDept, error) {
+func (m *deptMockQuerier) ListDepts(ctx context.Context, arg store.ListDeptsParams) ([]store.TDept, error) {
 	m.lastListParams = arg
 	return m.listDepts(ctx, arg)
 }
 
-func (m *deptMockQuerier) CreateDept(ctx context.Context, arg sqlc.CreateDeptParams) error {
+func (m *deptMockQuerier) CreateDept(ctx context.Context, arg store.CreateDeptParams) error {
 	m.lastCreateDeptParams = arg
 	return nil
 }
 
-func (m *deptMockQuerier) SoftDeleteDeptByTreePath(ctx context.Context, arg sqlc.SoftDeleteDeptByTreePathParams) error {
+func (m *deptMockQuerier) SoftDeleteDeptByTreePath(ctx context.Context, arg store.SoftDeleteDeptByTreePathParams) error {
 	m.lastTreePathParams = arg
 	if m.softDeleteByPath != nil {
 		return m.softDeleteByPath(ctx, arg)
@@ -57,13 +57,13 @@ func (m *deptMockQuerier) SoftDeleteDeptByTreePath(ctx context.Context, arg sqlc
 	return nil
 }
 
-func newTestDeptRepo(q sqlc.Querier) DeptRepository {
+func newTestDeptRepo(q store.Store) DeptRepository {
 	return DeptRepository{q: q, logger: lib.NopLogger()}
 }
 
-func sampleDeptRow() sqlc.TDept {
+func sampleDeptRow() store.TDept {
 	now := time.Date(2026, 7, 7, 9, 0, 0, 0, time.Local)
-	return sqlc.TDept{
+	return store.TDept{
 		ID:         "d1",
 		Name:       "研发部",
 		Code:       "RD",
@@ -78,7 +78,7 @@ func sampleDeptRow() sqlc.TDept {
 
 func TestDeptRepository_Get_MapsRow(t *testing.T) {
 	repo := newTestDeptRepo(&deptMockQuerier{
-		getDept: func(ctx context.Context, id string) (sqlc.TDept, error) {
+		getDept: func(ctx context.Context, id string) (store.TDept, error) {
 			assert.Equal(t, "d1", id)
 			return sampleDeptRow(), nil
 		},
@@ -94,8 +94,8 @@ func TestDeptRepository_Get_MapsRow(t *testing.T) {
 
 func TestDeptRepository_Get_NotFound(t *testing.T) {
 	repo := newTestDeptRepo(&deptMockQuerier{
-		getDept: func(ctx context.Context, id string) (sqlc.TDept, error) {
-			return sqlc.TDept{}, pgx.ErrNoRows
+		getDept: func(ctx context.Context, id string) (store.TDept, error) {
+			return store.TDept{}, pgx.ErrNoRows
 		},
 	})
 
@@ -105,8 +105,8 @@ func TestDeptRepository_Get_NotFound(t *testing.T) {
 
 func TestDeptRepository_GetByCode_NotFoundReturnsNil(t *testing.T) {
 	repo := newTestDeptRepo(&deptMockQuerier{
-		getDeptByCode: func(ctx context.Context, arg sqlc.GetDeptByCodeParams) (sqlc.TDept, error) {
-			return sqlc.TDept{}, pgx.ErrNoRows
+		getDeptByCode: func(ctx context.Context, arg store.GetDeptByCodeParams) (store.TDept, error) {
+			return store.TDept{}, pgx.ErrNoRows
 		},
 	})
 
@@ -118,7 +118,7 @@ func TestDeptRepository_GetByCode_NotFoundReturnsNil(t *testing.T) {
 
 func TestDeptRepository_GetByCode_PassesExcludeID(t *testing.T) {
 	mq := &deptMockQuerier{
-		getDeptByCode: func(ctx context.Context, arg sqlc.GetDeptByCodeParams) (sqlc.TDept, error) {
+		getDeptByCode: func(ctx context.Context, arg store.GetDeptByCodeParams) (store.TDept, error) {
 			require.NotNil(t, arg.ExcludeID)
 			assert.Equal(t, "d1", *arg.ExcludeID)
 			return sampleDeptRow(), nil
@@ -132,8 +132,8 @@ func TestDeptRepository_GetByCode_PassesExcludeID(t *testing.T) {
 
 func TestDeptRepository_Query_MapsFilters(t *testing.T) {
 	mq := &deptMockQuerier{
-		listDepts: func(ctx context.Context, arg sqlc.ListDeptsParams) ([]sqlc.TDept, error) {
-			return []sqlc.TDept{sampleDeptRow()}, nil
+		listDepts: func(ctx context.Context, arg store.ListDeptsParams) ([]store.TDept, error) {
+			return []store.TDept{sampleDeptRow()}, nil
 		},
 	}
 	repo := newTestDeptRepo(mq)

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/top-system/light-admin/api/system/repository"
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
@@ -281,7 +281,7 @@ func (a DeptService) DeleteByIds(ids string, deletedBy string) error {
 	idStrs := strings.Split(ids, ",")
 
 	// Delete every requested department (and its subtree) atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		deptRepo := a.deptRepository.WithTx(q)
 		for _, idStr := range idStrs {
 			id := strings.TrimSpace(idStr)

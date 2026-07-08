@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/top-system/light-admin/pkg/uuid"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	"github.com/top-system/light-admin/pkg/queue"
 )
 
@@ -20,20 +20,20 @@ import (
 // It maps queue.TaskModel <-> the sys_tasks row and preserves the previous GORM
 // behaviour: reads and writes ignore soft-deleted rows and Delete is a soft delete.
 type queueTaskRepository struct {
-	q *sqlc.Queries
+	q store.Store
 }
 
 // NewQueueTaskRepository builds the sqlc-backed queue.TaskRepository from the
 // pool-bound sqlc Queries. It is registered as an fx provider and consumed by
 // both the queue engine (ExtrasModule) and services that read task state.
-func NewQueueTaskRepository(q *sqlc.Queries) queue.TaskRepository {
+func NewQueueTaskRepository(q store.Store) queue.TaskRepository {
 	return &queueTaskRepository{q: q}
 }
 
 // Create inserts a new task and back-fills the generated ID and timestamps onto
 // the model so the engine can transition it to the persisted state.
 func (r *queueTaskRepository) Create(ctx context.Context, task *queue.TaskModel) error {
-	row, err := r.q.CreateQueueTask(ctx, sqlc.CreateQueueTaskParams{
+	row, err := r.q.CreateQueueTask(ctx, store.CreateQueueTaskParams{
 		Type:                   task.Type,
 		Status:                 string(task.Status),
 		CorrelationID:          task.CorrelationID.String(),
@@ -56,7 +56,7 @@ func (r *queueTaskRepository) Create(ctx context.Context, task *queue.TaskModel)
 
 // Update writes the current model state back to the (live) row.
 func (r *queueTaskRepository) Update(ctx context.Context, task *queue.TaskModel) error {
-	row, err := r.q.UpdateQueueTask(ctx, sqlc.UpdateQueueTaskParams{
+	row, err := r.q.UpdateQueueTask(ctx, store.UpdateQueueTaskParams{
 		ID:                     int64(task.ID),
 		Type:                   task.Type,
 		Status:                 string(task.Status),
@@ -116,7 +116,7 @@ func (r *queueTaskRepository) Delete(ctx context.Context, id uint64) error {
 }
 
 // toQueueModel maps a sys_tasks row to the framework-agnostic queue.TaskModel.
-func toQueueModel(row sqlc.SysTask) *queue.TaskModel {
+func toQueueModel(row store.SysTask) *queue.TaskModel {
 	var history queue.StringSlice
 	_ = history.Scan(row.PublicErrorHistory)
 

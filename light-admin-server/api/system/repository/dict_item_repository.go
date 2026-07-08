@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,13 +16,13 @@ import (
 
 // DictItemRepository is the sqlc/pgx-backed persistence layer for dictionary items.
 type DictItemRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewDictItemRepository creates a new dict item repository bound to the pool-level
 // Queries.
-func NewDictItemRepository(q *sqlc.Queries, logger lib.Logger) DictItemRepository {
+func NewDictItemRepository(q store.Store, logger lib.Logger) DictItemRepository {
 	return DictItemRepository{
 		q:      q,
 		logger: logger,
@@ -30,7 +30,7 @@ func NewDictItemRepository(q *sqlc.Queries, logger lib.Logger) DictItemRepositor
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a DictItemRepository) WithTx(q *sqlc.Queries) DictItemRepository {
+func (a DictItemRepository) WithTx(q store.Store) DictItemRepository {
 	a.q = q
 	return a
 }
@@ -48,7 +48,7 @@ func (a DictItemRepository) Query(param *system.DictItemQueryParam) (*system.Dic
 		keywords = ptr("%" + param.Keywords + "%")
 	}
 
-	total, err := a.q.CountDictItems(ctx, sqlc.CountDictItemsParams{DictCode: dictCode, Keywords: keywords})
+	total, err := a.q.CountDictItems(ctx, store.CountDictItemsParams{DictCode: dictCode, Keywords: keywords})
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
@@ -56,7 +56,7 @@ func (a DictItemRepository) Query(param *system.DictItemQueryParam) (*system.Dic
 	list := make(system.DictItems, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListDictItems(ctx, sqlc.ListDictItemsParams{
+		rows, err := a.q.ListDictItems(ctx, store.ListDictItemsParams{
 			DictCode: dictCode,
 			Keywords: keywords,
 			Limit:    limit,
@@ -112,7 +112,7 @@ func (a DictItemRepository) Create(item *system.DictItem) error {
 		item.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateDictItem(context.Background(), sqlc.CreateDictItemParams{
+	err := a.q.CreateDictItem(context.Background(), store.CreateDictItemParams{
 		ID:        item.ID,
 		DictCode:  item.DictCode,
 		Label:     item.Label,
@@ -133,7 +133,7 @@ func (a DictItemRepository) Create(item *system.DictItem) error {
 
 // Update 更新字典项
 func (a DictItemRepository) Update(id string, item *system.DictItem) error {
-	err := a.q.UpdateDictItem(context.Background(), sqlc.UpdateDictItemParams{
+	err := a.q.UpdateDictItem(context.Background(), store.UpdateDictItemParams{
 		ID:       id,
 		DictCode: item.DictCode,
 		Label:    item.Label,
@@ -152,7 +152,7 @@ func (a DictItemRepository) Update(id string, item *system.DictItem) error {
 
 // Delete 删除字典项（软删除）
 func (a DictItemRepository) Delete(id string, deletedBy string) error {
-	err := a.q.SoftDeleteDictItem(context.Background(), sqlc.SoftDeleteDictItemParams{
+	err := a.q.SoftDeleteDictItem(context.Background(), store.SoftDeleteDictItemParams{
 		ID:       id,
 		UpdateBy: deletedBy,
 	})
@@ -167,7 +167,7 @@ func (a DictItemRepository) DeleteByIDs(ids []string, deletedBy string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	err := a.q.SoftDeleteDictItemsByIDs(context.Background(), sqlc.SoftDeleteDictItemsByIDsParams{
+	err := a.q.SoftDeleteDictItemsByIDs(context.Background(), store.SoftDeleteDictItemsByIDsParams{
 		Ids:      ids,
 		UpdateBy: deletedBy,
 	})
@@ -182,7 +182,7 @@ func (a DictItemRepository) DeleteByDictCodes(dictCodes []string, deletedBy stri
 	if len(dictCodes) == 0 {
 		return nil
 	}
-	err := a.q.SoftDeleteDictItemsByDictCodes(context.Background(), sqlc.SoftDeleteDictItemsByDictCodesParams{
+	err := a.q.SoftDeleteDictItemsByDictCodes(context.Background(), store.SoftDeleteDictItemsByDictCodesParams{
 		DictCodes: dictCodes,
 		UpdateBy:  deletedBy,
 	})
@@ -192,7 +192,7 @@ func (a DictItemRepository) DeleteByDictCodes(dictCodes []string, deletedBy stri
 	return nil
 }
 
-func toDomainDictItem(r sqlc.TDictItem) *system.DictItem {
+func toDomainDictItem(r store.TDictItem) *system.DictItem {
 	return &system.DictItem{
 		ID:         r.ID,
 		DictCode:   r.DictCode,

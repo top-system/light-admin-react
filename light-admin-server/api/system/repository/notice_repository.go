@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -18,12 +18,12 @@ import (
 
 // NoticeRepository is the sqlc/pgx-backed persistence layer for notices.
 type NoticeRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewNoticeRepository creates a new notice repository bound to the pool-level Queries.
-func NewNoticeRepository(q *sqlc.Queries, logger lib.Logger) NoticeRepository {
+func NewNoticeRepository(q store.Store, logger lib.Logger) NoticeRepository {
 	return NoticeRepository{
 		q:      q,
 		logger: logger,
@@ -31,7 +31,7 @@ func NewNoticeRepository(q *sqlc.Queries, logger lib.Logger) NoticeRepository {
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a NoticeRepository) WithTx(q *sqlc.Queries) NoticeRepository {
+func (a NoticeRepository) WithTx(q store.Store) NoticeRepository {
 	a.q = q
 	return a
 }
@@ -53,7 +53,7 @@ func (a NoticeRepository) Query(param *system.NoticeQueryParam) (*system.NoticeQ
 		publishStatus = ptr(int32(*param.PublishStatus))
 	}
 
-	total, err := a.q.CountNotices(ctx, sqlc.CountNoticesParams{
+	total, err := a.q.CountNotices(ctx, store.CountNoticesParams{
 		Title:         title,
 		Type:          noticeType,
 		PublishStatus: publishStatus,
@@ -65,7 +65,7 @@ func (a NoticeRepository) Query(param *system.NoticeQueryParam) (*system.NoticeQ
 	list := make(system.Notices, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListNotices(ctx, sqlc.ListNoticesParams{
+		rows, err := a.q.ListNotices(ctx, store.ListNoticesParams{
 			Title:         title,
 			Type:          noticeType,
 			PublishStatus: publishStatus,
@@ -107,7 +107,7 @@ func (a NoticeRepository) Create(notice *system.Notice) error {
 		notice.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateNotice(context.Background(), sqlc.CreateNoticeParams{
+	err := a.q.CreateNotice(context.Background(), store.CreateNoticeParams{
 		ID:            notice.ID,
 		Title:         notice.Title,
 		Content:       notice.Content,
@@ -127,7 +127,7 @@ func (a NoticeRepository) Create(notice *system.Notice) error {
 
 // Update updates the mutable content fields of a notice.
 func (a NoticeRepository) Update(id string, notice *system.Notice) error {
-	err := a.q.UpdateNotice(context.Background(), sqlc.UpdateNoticeParams{
+	err := a.q.UpdateNotice(context.Background(), store.UpdateNoticeParams{
 		ID:            id,
 		Title:         notice.Title,
 		Content:       notice.Content,
@@ -146,7 +146,7 @@ func (a NoticeRepository) Update(id string, notice *system.Notice) error {
 // UpdateStatus updates the publish status, stamping publish_time when publishing
 // (status == 1) or revoke_time when revoking (status == -1).
 func (a NoticeRepository) UpdateStatus(id string, status int, publisherId string) error {
-	params := sqlc.UpdateNoticeStatusParams{
+	params := store.UpdateNoticeStatusParams{
 		ID:            id,
 		PublishStatus: int32(status),
 		PublisherID:   publisherId,
@@ -174,7 +174,7 @@ func (a NoticeRepository) BatchDelete(ids []string, deletedBy string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	err := a.q.SoftDeleteNoticesByIDs(context.Background(), sqlc.SoftDeleteNoticesByIDsParams{
+	err := a.q.SoftDeleteNoticesByIDs(context.Background(), store.SoftDeleteNoticesByIDsParams{
 		Ids:      ids,
 		UpdateBy: deletedBy,
 	})
@@ -184,7 +184,7 @@ func (a NoticeRepository) BatchDelete(ids []string, deletedBy string) error {
 	return nil
 }
 
-func toDomainNotice(r sqlc.TNotice) *system.Notice {
+func toDomainNotice(r store.TNotice) *system.Notice {
 	return &system.Notice{
 		ID:            r.ID,
 		Title:         r.Title,

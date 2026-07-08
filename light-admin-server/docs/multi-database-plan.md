@@ -256,12 +256,26 @@ UTC 文本、Go 侧转换。**三引擎的时间语义以「Go 侧 time.Time 正
 
 ### 阶段一:解耦(行为不变,可独立合并)
 
-- [ ] 新建 `db/store`:接口 + 中立结构体 + TxManager 接口;
-- [ ] `tools/gen-store` 生成器;`db/sqlc` → `db/pg`,包一层 `pgstore`;
-- [ ] 29 个 repository 依赖 `*sqlc.Queries` → `store.Store`(84 处引用,机械替换);
-- [ ] 22 处 `RunInTx` 回调签名切换;
+拆成两个 PR:**1a 纯解耦**(引入 store 抽象层,行为逐字不变)先落地,**1b 时间/类型收敛**
+(`NOW()` 传参 + `pgx.ErrNoRows`/`pgtype` 出 repository)随后。理由:1b 触碰时间语义与中立类型,
+需独立的时间字段断言复核,与纯机械解耦分开评审更安全。
+
+**1a 纯解耦(已完成,分支 `feat/multi-db-phase1`):**
+
+- [x] 新建 `db/store`:`Store` 接口(141 方法)+ 中立结构体(106 个,`pgtype` 逐字保留)+ `TxManager` 接口;
+- [x] `tools/gen-store` 生成器(读 `db/pg` AST 吐 `store` 接口/模型 + `pgstore` 适配层);`make gen-store` 接入;
+- [x] `db/sqlc`(package `sqlc`)→ `db/pg`(package `pg`),`sqlc.yaml` 同步;`pgstore` 适配层实现 `store.Store`;
+- [x] 29 个 repository + 6 service + `cmd/setup` + `lib/queue_repository` 全量 `sqlc.*` → `store.*`(~317 处引用);
+- [x] `lib.NewQueries` → `lib.NewStore`(返回 `store.Store`);`TxManager.RunInTx` 回调签名 `*sqlc.Queries` → `store.Store`(21 处调用点);
+- [x] 全量 `go build` / `go test` 通过(仅 `pkg/file.TestEnsureDir` 预存在失败,与本改动无关),行为与 main 一致。
+
+**1b 时间/类型收敛(待办,后续 PR):**
+
 - [ ] 53 处 `NOW()` 改 Go 传参(query + repository 两侧);
-- [ ] 全量测试通过,行为与 main 一致。
+- [ ] 引入 `store.ErrNoRows`,`pgstore` 适配层翻译 `pgx.ErrNoRows`,repository 不再直接 import `pgx`;
+- [ ] 中立时间字段 `pgtype.Timestamptz` → `time.Time`(§4 收敛目标),repository 不再直接 import `pgtype`;
+      清空 depguard `business-layers` 的 5 条 warn-phase 存量告警;
+- [ ] 目录平移:`db/migrations` → `db/migrations/postgres`、`db/queries` → `db/queries/postgres`(为阶段二/三多引擎目录腾位)。
 
 ### 阶段二:SQLite
 

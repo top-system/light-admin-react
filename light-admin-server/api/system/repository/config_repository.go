@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,12 +16,12 @@ import (
 
 // ConfigRepository is the sqlc/pgx-backed persistence layer for system configs.
 type ConfigRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewConfigRepository creates a new config repository bound to the pool-level Queries.
-func NewConfigRepository(q *sqlc.Queries, logger lib.Logger) ConfigRepository {
+func NewConfigRepository(q store.Store, logger lib.Logger) ConfigRepository {
 	return ConfigRepository{
 		q:      q,
 		logger: logger,
@@ -29,7 +29,7 @@ func NewConfigRepository(q *sqlc.Queries, logger lib.Logger) ConfigRepository {
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a ConfigRepository) WithTx(q *sqlc.Queries) ConfigRepository {
+func (a ConfigRepository) WithTx(q store.Store) ConfigRepository {
 	a.q = q
 	return a
 }
@@ -51,7 +51,7 @@ func (a ConfigRepository) Query(param *system.ConfigQueryParam) (*system.ConfigQ
 	list := make(system.Configs, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListConfigs(ctx, sqlc.ListConfigsParams{Keywords: keywords, Limit: limit, Offset: offset})
+		rows, err := a.q.ListConfigs(ctx, store.ListConfigsParams{Keywords: keywords, Limit: limit, Offset: offset})
 		if err != nil {
 			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 		}
@@ -106,7 +106,7 @@ func (a ConfigRepository) GetAll() (system.Configs, error) {
 }
 
 func (a ConfigRepository) ExistsByKey(key string, excludeID string) (bool, error) {
-	params := sqlc.CountConfigsByKeyParams{ConfigKey: key}
+	params := store.CountConfigsByKeyParams{ConfigKey: key}
 	if excludeID != "" {
 		params.ExcludeID = ptr(excludeID)
 	}
@@ -124,7 +124,7 @@ func (a ConfigRepository) Create(config *system.Config) error {
 		config.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateConfig(context.Background(), sqlc.CreateConfigParams{
+	err := a.q.CreateConfig(context.Background(), store.CreateConfigParams{
 		ID:          config.ID,
 		ConfigName:  config.ConfigName,
 		ConfigKey:   config.ConfigKey,
@@ -142,7 +142,7 @@ func (a ConfigRepository) Create(config *system.Config) error {
 
 // Update updates the mutable fields of a config.
 func (a ConfigRepository) Update(id string, config *system.Config) error {
-	err := a.q.UpdateConfig(context.Background(), sqlc.UpdateConfigParams{
+	err := a.q.UpdateConfig(context.Background(), store.UpdateConfigParams{
 		ID:          id,
 		ConfigName:  config.ConfigName,
 		ConfigKey:   config.ConfigKey,
@@ -158,7 +158,7 @@ func (a ConfigRepository) Update(id string, config *system.Config) error {
 
 // Delete soft-deletes a config.
 func (a ConfigRepository) Delete(id string, deletedBy string) error {
-	err := a.q.SoftDeleteConfig(context.Background(), sqlc.SoftDeleteConfigParams{
+	err := a.q.SoftDeleteConfig(context.Background(), store.SoftDeleteConfigParams{
 		ID:       id,
 		UpdateBy: deletedBy,
 	})
@@ -168,7 +168,7 @@ func (a ConfigRepository) Delete(id string, deletedBy string) error {
 	return nil
 }
 
-func toDomainConfig(r sqlc.TConfig) *system.Config {
+func toDomainConfig(r store.TConfig) *system.Config {
 	return &system.Config{
 		ID:          r.ID,
 		ConfigName:  r.ConfigName,

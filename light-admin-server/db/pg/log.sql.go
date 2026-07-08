@@ -3,7 +3,7 @@
 //   sqlc v1.31.1
 // source: log.sql
 
-package sqlc
+package pg
 
 import (
 	"context"

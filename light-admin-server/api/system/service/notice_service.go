@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/top-system/light-admin/api/system/repository"
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -172,7 +172,7 @@ func (a NoticeService) Delete(ids string, deletedBy string) error {
 	}
 
 	// Delete the notices and their per-user state atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		if err := a.noticeRepository.WithTx(q).BatchDelete(idList, deletedBy); err != nil {
 			return err
 		}
@@ -242,7 +242,7 @@ func (a NoticeService) Publish(id string, publisherId string) error {
 
 	// Publish the notice, clear any prior recipient state (re-publish), and fan out
 	// the new per-user records atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		if err := a.noticeRepository.WithTx(q).UpdateStatus(id, 1, publisherId); err != nil {
 			return err
 		}
@@ -269,7 +269,7 @@ func (a NoticeService) Revoke(id string, updatedBy string) error {
 	}
 
 	// Revoke the notice and clear its per-user state atomically.
-	return a.txManager.RunInTx(context.Background(), func(q *sqlc.Queries) error {
+	return a.txManager.RunInTx(context.Background(), func(q store.Store) error {
 		if err := a.noticeRepository.WithTx(q).UpdateStatus(id, -1, updatedBy); err != nil {
 			return err
 		}

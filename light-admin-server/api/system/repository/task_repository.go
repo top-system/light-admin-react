@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -21,17 +21,17 @@ import (
 // uses soft-delete): the admin side neither filters nor sets deleted_at, mirroring
 // the previous models/system.Task GORM behaviour (that model has no DeletedAt).
 type TaskRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewTaskRepository creates a new task repository bound to the pool-level Queries.
-func NewTaskRepository(q *sqlc.Queries, logger lib.Logger) TaskRepository {
+func NewTaskRepository(q store.Store, logger lib.Logger) TaskRepository {
 	return TaskRepository{q: q, logger: logger}
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a TaskRepository) WithTx(q *sqlc.Queries) TaskRepository {
+func (a TaskRepository) WithTx(q store.Store) TaskRepository {
 	a.q = q
 	return a
 }
@@ -56,7 +56,7 @@ func (a TaskRepository) Query(param *system.TaskQueryParam) (*system.TaskQueryRe
 	createFrom := startOfDayFilter(param.CreateTimeFrom)
 	createTo := endOfDayFilter(param.CreateTimeTo)
 
-	total, err := a.q.CountTasks(ctx, sqlc.CountTasksParams{
+	total, err := a.q.CountTasks(ctx, store.CountTasksParams{
 		Type:          taskType,
 		Status:        status,
 		CorrelationID: correlationID,
@@ -71,7 +71,7 @@ func (a TaskRepository) Query(param *system.TaskQueryParam) (*system.TaskQueryRe
 	list := make(system.Tasks, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListTasks(ctx, sqlc.ListTasksParams{
+		rows, err := a.q.ListTasks(ctx, store.ListTasksParams{
 			Type:          taskType,
 			Status:        status,
 			CorrelationID: correlationID,
@@ -173,7 +173,7 @@ func (a TaskRepository) GetStatusCounts() (*system.TaskStatsVO, error) {
 	return stats, nil
 }
 
-func toDomainTask(r sqlc.SysTask) *system.Task {
+func toDomainTask(r store.SysTask) *system.Task {
 	return &system.Task{
 		ID:               uint64(r.ID),
 		Type:             r.Type,

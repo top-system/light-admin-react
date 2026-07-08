@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,16 +16,16 @@ import (
 
 // RoleRepository is the sqlc/pgx-backed persistence layer for roles.
 //
-// It holds a sqlc.Querier (the pool-bound *sqlc.Queries by default). Within a
+// It holds a store.Store (the pool-bound store.Store by default). Within a
 // transaction, callers obtain a transaction-scoped copy via WithTx so every
 // statement runs on the same pgx transaction.
 type RoleRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewRoleRepository creates a new role repository bound to the pool-level Queries.
-func NewRoleRepository(q *sqlc.Queries, logger lib.Logger) RoleRepository {
+func NewRoleRepository(q store.Store, logger lib.Logger) RoleRepository {
 	return RoleRepository{
 		q:      q,
 		logger: logger,
@@ -35,7 +35,7 @@ func NewRoleRepository(q *sqlc.Queries, logger lib.Logger) RoleRepository {
 // WithTx returns a copy of the repository bound to the given transaction-scoped
 // Queries. Use it inside lib.TxManager.RunInTx to share a single transaction
 // across multiple repositories.
-func (a RoleRepository) WithTx(q *sqlc.Queries) RoleRepository {
+func (a RoleRepository) WithTx(q store.Store) RoleRepository {
 	a.q = q
 	return a
 }
@@ -108,7 +108,7 @@ func (a RoleRepository) Create(role *system.Role) error {
 		role.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateRole(context.Background(), sqlc.CreateRoleParams{
+	err := a.q.CreateRole(context.Background(), store.CreateRoleParams{
 		ID:        role.ID,
 		Name:      role.Name,
 		Code:      role.Code,
@@ -128,7 +128,7 @@ func (a RoleRepository) Create(role *system.Role) error {
 // Update updates the mutable fields of a role (mirrors the previous Select-scoped
 // GORM update: name, code, sort, status, data_scope, update_by).
 func (a RoleRepository) Update(id string, role *system.Role) error {
-	err := a.q.UpdateRole(context.Background(), sqlc.UpdateRoleParams{
+	err := a.q.UpdateRole(context.Background(), store.UpdateRoleParams{
 		ID:        id,
 		Name:      role.Name,
 		Code:      role.Code,
@@ -153,7 +153,7 @@ func (a RoleRepository) Delete(id string) error {
 
 // UpdateStatus updates a role's status.
 func (a RoleRepository) UpdateStatus(id string, status int) error {
-	err := a.q.UpdateRoleStatus(context.Background(), sqlc.UpdateRoleStatusParams{
+	err := a.q.UpdateRoleStatus(context.Background(), store.UpdateRoleStatusParams{
 		ID:     id,
 		Status: int32(status),
 	})
@@ -198,8 +198,8 @@ func newRoleFilter(param *system.RoleQueryParam) roleFilter {
 	return f
 }
 
-func (f roleFilter) list(limit, offset *int32) sqlc.ListRolesParams {
-	return sqlc.ListRolesParams{
+func (f roleFilter) list(limit, offset *int32) store.ListRolesParams {
+	return store.ListRolesParams{
 		Ids:        f.ids,
 		Name:       f.name,
 		Code:       f.code,
@@ -211,8 +211,8 @@ func (f roleFilter) list(limit, offset *int32) sqlc.ListRolesParams {
 	}
 }
 
-func (f roleFilter) count() sqlc.CountRolesParams {
-	return sqlc.CountRolesParams{
+func (f roleFilter) count() store.CountRolesParams {
+	return store.CountRolesParams{
 		Ids:        f.ids,
 		Name:       f.name,
 		Code:       f.code,
@@ -222,7 +222,7 @@ func (f roleFilter) count() sqlc.CountRolesParams {
 	}
 }
 
-func toDomainRole(r sqlc.TRole) *system.Role {
+func toDomainRole(r store.TRole) *system.Role {
 	return &system.Role{
 		ID:         r.ID,
 		Name:       r.Name,

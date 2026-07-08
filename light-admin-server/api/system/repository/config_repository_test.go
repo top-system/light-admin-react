@@ -8,37 +8,37 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 )
 
 type configMockQuerier struct {
-	sqlc.Querier
+	store.Store
 
-	getConfig        func(ctx context.Context, id string) (sqlc.TConfig, error)
-	countConfigsByID func(ctx context.Context, arg sqlc.CountConfigsByKeyParams) (int64, error)
+	getConfig        func(ctx context.Context, id string) (store.TConfig, error)
+	countConfigsByID func(ctx context.Context, arg store.CountConfigsByKeyParams) (int64, error)
 
-	lastCountArgs sqlc.CountConfigsByKeyParams
+	lastCountArgs store.CountConfigsByKeyParams
 }
 
-func (m *configMockQuerier) GetConfig(ctx context.Context, id string) (sqlc.TConfig, error) {
+func (m *configMockQuerier) GetConfig(ctx context.Context, id string) (store.TConfig, error) {
 	return m.getConfig(ctx, id)
 }
 
-func (m *configMockQuerier) CountConfigsByKey(ctx context.Context, arg sqlc.CountConfigsByKeyParams) (int64, error) {
+func (m *configMockQuerier) CountConfigsByKey(ctx context.Context, arg store.CountConfigsByKeyParams) (int64, error) {
 	m.lastCountArgs = arg
 	return m.countConfigsByID(ctx, arg)
 }
 
-func newTestConfigRepo(q sqlc.Querier) ConfigRepository {
+func newTestConfigRepo(q store.Store) ConfigRepository {
 	return ConfigRepository{q: q, logger: lib.NopLogger()}
 }
 
 func TestConfigRepository_Get_NotFound(t *testing.T) {
 	repo := newTestConfigRepo(&configMockQuerier{
-		getConfig: func(ctx context.Context, id string) (sqlc.TConfig, error) {
-			return sqlc.TConfig{}, pgx.ErrNoRows
+		getConfig: func(ctx context.Context, id string) (store.TConfig, error) {
+			return store.TConfig{}, pgx.ErrNoRows
 		},
 	})
 	_, err := repo.Get("x")
@@ -47,7 +47,7 @@ func TestConfigRepository_Get_NotFound(t *testing.T) {
 
 func TestConfigRepository_ExistsByKey_PassesExcludeID(t *testing.T) {
 	mq := &configMockQuerier{
-		countConfigsByID: func(ctx context.Context, arg sqlc.CountConfigsByKeyParams) (int64, error) {
+		countConfigsByID: func(ctx context.Context, arg store.CountConfigsByKeyParams) (int64, error) {
 			return 1, nil
 		},
 	}
@@ -63,7 +63,7 @@ func TestConfigRepository_ExistsByKey_PassesExcludeID(t *testing.T) {
 
 func TestConfigRepository_ExistsByKey_NoExcludeIsNil(t *testing.T) {
 	mq := &configMockQuerier{
-		countConfigsByID: func(ctx context.Context, arg sqlc.CountConfigsByKeyParams) (int64, error) {
+		countConfigsByID: func(ctx context.Context, arg store.CountConfigsByKeyParams) (int64, error) {
 			return 0, nil
 		},
 	}

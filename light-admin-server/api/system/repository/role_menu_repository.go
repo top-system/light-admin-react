@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
@@ -12,13 +12,13 @@ import (
 // RoleMenuRepository is the sqlc/pgx-backed persistence layer for the role<->menu
 // association table (t_role_menu).
 type RoleMenuRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewRoleMenuRepository creates a new role menu repository bound to the pool-level
 // Queries.
-func NewRoleMenuRepository(q *sqlc.Queries, logger lib.Logger) RoleMenuRepository {
+func NewRoleMenuRepository(q store.Store, logger lib.Logger) RoleMenuRepository {
 	return RoleMenuRepository{
 		q:      q,
 		logger: logger,
@@ -27,7 +27,7 @@ func NewRoleMenuRepository(q *sqlc.Queries, logger lib.Logger) RoleMenuRepositor
 
 // WithTx returns a copy bound to the given transaction-scoped Queries. Used to
 // share a single pgx transaction across repositories via lib.TxManager.RunInTx.
-func (a RoleMenuRepository) WithTx(q *sqlc.Queries) RoleMenuRepository {
+func (a RoleMenuRepository) WithTx(q store.Store) RoleMenuRepository {
 	a.q = q
 	return a
 }
@@ -54,7 +54,7 @@ func (a RoleMenuRepository) BatchCreate(roleMenus []*system.RoleMenu) error {
 		menuIDs[i] = rm.MenuID
 	}
 
-	err := a.q.BatchCreateRoleMenus(context.Background(), sqlc.BatchCreateRoleMenusParams{
+	err := a.q.BatchCreateRoleMenus(context.Background(), store.BatchCreateRoleMenusParams{
 		RoleIds: roleIDs,
 		MenuIds: menuIDs,
 	})

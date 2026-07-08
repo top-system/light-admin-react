@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,12 +16,12 @@ import (
 
 // MenuRepository is the sqlc/pgx-backed persistence layer for menus.
 type MenuRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewMenuRepository creates a new menu repository bound to the pool-level Queries.
-func NewMenuRepository(q *sqlc.Queries, logger lib.Logger) MenuRepository {
+func NewMenuRepository(q store.Store, logger lib.Logger) MenuRepository {
 	return MenuRepository{
 		q:      q,
 		logger: logger,
@@ -29,7 +29,7 @@ func NewMenuRepository(q *sqlc.Queries, logger lib.Logger) MenuRepository {
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a MenuRepository) WithTx(q *sqlc.Queries) MenuRepository {
+func (a MenuRepository) WithTx(q store.Store) MenuRepository {
 	a.q = q
 	return a
 }
@@ -93,7 +93,7 @@ func (a MenuRepository) Create(menu *system.Menu) error {
 		menu.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateMenu(context.Background(), sqlc.CreateMenuParams{
+	err := a.q.CreateMenu(context.Background(), store.CreateMenuParams{
 		ID:         menu.ID,
 		ParentID:   menu.ParentID,
 		TreePath:   menu.TreePath,
@@ -120,7 +120,7 @@ func (a MenuRepository) Create(menu *system.Menu) error {
 // Update updates the mutable fields of a menu (mirrors the previous Select-scoped
 // GORM update).
 func (a MenuRepository) Update(id string, menu *system.Menu) error {
-	err := a.q.UpdateMenu(context.Background(), sqlc.UpdateMenuParams{
+	err := a.q.UpdateMenu(context.Background(), store.UpdateMenuParams{
 		ID:         id,
 		ParentID:   menu.ParentID,
 		TreePath:   menu.TreePath,
@@ -153,7 +153,7 @@ func (a MenuRepository) Delete(id string) error {
 }
 
 func (a MenuRepository) UpdateVisible(id string, visible int) error {
-	err := a.q.UpdateMenuVisible(context.Background(), sqlc.UpdateMenuVisibleParams{
+	err := a.q.UpdateMenuVisible(context.Background(), store.UpdateMenuVisibleParams{
 		ID:      id,
 		Visible: int32(visible),
 	})
@@ -164,7 +164,7 @@ func (a MenuRepository) UpdateVisible(id string, visible int) error {
 }
 
 func (a MenuRepository) UpdateTreePath(id string, treePath string) error {
-	err := a.q.UpdateMenuTreePath(context.Background(), sqlc.UpdateMenuTreePathParams{
+	err := a.q.UpdateMenuTreePath(context.Background(), store.UpdateMenuTreePathParams{
 		ID:       id,
 		TreePath: treePath,
 	})
@@ -245,8 +245,8 @@ func newMenuFilter(param *system.MenuQueryParam) menuFilter {
 	return f
 }
 
-func (f menuFilter) list(orderBy int32, limit, offset *int32) sqlc.ListMenusParams {
-	return sqlc.ListMenusParams{
+func (f menuFilter) list(orderBy int32, limit, offset *int32) store.ListMenusParams {
+	return store.ListMenusParams{
 		Ids:            f.ids,
 		Name:           f.name,
 		ParentID:       f.parentID,
@@ -260,8 +260,8 @@ func (f menuFilter) list(orderBy int32, limit, offset *int32) sqlc.ListMenusPara
 	}
 }
 
-func (f menuFilter) count() sqlc.CountMenusParams {
-	return sqlc.CountMenusParams{
+func (f menuFilter) count() store.CountMenusParams {
+	return store.CountMenusParams{
 		Ids:            f.ids,
 		Name:           f.name,
 		ParentID:       f.parentID,
@@ -272,7 +272,7 @@ func (f menuFilter) count() sqlc.CountMenusParams {
 	}
 }
 
-func toDomainMenu(r sqlc.TMenu) *system.Menu {
+func toDomainMenu(r store.TMenu) *system.Menu {
 	return &system.Menu{
 		ID:         r.ID,
 		ParentID:   r.ParentID,

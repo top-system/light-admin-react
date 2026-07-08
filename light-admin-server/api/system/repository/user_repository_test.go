@@ -10,48 +10,48 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
 )
 
-// mockQuerier implements only the sqlc.Querier methods exercised by the tests.
+// mockQuerier implements only the store.Store methods exercised by the tests.
 // Unimplemented methods stay nil (embedded interface) and panic if ever called,
 // which keeps the mock honest about what each test actually depends on.
 type mockQuerier struct {
-	sqlc.Querier
+	store.Store
 
-	getUser    func(ctx context.Context, id string) (sqlc.TUser, error)
-	listUsers  func(ctx context.Context, arg sqlc.ListUsersParams) ([]sqlc.TUser, error)
-	countUsers func(ctx context.Context, arg sqlc.CountUsersParams) (int64, error)
+	getUser    func(ctx context.Context, id string) (store.TUser, error)
+	listUsers  func(ctx context.Context, arg store.ListUsersParams) ([]store.TUser, error)
+	countUsers func(ctx context.Context, arg store.CountUsersParams) (int64, error)
 
-	lastListParams  sqlc.ListUsersParams
-	lastCountParams sqlc.CountUsersParams
+	lastListParams  store.ListUsersParams
+	lastCountParams store.CountUsersParams
 }
 
-func (m *mockQuerier) GetUser(ctx context.Context, id string) (sqlc.TUser, error) {
+func (m *mockQuerier) GetUser(ctx context.Context, id string) (store.TUser, error) {
 	return m.getUser(ctx, id)
 }
 
-func (m *mockQuerier) ListUsers(ctx context.Context, arg sqlc.ListUsersParams) ([]sqlc.TUser, error) {
+func (m *mockQuerier) ListUsers(ctx context.Context, arg store.ListUsersParams) ([]store.TUser, error) {
 	m.lastListParams = arg
 	return m.listUsers(ctx, arg)
 }
 
-func (m *mockQuerier) CountUsers(ctx context.Context, arg sqlc.CountUsersParams) (int64, error) {
+func (m *mockQuerier) CountUsers(ctx context.Context, arg store.CountUsersParams) (int64, error) {
 	m.lastCountParams = arg
 	return m.countUsers(ctx, arg)
 }
 
-func newTestUserRepo(q sqlc.Querier) UserRepository {
+func newTestUserRepo(q store.Store) UserRepository {
 	return UserRepository{q: q, logger: lib.NopLogger()}
 }
 
-func sampleRow() sqlc.TUser {
+func sampleRow() store.TUser {
 	now := time.Date(2026, 7, 6, 10, 30, 0, 0, time.Local)
-	return sqlc.TUser{
+	return store.TUser{
 		ID:         "u1",
 		Username:   "alice",
 		Nickname:   "Alice",
@@ -70,7 +70,7 @@ func sampleRow() sqlc.TUser {
 func TestUserRepository_Get_MapsRow(t *testing.T) {
 	row := sampleRow()
 	repo := newTestUserRepo(&mockQuerier{
-		getUser: func(ctx context.Context, id string) (sqlc.TUser, error) {
+		getUser: func(ctx context.Context, id string) (store.TUser, error) {
 			assert.Equal(t, "u1", id)
 			return row, nil
 		},
@@ -88,8 +88,8 @@ func TestUserRepository_Get_MapsRow(t *testing.T) {
 
 func TestUserRepository_Get_NotFound(t *testing.T) {
 	repo := newTestUserRepo(&mockQuerier{
-		getUser: func(ctx context.Context, id string) (sqlc.TUser, error) {
-			return sqlc.TUser{}, pgx.ErrNoRows
+		getUser: func(ctx context.Context, id string) (store.TUser, error) {
+			return store.TUser{}, pgx.ErrNoRows
 		},
 	})
 
@@ -99,11 +99,11 @@ func TestUserRepository_Get_NotFound(t *testing.T) {
 
 func TestUserRepository_Query_BlanksPasswordAndPaginates(t *testing.T) {
 	mq := &mockQuerier{
-		countUsers: func(ctx context.Context, arg sqlc.CountUsersParams) (int64, error) {
+		countUsers: func(ctx context.Context, arg store.CountUsersParams) (int64, error) {
 			return 1, nil
 		},
-		listUsers: func(ctx context.Context, arg sqlc.ListUsersParams) ([]sqlc.TUser, error) {
-			return []sqlc.TUser{sampleRow()}, nil
+		listUsers: func(ctx context.Context, arg store.ListUsersParams) ([]store.TUser, error) {
+			return []store.TUser{sampleRow()}, nil
 		},
 	}
 	repo := newTestUserRepo(mq)
@@ -127,9 +127,9 @@ func TestUserRepository_Query_BlanksPasswordAndPaginates(t *testing.T) {
 
 func TestUserRepository_Query_KeepsPasswordWhenRequested(t *testing.T) {
 	mq := &mockQuerier{
-		countUsers: func(ctx context.Context, arg sqlc.CountUsersParams) (int64, error) { return 1, nil },
-		listUsers: func(ctx context.Context, arg sqlc.ListUsersParams) ([]sqlc.TUser, error) {
-			return []sqlc.TUser{sampleRow()}, nil
+		countUsers: func(ctx context.Context, arg store.CountUsersParams) (int64, error) { return 1, nil },
+		listUsers: func(ctx context.Context, arg store.ListUsersParams) ([]store.TUser, error) {
+			return []store.TUser{sampleRow()}, nil
 		},
 	}
 	repo := newTestUserRepo(mq)
@@ -143,8 +143,8 @@ func TestUserRepository_Query_KeepsPasswordWhenRequested(t *testing.T) {
 func TestUserRepository_Query_EmptyResultSkipsList(t *testing.T) {
 	listCalled := false
 	repo := newTestUserRepo(&mockQuerier{
-		countUsers: func(ctx context.Context, arg sqlc.CountUsersParams) (int64, error) { return 0, nil },
-		listUsers: func(ctx context.Context, arg sqlc.ListUsersParams) ([]sqlc.TUser, error) {
+		countUsers: func(ctx context.Context, arg store.CountUsersParams) (int64, error) { return 0, nil },
+		listUsers: func(ctx context.Context, arg store.ListUsersParams) ([]store.TUser, error) {
 			listCalled = true
 			return nil, nil
 		},

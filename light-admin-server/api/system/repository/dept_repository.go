@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,12 +16,12 @@ import (
 
 // DeptRepository is the sqlc/pgx-backed persistence layer for departments.
 type DeptRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewDeptRepository creates a new dept repository bound to the pool-level Queries.
-func NewDeptRepository(q *sqlc.Queries, logger lib.Logger) DeptRepository {
+func NewDeptRepository(q store.Store, logger lib.Logger) DeptRepository {
 	return DeptRepository{
 		q:      q,
 		logger: logger,
@@ -29,7 +29,7 @@ func NewDeptRepository(q *sqlc.Queries, logger lib.Logger) DeptRepository {
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a DeptRepository) WithTx(q *sqlc.Queries) DeptRepository {
+func (a DeptRepository) WithTx(q store.Store) DeptRepository {
 	a.q = q
 	return a
 }
@@ -45,7 +45,7 @@ func (a DeptRepository) Query(param *system.DeptQueryParam) (system.Depts, error
 		status = ptr(int32(*param.Status))
 	}
 
-	rows, err := a.q.ListDepts(context.Background(), sqlc.ListDeptsParams{
+	rows, err := a.q.ListDepts(context.Background(), store.ListDeptsParams{
 		Keywords: keywords,
 		Status:   status,
 	})
@@ -75,7 +75,7 @@ func (a DeptRepository) Get(id string) (*system.Dept, error) {
 // GetByCode 根据编码获取部门. Returns (nil, nil) when no matching department
 // exists, preserving the previous behaviour used by uniqueness checks.
 func (a DeptRepository) GetByCode(code string, excludeID ...string) (*system.Dept, error) {
-	params := sqlc.GetDeptByCodeParams{Code: code}
+	params := store.GetDeptByCodeParams{Code: code}
 	if len(excludeID) > 0 && excludeID[0] != "" {
 		params.ExcludeID = ptr(excludeID[0])
 	}
@@ -96,7 +96,7 @@ func (a DeptRepository) Create(dept *system.Dept) error {
 		dept.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateDept(context.Background(), sqlc.CreateDeptParams{
+	err := a.q.CreateDept(context.Background(), store.CreateDeptParams{
 		ID:        dept.ID,
 		Name:      dept.Name,
 		Code:      dept.Code,
@@ -116,7 +116,7 @@ func (a DeptRepository) Create(dept *system.Dept) error {
 
 // Update 更新部门 (name, code, parent_id, tree_path, sort, status, update_by).
 func (a DeptRepository) Update(id string, dept *system.Dept) error {
-	err := a.q.UpdateDept(context.Background(), sqlc.UpdateDeptParams{
+	err := a.q.UpdateDept(context.Background(), store.UpdateDeptParams{
 		ID:       id,
 		Name:     dept.Name,
 		Code:     dept.Code,
@@ -134,7 +134,7 @@ func (a DeptRepository) Update(id string, dept *system.Dept) error {
 
 // Delete 删除部门（软删除）
 func (a DeptRepository) Delete(id string, deletedBy string) error {
-	err := a.q.SoftDeleteDept(context.Background(), sqlc.SoftDeleteDeptParams{
+	err := a.q.SoftDeleteDept(context.Background(), store.SoftDeleteDeptParams{
 		ID:       id,
 		UpdateBy: deletedBy,
 	})
@@ -146,7 +146,7 @@ func (a DeptRepository) Delete(id string, deletedBy string) error {
 
 // DeleteByTreePath 根据tree_path删除部门及子部门
 func (a DeptRepository) DeleteByTreePath(deptId string, deletedBy string) error {
-	err := a.q.SoftDeleteDeptByTreePath(context.Background(), sqlc.SoftDeleteDeptByTreePathParams{
+	err := a.q.SoftDeleteDeptByTreePath(context.Background(), store.SoftDeleteDeptByTreePathParams{
 		ID:           deptId,
 		UpdateBy:     deletedBy,
 		TreePathLike: "%," + deptId + ",%",
@@ -190,7 +190,7 @@ func (a DeptRepository) GetByIDs(ids []string) (map[string]*system.Dept, error) 
 	return result, nil
 }
 
-func toDomainDept(r sqlc.TDept) *system.Dept {
+func toDomainDept(r store.TDept) *system.Dept {
 	return &system.Dept{
 		ID:         r.ID,
 		Name:       r.Name,

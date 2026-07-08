@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -18,16 +18,16 @@ import (
 
 // UserRepository is the sqlc/pgx-backed persistence layer for users.
 //
-// It holds a sqlc.Querier (the pool-bound *sqlc.Queries by default). Within a
+// It holds a store.Store (the pool-bound store.Store by default). Within a
 // transaction, callers obtain a transaction-scoped copy via WithTx so every
 // statement runs on the same pgx transaction.
 type UserRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewUserRepository creates a new user repository bound to the pool-level Queries.
-func NewUserRepository(q *sqlc.Queries, logger lib.Logger) UserRepository {
+func NewUserRepository(q store.Store, logger lib.Logger) UserRepository {
 	return UserRepository{
 		q:      q,
 		logger: logger,
@@ -37,7 +37,7 @@ func NewUserRepository(q *sqlc.Queries, logger lib.Logger) UserRepository {
 // WithTx returns a copy of the repository bound to the given transaction-scoped
 // Queries. Use it inside lib.TxManager.RunInTx to share a single transaction
 // across multiple repositories.
-func (a UserRepository) WithTx(q *sqlc.Queries) UserRepository {
+func (a UserRepository) WithTx(q store.Store) UserRepository {
 	a.q = q
 	return a
 }
@@ -111,7 +111,7 @@ func (a UserRepository) Create(user *system.User) error {
 		user.ID = uuid.NewID()
 	}
 
-	err := a.q.CreateUser(context.Background(), sqlc.CreateUserParams{
+	err := a.q.CreateUser(context.Background(), store.CreateUserParams{
 		ID:        user.ID,
 		Username:  user.Username,
 		Nickname:  user.Nickname,
@@ -136,7 +136,7 @@ func (a UserRepository) Create(user *system.User) error {
 // Update updates the mutable profile fields of a user (mirrors the previous
 // Select-scoped GORM update).
 func (a UserRepository) Update(id string, user *system.User) error {
-	err := a.q.UpdateUser(context.Background(), sqlc.UpdateUserParams{
+	err := a.q.UpdateUser(context.Background(), store.UpdateUserParams{
 		ID:       id,
 		Username: user.Username,
 		Nickname: user.Nickname,
@@ -164,7 +164,7 @@ func (a UserRepository) Delete(id string) error {
 
 // UpdateStatus updates a user's status.
 func (a UserRepository) UpdateStatus(id string, status int) error {
-	err := a.q.UpdateUserStatus(context.Background(), sqlc.UpdateUserStatusParams{
+	err := a.q.UpdateUserStatus(context.Background(), store.UpdateUserStatusParams{
 		ID:     id,
 		Status: int32(status),
 	})
@@ -176,7 +176,7 @@ func (a UserRepository) UpdateStatus(id string, status int) error {
 
 // UpdatePassword updates a user's password hash.
 func (a UserRepository) UpdatePassword(id string, password string) error {
-	err := a.q.UpdateUserPassword(context.Background(), sqlc.UpdateUserPasswordParams{
+	err := a.q.UpdateUserPassword(context.Background(), store.UpdateUserPasswordParams{
 		ID:       id,
 		Password: password,
 	})
@@ -189,7 +189,7 @@ func (a UserRepository) UpdatePassword(id string, password string) error {
 // UpdateProfile updates only the non-empty profile fields supplied by the user.
 // Empty fields are left unchanged (COALESCE with a NULL argument).
 func (a UserRepository) UpdateProfile(id string, profile *system.ProfileForm) error {
-	params := sqlc.UpdateUserProfileParams{ID: id}
+	params := store.UpdateUserProfileParams{ID: id}
 	if profile.Nickname != "" {
 		params.Nickname = ptr(profile.Nickname)
 	}
@@ -253,8 +253,8 @@ func newUserFilter(param *system.UserQueryParam) userFilter {
 	return f
 }
 
-func (f userFilter) list(limit, offset *int32) sqlc.ListUsersParams {
-	return sqlc.ListUsersParams{
+func (f userFilter) list(limit, offset *int32) store.ListUsersParams {
+	return store.ListUsersParams{
 		Username:   f.username,
 		Nickname:   f.nickname,
 		Status:     f.status,
@@ -268,8 +268,8 @@ func (f userFilter) list(limit, offset *int32) sqlc.ListUsersParams {
 	}
 }
 
-func (f userFilter) count() sqlc.CountUsersParams {
-	return sqlc.CountUsersParams{
+func (f userFilter) count() store.CountUsersParams {
+	return store.CountUsersParams{
 		Username:   f.username,
 		Nickname:   f.nickname,
 		Status:     f.status,
@@ -298,7 +298,7 @@ func pageBounds(pp dto.PaginationParam) (limit, offset *int32) {
 	}
 }
 
-func toDomainUser(r sqlc.TUser) *system.User {
+func toDomainUser(r store.TUser) *system.User {
 	return &system.User{
 		ID:         r.ID,
 		Username:   r.Username,

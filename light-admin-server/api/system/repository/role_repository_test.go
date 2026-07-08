@@ -10,48 +10,48 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
 )
 
-// roleMockQuerier implements only the sqlc.Querier methods exercised by the role
+// roleMockQuerier implements only the store.Store methods exercised by the role
 // repository tests. Unimplemented methods stay nil (embedded interface) and panic
 // if ever called, keeping the mock honest about what each test depends on.
 type roleMockQuerier struct {
-	sqlc.Querier
+	store.Store
 
-	getRole      func(ctx context.Context, id string) (sqlc.TRole, error)
-	getRoleByCod func(ctx context.Context, code string) (sqlc.TRole, error)
-	listRoles    func(ctx context.Context, arg sqlc.ListRolesParams) ([]sqlc.TRole, error)
-	countRoles   func(ctx context.Context, arg sqlc.CountRolesParams) (int64, error)
-	createRole   func(ctx context.Context, arg sqlc.CreateRoleParams) error
+	getRole      func(ctx context.Context, id string) (store.TRole, error)
+	getRoleByCod func(ctx context.Context, code string) (store.TRole, error)
+	listRoles    func(ctx context.Context, arg store.ListRolesParams) ([]store.TRole, error)
+	countRoles   func(ctx context.Context, arg store.CountRolesParams) (int64, error)
+	createRole   func(ctx context.Context, arg store.CreateRoleParams) error
 
-	lastListParams   sqlc.ListRolesParams
-	lastCountParams  sqlc.CountRolesParams
-	lastCreateParams sqlc.CreateRoleParams
+	lastListParams   store.ListRolesParams
+	lastCountParams  store.CountRolesParams
+	lastCreateParams store.CreateRoleParams
 }
 
-func (m *roleMockQuerier) GetRole(ctx context.Context, id string) (sqlc.TRole, error) {
+func (m *roleMockQuerier) GetRole(ctx context.Context, id string) (store.TRole, error) {
 	return m.getRole(ctx, id)
 }
 
-func (m *roleMockQuerier) GetRoleByCode(ctx context.Context, code string) (sqlc.TRole, error) {
+func (m *roleMockQuerier) GetRoleByCode(ctx context.Context, code string) (store.TRole, error) {
 	return m.getRoleByCod(ctx, code)
 }
 
-func (m *roleMockQuerier) ListRoles(ctx context.Context, arg sqlc.ListRolesParams) ([]sqlc.TRole, error) {
+func (m *roleMockQuerier) ListRoles(ctx context.Context, arg store.ListRolesParams) ([]store.TRole, error) {
 	m.lastListParams = arg
 	return m.listRoles(ctx, arg)
 }
 
-func (m *roleMockQuerier) CountRoles(ctx context.Context, arg sqlc.CountRolesParams) (int64, error) {
+func (m *roleMockQuerier) CountRoles(ctx context.Context, arg store.CountRolesParams) (int64, error) {
 	m.lastCountParams = arg
 	return m.countRoles(ctx, arg)
 }
 
-func (m *roleMockQuerier) CreateRole(ctx context.Context, arg sqlc.CreateRoleParams) error {
+func (m *roleMockQuerier) CreateRole(ctx context.Context, arg store.CreateRoleParams) error {
 	m.lastCreateParams = arg
 	if m.createRole != nil {
 		return m.createRole(ctx, arg)
@@ -59,13 +59,13 @@ func (m *roleMockQuerier) CreateRole(ctx context.Context, arg sqlc.CreateRolePar
 	return nil
 }
 
-func newTestRoleRepo(q sqlc.Querier) RoleRepository {
+func newTestRoleRepo(q store.Store) RoleRepository {
 	return RoleRepository{q: q, logger: lib.NopLogger()}
 }
 
-func sampleRoleRow() sqlc.TRole {
+func sampleRoleRow() store.TRole {
 	now := time.Date(2026, 7, 6, 10, 30, 0, 0, time.Local)
-	return sqlc.TRole{
+	return store.TRole{
 		ID:         "r1",
 		Name:       "管理员",
 		Code:       "ADMIN",
@@ -83,7 +83,7 @@ func sampleRoleRow() sqlc.TRole {
 func TestRoleRepository_Get_MapsRow(t *testing.T) {
 	row := sampleRoleRow()
 	repo := newTestRoleRepo(&roleMockQuerier{
-		getRole: func(ctx context.Context, id string) (sqlc.TRole, error) {
+		getRole: func(ctx context.Context, id string) (store.TRole, error) {
 			assert.Equal(t, "r1", id)
 			return row, nil
 		},
@@ -101,8 +101,8 @@ func TestRoleRepository_Get_MapsRow(t *testing.T) {
 
 func TestRoleRepository_Get_NotFound(t *testing.T) {
 	repo := newTestRoleRepo(&roleMockQuerier{
-		getRole: func(ctx context.Context, id string) (sqlc.TRole, error) {
-			return sqlc.TRole{}, pgx.ErrNoRows
+		getRole: func(ctx context.Context, id string) (store.TRole, error) {
+			return store.TRole{}, pgx.ErrNoRows
 		},
 	})
 
@@ -112,8 +112,8 @@ func TestRoleRepository_Get_NotFound(t *testing.T) {
 
 func TestRoleRepository_GetByCode_NotFound(t *testing.T) {
 	repo := newTestRoleRepo(&roleMockQuerier{
-		getRoleByCod: func(ctx context.Context, code string) (sqlc.TRole, error) {
-			return sqlc.TRole{}, pgx.ErrNoRows
+		getRoleByCod: func(ctx context.Context, code string) (store.TRole, error) {
+			return store.TRole{}, pgx.ErrNoRows
 		},
 	})
 
@@ -123,9 +123,9 @@ func TestRoleRepository_GetByCode_NotFound(t *testing.T) {
 
 func TestRoleRepository_Query_PaginatesAndMapsFilters(t *testing.T) {
 	mq := &roleMockQuerier{
-		countRoles: func(ctx context.Context, arg sqlc.CountRolesParams) (int64, error) { return 1, nil },
-		listRoles: func(ctx context.Context, arg sqlc.ListRolesParams) ([]sqlc.TRole, error) {
-			return []sqlc.TRole{sampleRoleRow()}, nil
+		countRoles: func(ctx context.Context, arg store.CountRolesParams) (int64, error) { return 1, nil },
+		listRoles: func(ctx context.Context, arg store.ListRolesParams) ([]store.TRole, error) {
+			return []store.TRole{sampleRoleRow()}, nil
 		},
 	}
 	repo := newTestRoleRepo(mq)
@@ -152,8 +152,8 @@ func TestRoleRepository_Query_PaginatesAndMapsFilters(t *testing.T) {
 func TestRoleRepository_Query_EmptyResultSkipsList(t *testing.T) {
 	listCalled := false
 	repo := newTestRoleRepo(&roleMockQuerier{
-		countRoles: func(ctx context.Context, arg sqlc.CountRolesParams) (int64, error) { return 0, nil },
-		listRoles: func(ctx context.Context, arg sqlc.ListRolesParams) ([]sqlc.TRole, error) {
+		countRoles: func(ctx context.Context, arg store.CountRolesParams) (int64, error) { return 0, nil },
+		listRoles: func(ctx context.Context, arg store.ListRolesParams) ([]store.TRole, error) {
 			listCalled = true
 			return nil, nil
 		},

@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
@@ -16,17 +16,17 @@ import (
 
 // TenantRepository is the sqlc/pgx-backed persistence layer for tenants.
 type TenantRepository struct {
-	q      sqlc.Querier
+	q      store.Store
 	logger lib.Logger
 }
 
 // NewTenantRepository creates a new tenant repository bound to the pool-level Queries.
-func NewTenantRepository(q *sqlc.Queries, logger lib.Logger) TenantRepository {
+func NewTenantRepository(q store.Store, logger lib.Logger) TenantRepository {
 	return TenantRepository{q: q, logger: logger}
 }
 
 // WithTx returns a copy bound to the given transaction-scoped Queries.
-func (a TenantRepository) WithTx(q *sqlc.Queries) TenantRepository {
+func (a TenantRepository) WithTx(q store.Store) TenantRepository {
 	a.q = q
 	return a
 }
@@ -44,7 +44,7 @@ func (a TenantRepository) Query(param *tenant.TenantQueryParam) (*tenant.TenantQ
 		status = ptr(int32(*param.Status))
 	}
 
-	total, err := a.q.CountTenants(ctx, sqlc.CountTenantsParams{Keywords: keywords, Status: status})
+	total, err := a.q.CountTenants(ctx, store.CountTenantsParams{Keywords: keywords, Status: status})
 	if err != nil {
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
@@ -52,7 +52,7 @@ func (a TenantRepository) Query(param *tenant.TenantQueryParam) (*tenant.TenantQ
 	list := make(tenant.Tenants, 0)
 	if total > 0 {
 		limit, offset := pageBounds(param.PaginationParam)
-		rows, err := a.q.ListTenants(ctx, sqlc.ListTenantsParams{Keywords: keywords, Status: status, Limit: limit, Offset: offset})
+		rows, err := a.q.ListTenants(ctx, store.ListTenantsParams{Keywords: keywords, Status: status, Limit: limit, Offset: offset})
 		if err != nil {
 			return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 		}
@@ -92,7 +92,7 @@ func (a TenantRepository) Create(t *tenant.Tenant) error {
 	if t.ID == "" {
 		t.ID = uuid.NewID()
 	}
-	err := a.q.CreateTenant(context.Background(), sqlc.CreateTenantParams{
+	err := a.q.CreateTenant(context.Background(), store.CreateTenantParams{
 		ID:        t.ID,
 		Code:      t.Code,
 		Name:      t.Name,
@@ -107,7 +107,7 @@ func (a TenantRepository) Create(t *tenant.Tenant) error {
 }
 
 func (a TenantRepository) Update(id string, t *tenant.Tenant) error {
-	err := a.q.UpdateTenant(context.Background(), sqlc.UpdateTenantParams{
+	err := a.q.UpdateTenant(context.Background(), store.UpdateTenantParams{
 		ID:       id,
 		Code:     t.Code,
 		Name:     t.Name,
@@ -127,7 +127,7 @@ func (a TenantRepository) Delete(id string) error {
 	return nil
 }
 
-func toDomainTenant(r sqlc.TTenant) *tenant.Tenant {
+func toDomainTenant(r store.TTenant) *tenant.Tenant {
 	return &tenant.Tenant{
 		ID:         r.ID,
 		Code:       r.Code,

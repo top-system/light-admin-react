@@ -8,25 +8,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/top-system/light-admin/db/sqlc"
+	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/system"
 )
 
 type dictMockQuerier struct {
-	sqlc.Querier
+	store.Store
 
-	getDictByCode       func(ctx context.Context, arg sqlc.GetDictByCodeParams) (sqlc.TDict, error)
+	getDictByCode       func(ctx context.Context, arg store.GetDictByCodeParams) (store.TDict, error)
 	countDicts          func(ctx context.Context, keywords *string) (int64, error)
-	listDicts           func(ctx context.Context, arg sqlc.ListDictsParams) ([]sqlc.TDict, error)
-	updateDictItemsCode func(ctx context.Context, arg sqlc.UpdateDictItemsDictCodeParams) error
+	listDicts           func(ctx context.Context, arg store.ListDictsParams) ([]store.TDict, error)
+	updateDictItemsCode func(ctx context.Context, arg store.UpdateDictItemsDictCodeParams) error
 
 	lastKeywords    *string
-	lastCascadeArgs sqlc.UpdateDictItemsDictCodeParams
+	lastCascadeArgs store.UpdateDictItemsDictCodeParams
 }
 
-func (m *dictMockQuerier) GetDictByCode(ctx context.Context, arg sqlc.GetDictByCodeParams) (sqlc.TDict, error) {
+func (m *dictMockQuerier) GetDictByCode(ctx context.Context, arg store.GetDictByCodeParams) (store.TDict, error) {
 	return m.getDictByCode(ctx, arg)
 }
 
@@ -35,23 +35,23 @@ func (m *dictMockQuerier) CountDicts(ctx context.Context, keywords *string) (int
 	return m.countDicts(ctx, keywords)
 }
 
-func (m *dictMockQuerier) ListDicts(ctx context.Context, arg sqlc.ListDictsParams) ([]sqlc.TDict, error) {
+func (m *dictMockQuerier) ListDicts(ctx context.Context, arg store.ListDictsParams) ([]store.TDict, error) {
 	return m.listDicts(ctx, arg)
 }
 
-func (m *dictMockQuerier) UpdateDictItemsDictCode(ctx context.Context, arg sqlc.UpdateDictItemsDictCodeParams) error {
+func (m *dictMockQuerier) UpdateDictItemsDictCode(ctx context.Context, arg store.UpdateDictItemsDictCodeParams) error {
 	m.lastCascadeArgs = arg
 	return nil
 }
 
-func newTestDictRepo(q sqlc.Querier) DictRepository {
+func newTestDictRepo(q store.Store) DictRepository {
 	return DictRepository{q: q, logger: lib.NopLogger()}
 }
 
 func TestDictRepository_GetByCode_NotFoundReturnsNil(t *testing.T) {
 	repo := newTestDictRepo(&dictMockQuerier{
-		getDictByCode: func(ctx context.Context, arg sqlc.GetDictByCodeParams) (sqlc.TDict, error) {
-			return sqlc.TDict{}, pgx.ErrNoRows
+		getDictByCode: func(ctx context.Context, arg store.GetDictByCodeParams) (store.TDict, error) {
+			return store.TDict{}, pgx.ErrNoRows
 		},
 	})
 	got, err := repo.GetByCode("nope")
@@ -62,8 +62,8 @@ func TestDictRepository_GetByCode_NotFoundReturnsNil(t *testing.T) {
 func TestDictRepository_Query_WrapsKeywords(t *testing.T) {
 	mq := &dictMockQuerier{
 		countDicts: func(ctx context.Context, keywords *string) (int64, error) { return 1, nil },
-		listDicts: func(ctx context.Context, arg sqlc.ListDictsParams) ([]sqlc.TDict, error) {
-			return []sqlc.TDict{{ID: "d1"}}, nil
+		listDicts: func(ctx context.Context, arg store.ListDictsParams) ([]store.TDict, error) {
+			return []store.TDict{{ID: "d1"}}, nil
 		},
 	}
 	repo := newTestDictRepo(mq)
@@ -88,8 +88,8 @@ func TestDictRepository_Get_NotFound(t *testing.T) {
 	// Get uses GetDict which the mock leaves nil; call GetByCode path instead to
 	// exercise the not-found mapping without wiring every method.
 	repo = newTestDictRepo(&dictMockQuerier{
-		getDictByCode: func(ctx context.Context, arg sqlc.GetDictByCodeParams) (sqlc.TDict, error) {
-			return sqlc.TDict{}, apperrors.DatabaseInternalError
+		getDictByCode: func(ctx context.Context, arg store.GetDictByCodeParams) (store.TDict, error) {
+			return store.TDict{}, apperrors.DatabaseInternalError
 		},
 	})
 	_, err := repo.GetByCode("x")

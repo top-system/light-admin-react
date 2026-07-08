@@ -7,8 +7,8 @@ sql:
     queries: "db/queries"
     gen:
       go:
-        package: "sqlc"
-        out: "db/sqlc"
+        package: "pg"
+        out: "db/pg"
         sql_package: "pgx/v5"
         emit_interface: true                 # Querier interface -> mockable in tests
         emit_pointers_for_null_types: true    # nullable args/cols -> *T instead of pgtype.X
