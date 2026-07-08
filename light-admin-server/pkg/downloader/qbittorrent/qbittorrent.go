@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/samber/lo"
+	"github.com/top-system/light-admin/pkg/uuid"
 
 	"github.com/top-system/light-admin/pkg/downloader"
 )

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofrs/uuid"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
 type (

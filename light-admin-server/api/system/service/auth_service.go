@@ -5,47 +5,28 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/system"
 	"github.com/top-system/light-admin/models/dto"
+	"github.com/top-system/light-admin/models/system"
 )
 
-type options struct {
-	issuer        string
-	signingMethod jwt.SigningMethod
-	signingKey    interface{}
-	keyfunc       jwt.Keyfunc
-	expired       int
-	tokenType     string
-}
-
 type AuthService struct {
-	opts  *options
-	cache lib.Cache
+	codec     *lib.TokenCodec
+	cache     lib.Cache
+	expired   int
+	tokenType string
 }
 
 func NewAuthService(cache lib.Cache, config lib.Config) AuthService {
-	issuer := config.Name
-	signingKey := fmt.Sprintf("Jwt:%s", issuer)
+	signingKey := fmt.Sprintf("Jwt:%s", config.Name)
 
-	opts := &options{
-		issuer:        issuer,
-		tokenType:     "Bearer",
-		expired:       config.Auth.TokenExpired,
-		signingMethod: jwt.SigningMethodHS512,
-		signingKey:    []byte(signingKey),
-		keyfunc: func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, apperrors.AuthTokenInvalid
-			}
-			return []byte(signingKey), nil
-		},
+	return AuthService{
+		cache:     cache,
+		codec:     lib.NewHS512TokenCodec([]byte(signingKey)),
+		expired:   config.Auth.TokenExpired,
+		tokenType: "Bearer",
 	}
-
-	return AuthService{cache: cache, opts: opts}
 }
 
 func wrapperAuthKey(key string) string {
@@ -54,26 +35,23 @@ func wrapperAuthKey(key string) string {
 
 func (a AuthService) GenerateToken(user *system.User) (*dto.LoginResponse, error) {
 	now := time.Now()
-	expiresAt := now.Add(time.Duration(a.opts.expired) * time.Second)
+	expiresAt := now.Add(time.Duration(a.expired) * time.Second)
 	claims := &dto.JwtClaims{
 		ID:       user.ID,
 		Username: user.Username,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			IssuedAt:  jwt.NewNumericDate(now),
-			NotBefore: jwt.NewNumericDate(now),
+		RegisteredClaims: lib.RegisteredClaims{
+			ExpiresAt: lib.NewNumericDate(expiresAt),
+			IssuedAt:  lib.NewNumericDate(now),
+			NotBefore: lib.NewNumericDate(now),
 		},
 	}
 
-	token := jwt.NewWithClaims(a.opts.signingMethod, claims)
-	expired := expiresAt.Sub(time.Now())
-
-	err := a.cache.Set(wrapperAuthKey(claims.Username), 1, expired)
+	err := a.cache.Set(wrapperAuthKey(claims.Username), 1, time.Until(expiresAt))
 	if err != nil {
 		return nil, err
 	}
 
-	accessToken, err := token.SignedString(a.opts.signingKey)
+	accessToken, err := a.codec.Sign(claims)
 	if err != nil {
 		return nil, err
 	}
@@ -81,32 +59,26 @@ func (a AuthService) GenerateToken(user *system.User) (*dto.LoginResponse, error
 	return &dto.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: "", // 暂未实现刷新令牌
-		TokenType:    a.opts.tokenType,
-		ExpiresIn:    a.opts.expired,
+		TokenType:    a.tokenType,
+		ExpiresIn:    a.expired,
 	}, nil
 }
 
 func (a AuthService) ParseToken(tokenString string) (*dto.JwtClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &dto.JwtClaims{}, a.opts.keyfunc)
-	if err != nil {
-		if errors.Is(err, jwt.ErrTokenMalformed) {
+	claims := &dto.JwtClaims{}
+	if err := a.codec.Parse(tokenString, claims); err != nil {
+		switch {
+		case errors.Is(err, lib.ErrTokenMalformed):
 			return nil, apperrors.AuthTokenMalformed
-		} else if errors.Is(err, jwt.ErrTokenExpired) {
+		case errors.Is(err, lib.ErrTokenExpired):
 			return nil, apperrors.AuthTokenExpired
-		} else if errors.Is(err, jwt.ErrTokenNotValidYet) {
+		case errors.Is(err, lib.ErrTokenNotValidYet):
 			return nil, apperrors.AuthTokenNotValidYet
-		} else {
+		default:
 			return nil, apperrors.AuthTokenInvalid
 		}
 	}
-
-	if token != nil {
-		if claims, ok := token.Claims.(*dto.JwtClaims); ok && token.Valid {
-			return claims, nil
-		}
-	}
-
-	return nil, apperrors.AuthTokenInvalid
+	return claims, nil
 }
 
 func (a AuthService) DestroyToken(username string) error {

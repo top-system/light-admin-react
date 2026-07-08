@@ -1,6 +1,8 @@
 package dto
 
-import "github.com/golang-jwt/jwt/v5"
+import (
+	"github.com/top-system/light-admin/lib"
+)
 
 // MemberRegister 会员注册请求
 type MemberRegister struct {
@@ -22,5 +24,5 @@ type MemberClaims struct {
 	ID       string `json:"id"`
 	TenantID string `json:"tenantId"`
 	Username string `json:"username"`
-	jwt.RegisteredClaims
+	lib.RegisteredClaims
 }

@@ -3,7 +3,7 @@ package queue
 import (
 	"time"
 
-	"github.com/gofrs/uuid"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
 // TaskModel represents the task model in database.

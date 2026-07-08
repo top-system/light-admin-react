@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/top-system/light-admin/pkg/uuid"
 
 	"github.com/top-system/light-admin/db/sqlc"
 	"github.com/top-system/light-admin/pkg/queue"

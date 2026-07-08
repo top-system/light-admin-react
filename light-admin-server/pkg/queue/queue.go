@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gofrs/uuid"
 	"github.com/jpillora/backoff"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
 type (

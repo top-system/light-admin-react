@@ -1,0 +1,61 @@
+# golangci-lint configuration — see docs/infra-abstraction-plan.md §4 (边界守护).
+#
+# Purpose:守边界. The business layers (service/repository) and领域 packages under
+# pkg/ must not import third-party infra libraries directly — those belong behind
+# the lib/* facades and the表现层 (controller/route/middleware). depguard enforces
+# this so增量锁定 is caught by CI instead of relying on review memory.
+#
+# Phase: WARN 起步. depguard findings are marked `warning` severity while the存量
+# (notably pgx in repositories, pending multi-database-plan's store layer) is
+# converged one item at a time. Promote to a blocking gate once each denied import
+# is driven to zero. Run locally with: golangci-lint run ./...
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - depguard
+  settings:
+    depguard:
+      rules:
+        # service/ and repository/ layers across every domain module
+        # (system, platform, member). These sit behind the lib.* facades and must
+        # stay free of direct infra imports.
+        business-layers:
+          list-mode: lax
+          files:
+            - "**/api/*/service/**"
+            - "**/api/*/repository/**"
+            - "!**/*_test.go"
+          deny: &infra-deny
+            - pkg: github.com/labstack/echo
+              desc: "echo belongs in controller/route/middleware — keep the HTTP framework out of business logic (see infra-abstraction-plan §4)."
+            - pkg: github.com/redis/go-redis
+              desc: "use the lib.Cache interface, not go-redis directly (see infra-abstraction-plan §2)."
+            - pkg: github.com/go-redis
+              desc: "use the lib.Cache interface, not go-redis directly (see infra-abstraction-plan §2)."
+            - pkg: github.com/jackc/pgx
+              desc: "repositories should go through the store layer, not pgx directly (see multi-database-plan 阶段一; warn-phase 存量)."
+            - pkg: go.uber.org/zap
+              desc: "log via the lib logger facade, not zap directly (see infra-abstraction-plan §3)."
+            - pkg: github.com/golang-jwt/jwt
+              desc: "sign/parse tokens via the TokenCodec facade, not golang-jwt directly (see infra-abstraction-plan §5)."
+
+        # 领域 packages under pkg/ (queue, downloader, crontab, ...). pkg/echox is the
+        # sanctioned echo adapter and pkg/websocket is the sanctioned gorilla/websocket
+        # hub, so both are excluded from the guard.
+        pkg-domain:
+          list-mode: lax
+          files:
+            - "**/pkg/**"
+            - "!**/pkg/echox/**"
+            - "!**/pkg/websocket/**"
+            - "!**/*_test.go"
+          deny: *infra-deny
+
+severity:
+  default: error
+  rules:
+    - linters:
+        - depguard
+      severity: warning

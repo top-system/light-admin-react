@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/gofrs/uuid"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
 // ErrTaskNotFound is returned by TaskRepository implementations when no task

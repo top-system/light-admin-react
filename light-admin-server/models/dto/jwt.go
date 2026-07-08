@@ -1,11 +1,11 @@
 package dto
 
 import (
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/top-system/light-admin/lib"
 )
 
 type JwtClaims struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
-	jwt.RegisteredClaims
+	lib.RegisteredClaims
 }

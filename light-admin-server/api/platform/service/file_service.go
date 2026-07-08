@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/top-system/light-admin/lib"
-	"github.com/top-system/light-admin/models/platform"
-	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/top-system/light-admin/lib"
+	"github.com/top-system/light-admin/models/platform"
+	"github.com/top-system/light-admin/pkg/uuid"
 )
 
 // FileService 文件服务接口
@@ -82,7 +82,7 @@ func (s *LocalFileService) UploadFile(filename string, reader io.Reader, size in
 	// 获取文件后缀
 	ext := filepath.Ext(filename)
 	// 生成新文件名
-	newFilename := uuid.New().String() + ext
+	newFilename := uuid.MustString() + ext
 	// 按日期分目录
 	dateFolder := time.Now().Format("20060102")
 	folderPath := filepath.Join(s.storagePath, dateFolder)
@@ -229,7 +229,7 @@ func (s *MinioFileService) UploadFile(filename string, reader io.Reader, size in
 	// 获取文件后缀
 	ext := filepath.Ext(filename)
 	// 生成新文件名
-	newFilename := uuid.New().String() + ext
+	newFilename := uuid.MustString() + ext
 	// 按日期分目录
 	dateFolder := time.Now().Format("20060102")
 	objectName := dateFolder + "/" + newFilename

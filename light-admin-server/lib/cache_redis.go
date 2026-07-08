@@ -7,8 +7,8 @@ import (
 
 	"github.com/top-system/light-admin/constants"
 	"github.com/top-system/light-admin/errors"
-	"github.com/go-redis/cache/v8"
-	"github.com/go-redis/redis/v8"
+	"github.com/go-redis/cache/v9"
+	"github.com/redis/go-redis/v9"
 )
 
 // RedisCache implements Cache interface using Redis

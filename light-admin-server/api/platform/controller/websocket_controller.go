@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/top-system/light-admin/lib"
 	dto "github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/pkg/echox"
+	"github.com/top-system/light-admin/pkg/uuid"
 	ws "github.com/top-system/light-admin/pkg/websocket"
 )
 
@@ -97,7 +97,7 @@ func (c WebSocketController) HandleWebSocket(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	clientID := uuid.New().String()
+	clientID := uuid.MustString()
 	client := c.ws.Hub.Register(clientID, claims.Username, conn)
 	_ = client // client handle not needed outside the read loop
 
