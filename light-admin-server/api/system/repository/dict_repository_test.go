@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -51,7 +50,7 @@ func newTestDictRepo(q store.Store) DictRepository {
 func TestDictRepository_GetByCode_NotFoundReturnsNil(t *testing.T) {
 	repo := newTestDictRepo(&dictMockQuerier{
 		getDictByCode: func(ctx context.Context, arg store.GetDictByCodeParams) (store.TDict, error) {
-			return store.TDict{}, pgx.ErrNoRows
+			return store.TDict{}, store.ErrNoRows
 		},
 	})
 	got, err := repo.GetByCode("nope")

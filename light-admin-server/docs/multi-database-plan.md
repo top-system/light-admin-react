@@ -269,12 +269,14 @@ UTC 文本、Go 侧转换。**三引擎的时间语义以「Go 侧 time.Time 正
 - [x] `lib.NewQueries` → `lib.NewStore`(返回 `store.Store`);`TxManager.RunInTx` 回调签名 `*sqlc.Queries` → `store.Store`(21 处调用点);
 - [x] 全量 `go build` / `go test` 通过(仅 `pkg/file.TestEnsureDir` 预存在失败,与本改动无关),行为与 main 一致。
 
-**1b 时间/类型收敛(待办,后续 PR):**
+**1b 时间/类型收敛(进行中,分支 `feat/multi-db-phase1`):**
 
-- [ ] 53 处 `NOW()` 改 Go 传参(query + repository 两侧);
-- [ ] 引入 `store.ErrNoRows`,`pgstore` 适配层翻译 `pgx.ErrNoRows`,repository 不再直接 import `pgx`;
-- [ ] 中立时间字段 `pgtype.Timestamptz` → `time.Time`(§4 收敛目标),repository 不再直接 import `pgtype`;
-      清空 depguard `business-layers` 的 5 条 warn-phase 存量告警;
+- [x] 53 处 `NOW()` 改 Go 传参:query 侧统一为 `sqlc.arg('now')`(赋值到 nullable 列的 4 处
+      加 `::timestamptz` 强制非空,保持 `Now time.Time` 一致签名),repository 侧各调用点传 `time.Now()`;
+- [x] 引入 `store.ErrNoRows`(`db/store/errors.go`),`pgstore` 适配层 `translateErr` 翻译 `pgx.ErrNoRows`
+      (由 `gen-store` 生成),repository/service 不再直接 import `pgx`;
+- [x] 中立时间字段 `pgtype.Timestamptz` → `time.Time` / `*time.Time`(sqlc `overrides` 收敛,§4 目标),
+      repository 不再直接 import `pgtype`;depguard `business-layers` 5 条 warn-phase 存量告警清零(`golangci-lint run ./...` 0 issues);
 - [ ] 目录平移:`db/migrations` → `db/migrations/postgres`、`db/queries` → `db/queries/postgres`(为阶段二/三多引擎目录腾位)。
 
 ### 阶段二:SQLite

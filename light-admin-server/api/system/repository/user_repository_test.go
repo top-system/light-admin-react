@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -60,8 +58,8 @@ func sampleRow() store.TUser {
 		DeptID:     "d1",
 		Status:     1,
 		Email:      "alice@example.com",
-		CreateTime: pgtype.Timestamptz{Time: now, Valid: true},
-		UpdateTime: pgtype.Timestamptz{Time: now, Valid: true},
+		CreateTime: now,
+		UpdateTime: now,
 		IsDeleted:  0,
 		Openid:     "openid-1",
 	}
@@ -83,13 +81,13 @@ func TestUserRepository_Get_MapsRow(t *testing.T) {
 	assert.Equal(t, 1, got.Status)
 	assert.Equal(t, "openid-1", got.OpenID)
 	assert.Equal(t, "secret-hash", got.Password)
-	assert.Equal(t, row.CreateTime.Time, time.Time(got.CreateTime))
+	assert.Equal(t, row.CreateTime, time.Time(got.CreateTime))
 }
 
 func TestUserRepository_Get_NotFound(t *testing.T) {
 	repo := newTestUserRepo(&mockQuerier{
 		getUser: func(ctx context.Context, id string) (store.TUser, error) {
-			return store.TUser{}, pgx.ErrNoRows
+			return store.TUser{}, store.ErrNoRows
 		},
 	})
 
@@ -173,11 +171,11 @@ func TestPageBounds(t *testing.T) {
 
 func TestEndOfDayFilter(t *testing.T) {
 	got := endOfDayFilter("2026-07-06")
-	require.True(t, got.Valid)
-	assert.Equal(t, 23, got.Time.Hour())
-	assert.Equal(t, 59, got.Time.Minute())
-	assert.Equal(t, 59, got.Time.Second())
+	require.NotNil(t, got)
+	assert.Equal(t, 23, got.Hour())
+	assert.Equal(t, 59, got.Minute())
+	assert.Equal(t, 59, got.Second())
 
-	assert.False(t, endOfDayFilter("").Valid, "empty value disables the filter")
-	assert.False(t, endOfDayFilter("not-a-date").Valid)
+	assert.Nil(t, endOfDayFilter(""), "empty value disables the filter")
+	assert.Nil(t, endOfDayFilter("not-a-date"))
 }

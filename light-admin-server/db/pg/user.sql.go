@@ -7,8 +7,7 @@ package pg
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const countUsers = `-- name: CountUsers :one
@@ -35,8 +34,8 @@ type CountUsersParams struct {
 	Status     *int32
 	DeptID     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	RoleIds    []string
 }
 
@@ -64,7 +63,7 @@ INSERT INTO t_user (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
     $8, $9, $10, $11, $12, $13, $14,
-    NOW(), NOW()
+    $15, $15
 )
 `
 
@@ -83,6 +82,7 @@ type CreateUserParams struct {
 	UpdateBy  string
 	IsDeleted int32
 	Openid    string
+	Now       time.Time
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -101,6 +101,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 		arg.UpdateBy,
 		arg.IsDeleted,
 		arg.Openid,
+		arg.Now,
 	)
 	return err
 }
@@ -197,8 +198,8 @@ type ListUsersParams struct {
 	Status     *int32
 	DeptID     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	RoleIds    []string
 	Offset     *int32
 	Limit      *int32
@@ -253,11 +254,16 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]TUser, 
 }
 
 const softDeleteUser = `-- name: SoftDeleteUser :exec
-UPDATE t_user SET is_deleted = 1, update_time = NOW() WHERE id = $1
+UPDATE t_user SET is_deleted = 1, update_time = $2 WHERE id = $1
 `
 
-func (q *Queries) SoftDeleteUser(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, softDeleteUser, id)
+type SoftDeleteUserParams struct {
+	ID  string
+	Now time.Time
+}
+
+func (q *Queries) SoftDeleteUser(ctx context.Context, arg SoftDeleteUserParams) error {
+	_, err := q.db.Exec(ctx, softDeleteUser, arg.ID, arg.Now)
 	return err
 }
 
@@ -272,7 +278,7 @@ UPDATE t_user SET
     status      = $8,
     email       = $9,
     update_by   = $10,
-    update_time = NOW()
+    update_time = $11
 WHERE id = $1
 `
 
@@ -287,6 +293,7 @@ type UpdateUserParams struct {
 	Status   int32
 	Email    string
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
@@ -301,21 +308,23 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.Status,
 		arg.Email,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec
-UPDATE t_user SET password = $2, update_time = NOW() WHERE id = $1
+UPDATE t_user SET password = $2, update_time = $3 WHERE id = $1
 `
 
 type UpdateUserPasswordParams struct {
 	ID       string
 	Password string
+	Now      time.Time
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
-	_, err := q.db.Exec(ctx, updateUserPassword, arg.ID, arg.Password)
+	_, err := q.db.Exec(ctx, updateUserPassword, arg.ID, arg.Password, arg.Now)
 	return err
 }
 
@@ -326,8 +335,8 @@ UPDATE t_user SET
     avatar      = COALESCE($3,   avatar),
     mobile      = COALESCE($4,   mobile),
     email       = COALESCE($5,    email),
-    update_time = NOW()
-WHERE id = $6
+    update_time = $6
+WHERE id = $7
 `
 
 type UpdateUserProfileParams struct {
@@ -336,6 +345,7 @@ type UpdateUserProfileParams struct {
 	Avatar   *string
 	Mobile   *string
 	Email    *string
+	Now      time.Time
 	ID       string
 }
 
@@ -346,21 +356,23 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		arg.Avatar,
 		arg.Mobile,
 		arg.Email,
+		arg.Now,
 		arg.ID,
 	)
 	return err
 }
 
 const updateUserStatus = `-- name: UpdateUserStatus :exec
-UPDATE t_user SET status = $2, update_time = NOW() WHERE id = $1
+UPDATE t_user SET status = $2, update_time = $3 WHERE id = $1
 `
 
 type UpdateUserStatusParams struct {
 	ID     string
 	Status int32
+	Now    time.Time
 }
 
 func (q *Queries) UpdateUserStatus(ctx context.Context, arg UpdateUserStatusParams) error {
-	_, err := q.db.Exec(ctx, updateUserStatus, arg.ID, arg.Status)
+	_, err := q.db.Exec(ctx, updateUserStatus, arg.ID, arg.Status, arg.Now)
 	return err
 }

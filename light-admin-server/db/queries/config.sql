@@ -35,7 +35,7 @@ INSERT INTO t_config (
     id, config_name, config_key, config_value, remark, create_by, update_by, is_deleted,
     create_time, update_time
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateConfig :exec
@@ -45,8 +45,8 @@ UPDATE t_config SET
     config_value = $4,
     remark       = $5,
     update_by    = $6,
-    update_time  = NOW()
+    update_time  = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: SoftDeleteConfig :exec
-UPDATE t_config SET is_deleted = 1, update_by = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_config SET is_deleted = 1, update_by = $2, update_time = sqlc.arg('now') WHERE id = $1;

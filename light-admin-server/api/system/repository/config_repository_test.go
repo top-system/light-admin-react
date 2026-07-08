@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -38,7 +37,7 @@ func newTestConfigRepo(q store.Store) ConfigRepository {
 func TestConfigRepository_Get_NotFound(t *testing.T) {
 	repo := newTestConfigRepo(&configMockQuerier{
 		getConfig: func(ctx context.Context, id string) (store.TConfig, error) {
-			return store.TConfig{}, pgx.ErrNoRows
+			return store.TConfig{}, store.ErrNoRows
 		},
 	})
 	_, err := repo.Get("x")

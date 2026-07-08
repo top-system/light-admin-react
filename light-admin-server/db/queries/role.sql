@@ -48,7 +48,7 @@ INSERT INTO t_role (
     create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9,
-    NOW(), NOW()
+    sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateRole :exec
@@ -61,11 +61,11 @@ UPDATE t_role SET
     status      = $5,
     data_scope  = $6,
     update_by   = $7,
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: SoftDeleteRole :exec
-UPDATE t_role SET is_deleted = 1, update_time = NOW() WHERE id = $1;
+UPDATE t_role SET is_deleted = 1, update_time = sqlc.arg('now') WHERE id = $1;
 
 -- name: UpdateRoleStatus :exec
-UPDATE t_role SET status = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_role SET status = $2, update_time = sqlc.arg('now') WHERE id = $1;

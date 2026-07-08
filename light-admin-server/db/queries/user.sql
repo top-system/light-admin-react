@@ -58,7 +58,7 @@ INSERT INTO t_user (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
     $8, $9, $10, $11, $12, $13, $14,
-    NOW(), NOW()
+    sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateUser :exec
@@ -72,7 +72,7 @@ UPDATE t_user SET
     status      = $8,
     email       = $9,
     update_by   = $10,
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: UpdateUserProfile :exec
@@ -82,14 +82,14 @@ UPDATE t_user SET
     avatar      = COALESCE(sqlc.narg('avatar'),   avatar),
     mobile      = COALESCE(sqlc.narg('mobile'),   mobile),
     email       = COALESCE(sqlc.narg('email'),    email),
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE id = sqlc.arg('id');
 
 -- name: UpdateUserStatus :exec
-UPDATE t_user SET status = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_user SET status = $2, update_time = sqlc.arg('now') WHERE id = $1;
 
 -- name: UpdateUserPassword :exec
-UPDATE t_user SET password = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_user SET password = $2, update_time = sqlc.arg('now') WHERE id = $1;
 
 -- name: SoftDeleteUser :exec
-UPDATE t_user SET is_deleted = 1, update_time = NOW() WHERE id = $1;
+UPDATE t_user SET is_deleted = 1, update_time = sqlc.arg('now') WHERE id = $1;

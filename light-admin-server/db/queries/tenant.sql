@@ -25,11 +25,11 @@ WHERE is_deleted = 0
 
 -- name: CreateTenant :exec
 INSERT INTO t_tenant (id, code, name, status, create_by, is_deleted, create_time, update_time)
-VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW());
+VALUES ($1, $2, $3, $4, $5, $6, sqlc.arg('now'), sqlc.arg('now'));
 
 -- name: UpdateTenant :exec
-UPDATE t_tenant SET code = $2, name = $3, status = $4, update_by = $5, update_time = NOW()
+UPDATE t_tenant SET code = $2, name = $3, status = $4, update_by = $5, update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: SoftDeleteTenant :exec
-UPDATE t_tenant SET is_deleted = 1, update_time = NOW() WHERE id = $1;
+UPDATE t_tenant SET is_deleted = 1, update_time = sqlc.arg('now') WHERE id = $1;

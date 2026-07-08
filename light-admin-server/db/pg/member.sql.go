@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const countMembers = `-- name: CountMembers :one
@@ -53,7 +54,7 @@ INSERT INTO t_member (
     gender, status, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, NOW(), NOW()
+    $9, $10, $11, $12, $12
 )
 `
 
@@ -69,6 +70,7 @@ type CreateMemberParams struct {
 	Gender    int32
 	Status    int32
 	IsDeleted int32
+	Now       time.Time
 }
 
 func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) error {
@@ -84,6 +86,7 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) erro
 		arg.Gender,
 		arg.Status,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -221,7 +224,7 @@ func (q *Queries) ListMembers(ctx context.Context, arg ListMembersParams) ([]TMe
 }
 
 const updateMemberLoginInfo = `-- name: UpdateMemberLoginInfo :exec
-UPDATE t_member SET last_login_ip = $3, last_login_time = NOW(), update_time = NOW()
+UPDATE t_member SET last_login_ip = $3, last_login_time = $4::timestamptz, update_time = $4::timestamptz
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -229,15 +232,21 @@ type UpdateMemberLoginInfoParams struct {
 	TenantID    string
 	ID          string
 	LastLoginIp string
+	Now         time.Time
 }
 
 func (q *Queries) UpdateMemberLoginInfo(ctx context.Context, arg UpdateMemberLoginInfoParams) error {
-	_, err := q.db.Exec(ctx, updateMemberLoginInfo, arg.TenantID, arg.ID, arg.LastLoginIp)
+	_, err := q.db.Exec(ctx, updateMemberLoginInfo,
+		arg.TenantID,
+		arg.ID,
+		arg.LastLoginIp,
+		arg.Now,
+	)
 	return err
 }
 
 const updateMemberPassword = `-- name: UpdateMemberPassword :exec
-UPDATE t_member SET password = $3, update_time = NOW()
+UPDATE t_member SET password = $3, update_time = $4
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -245,10 +254,16 @@ type UpdateMemberPasswordParams struct {
 	TenantID string
 	ID       string
 	Password string
+	Now      time.Time
 }
 
 func (q *Queries) UpdateMemberPassword(ctx context.Context, arg UpdateMemberPasswordParams) error {
-	_, err := q.db.Exec(ctx, updateMemberPassword, arg.TenantID, arg.ID, arg.Password)
+	_, err := q.db.Exec(ctx, updateMemberPassword,
+		arg.TenantID,
+		arg.ID,
+		arg.Password,
+		arg.Now,
+	)
 	return err
 }
 
@@ -259,8 +274,8 @@ UPDATE t_member SET
     gender      = $3,
     mobile      = $4,
     email       = $5,
-    update_time = NOW()
-WHERE tenant_id = $6 AND id = $7
+    update_time = $6
+WHERE tenant_id = $7 AND id = $8
 `
 
 type UpdateMemberProfileParams struct {
@@ -269,6 +284,7 @@ type UpdateMemberProfileParams struct {
 	Gender   int32
 	Mobile   string
 	Email    string
+	Now      time.Time
 	TenantID string
 	ID       string
 }
@@ -280,6 +296,7 @@ func (q *Queries) UpdateMemberProfile(ctx context.Context, arg UpdateMemberProfi
 		arg.Gender,
 		arg.Mobile,
 		arg.Email,
+		arg.Now,
 		arg.TenantID,
 		arg.ID,
 	)
@@ -287,7 +304,7 @@ func (q *Queries) UpdateMemberProfile(ctx context.Context, arg UpdateMemberProfi
 }
 
 const updateMemberStatus = `-- name: UpdateMemberStatus :exec
-UPDATE t_member SET status = $3, update_time = NOW()
+UPDATE t_member SET status = $3, update_time = $4
 WHERE tenant_id = $1 AND id = $2
 `
 
@@ -295,9 +312,15 @@ type UpdateMemberStatusParams struct {
 	TenantID string
 	ID       string
 	Status   int32
+	Now      time.Time
 }
 
 func (q *Queries) UpdateMemberStatus(ctx context.Context, arg UpdateMemberStatusParams) error {
-	_, err := q.db.Exec(ctx, updateMemberStatus, arg.TenantID, arg.ID, arg.Status)
+	_, err := q.db.Exec(ctx, updateMemberStatus,
+		arg.TenantID,
+		arg.ID,
+		arg.Status,
+		arg.Now,
+	)
 	return err
 }

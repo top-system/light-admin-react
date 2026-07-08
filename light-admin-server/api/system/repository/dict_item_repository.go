@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -98,7 +97,7 @@ func (a DictItemRepository) GetByDictCode(dictCode string) (system.DictItems, er
 func (a DictItemRepository) Get(id string) (*system.DictItem, error) {
 	row, err := a.q.GetDictItem(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -124,6 +123,7 @@ func (a DictItemRepository) Create(item *system.DictItem) error {
 		CreateBy:  item.CreateBy,
 		UpdateBy:  item.UpdateBy,
 		IsDeleted: int32(item.IsDeleted),
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -143,6 +143,7 @@ func (a DictItemRepository) Update(id string, item *system.DictItem) error {
 		Status:   int32(item.Status),
 		Remark:   item.Remark,
 		UpdateBy: item.UpdateBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -155,6 +156,7 @@ func (a DictItemRepository) Delete(id string, deletedBy string) error {
 	err := a.q.SoftDeleteDictItem(context.Background(), store.SoftDeleteDictItemParams{
 		ID:       id,
 		UpdateBy: deletedBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -170,6 +172,7 @@ func (a DictItemRepository) DeleteByIDs(ids []string, deletedBy string) error {
 	err := a.q.SoftDeleteDictItemsByIDs(context.Background(), store.SoftDeleteDictItemsByIDsParams{
 		Ids:      ids,
 		UpdateBy: deletedBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -185,6 +188,7 @@ func (a DictItemRepository) DeleteByDictCodes(dictCodes []string, deletedBy stri
 	err := a.q.SoftDeleteDictItemsByDictCodes(context.Background(), store.SoftDeleteDictItemsByDictCodesParams{
 		DictCodes: dictCodes,
 		UpdateBy:  deletedBy,
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -203,9 +207,9 @@ func toDomainDictItem(r store.TDictItem) *system.DictItem {
 		Status:     int(r.Status),
 		Remark:     r.Remark,
 		CreateBy:   r.CreateBy,
-		CreateTime: dto.DateTime(r.CreateTime.Time),
+		CreateTime: dto.DateTime(r.CreateTime),
 		UpdateBy:   r.UpdateBy,
-		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		UpdateTime: dto.DateTime(r.UpdateTime),
 		IsDeleted:  int(r.IsDeleted),
 	}
 }

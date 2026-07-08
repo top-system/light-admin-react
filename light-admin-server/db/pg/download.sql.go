@@ -7,8 +7,7 @@ package pg
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const batchDeleteDownloadTasks = `-- name: BatchDeleteDownloadTasks :exec
@@ -35,8 +34,8 @@ type CountDownloadTasksParams struct {
 	Status     *string
 	Downloader *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 }
 
 func (q *Queries) CountDownloadTasks(ctx context.Context, arg CountDownloadTasksParams) (int64, error) {
@@ -60,7 +59,7 @@ INSERT INTO sys_download_tasks (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
     $8, $9, $10, $11, $12,
-    $13, $14, $15, NOW(), NOW()
+    $13, $14, $15, $16, $16
 )
 RETURNING id
 `
@@ -81,6 +80,7 @@ type CreateDownloadTaskParams struct {
 	SavePath      string
 	ErrorMessage  string
 	OwnerID       string
+	Now           time.Time
 }
 
 func (q *Queries) CreateDownloadTask(ctx context.Context, arg CreateDownloadTaskParams) (int64, error) {
@@ -100,6 +100,7 @@ func (q *Queries) CreateDownloadTask(ctx context.Context, arg CreateDownloadTask
 		arg.SavePath,
 		arg.ErrorMessage,
 		arg.OwnerID,
+		arg.Now,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -299,8 +300,8 @@ type ListDownloadTasksParams struct {
 	Status     *string
 	Downloader *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	Offset     *int32
 	Limit      *int32
 }
@@ -370,7 +371,7 @@ UPDATE sys_download_tasks SET
     save_path      = $14,
     error_message  = $15,
     owner_id       = $16,
-    updated_at     = NOW()
+    updated_at     = $17
 WHERE id = $1
 `
 
@@ -391,6 +392,7 @@ type UpdateDownloadTaskParams struct {
 	SavePath      string
 	ErrorMessage  string
 	OwnerID       string
+	Now           time.Time
 }
 
 func (q *Queries) UpdateDownloadTask(ctx context.Context, arg UpdateDownloadTaskParams) error {
@@ -411,6 +413,7 @@ func (q *Queries) UpdateDownloadTask(ctx context.Context, arg UpdateDownloadTask
 		arg.SavePath,
 		arg.ErrorMessage,
 		arg.OwnerID,
+		arg.Now,
 	)
 	return err
 }
@@ -428,8 +431,8 @@ UPDATE sys_download_tasks SET
     hash           = COALESCE(NULLIF($9, ''), hash),
     name           = COALESCE(NULLIF($10, ''), name),
     save_path      = COALESCE(NULLIF($11, ''), save_path),
-    updated_at     = NOW()
-WHERE id = $12
+    updated_at     = $12
+WHERE id = $13
 `
 
 type UpdateDownloadTaskFromDownloaderParams struct {
@@ -444,6 +447,7 @@ type UpdateDownloadTaskFromDownloaderParams struct {
 	Hash          interface{}
 	Name          interface{}
 	SavePath      interface{}
+	Now           time.Time
 	ID            int64
 }
 
@@ -463,6 +467,7 @@ func (q *Queries) UpdateDownloadTaskFromDownloader(ctx context.Context, arg Upda
 		arg.Hash,
 		arg.Name,
 		arg.SavePath,
+		arg.Now,
 		arg.ID,
 	)
 	return err
@@ -477,7 +482,7 @@ UPDATE sys_download_tasks SET
     uploaded       = $6,
     upload_speed   = $7,
     error_message  = $8,
-    updated_at     = NOW()
+    updated_at     = $9
 WHERE id = $1
 `
 
@@ -490,6 +495,7 @@ type UpdateDownloadTaskStatusParams struct {
 	Uploaded      int64
 	UploadSpeed   int64
 	ErrorMessage  string
+	Now           time.Time
 }
 
 func (q *Queries) UpdateDownloadTaskStatus(ctx context.Context, arg UpdateDownloadTaskStatusParams) error {
@@ -502,6 +508,7 @@ func (q *Queries) UpdateDownloadTaskStatus(ctx context.Context, arg UpdateDownlo
 		arg.Uploaded,
 		arg.UploadSpeed,
 		arg.ErrorMessage,
+		arg.Now,
 	)
 	return err
 }

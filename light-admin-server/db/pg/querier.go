@@ -199,7 +199,7 @@ type Querier interface {
 	// ORDER BY injection surface. This matches the sole caller's default ordering.
 	ListUserRoles(ctx context.Context, arg ListUserRolesParams) ([]TUserRole, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]TUser, error)
-	MarkAllUserNoticesRead(ctx context.Context, userID string) error
+	MarkAllUserNoticesRead(ctx context.Context, arg MarkAllUserNoticesReadParams) error
 	MarkUserNoticeRead(ctx context.Context, arg MarkUserNoticeReadParams) error
 	SoftDeleteConfig(ctx context.Context, arg SoftDeleteConfigParams) error
 	SoftDeleteDept(ctx context.Context, arg SoftDeleteDeptParams) error
@@ -213,10 +213,10 @@ type Querier interface {
 	SoftDeleteDictItemsByIDs(ctx context.Context, arg SoftDeleteDictItemsByIDsParams) error
 	SoftDeleteDictsByIDs(ctx context.Context, arg SoftDeleteDictsByIDsParams) error
 	SoftDeleteNoticesByIDs(ctx context.Context, arg SoftDeleteNoticesByIDsParams) error
-	SoftDeleteQueueTask(ctx context.Context, id int64) error
-	SoftDeleteRole(ctx context.Context, id string) error
-	SoftDeleteTenant(ctx context.Context, id string) error
-	SoftDeleteUser(ctx context.Context, id string) error
+	SoftDeleteQueueTask(ctx context.Context, arg SoftDeleteQueueTaskParams) error
+	SoftDeleteRole(ctx context.Context, arg SoftDeleteRoleParams) error
+	SoftDeleteTenant(ctx context.Context, arg SoftDeleteTenantParams) error
+	SoftDeleteUser(ctx context.Context, arg SoftDeleteUserParams) error
 	UpdateConfig(ctx context.Context, arg UpdateConfigParams) error
 	// Mirrors the previous Select-scoped GORM update
 	// (name, code, parent_id, tree_path, sort, status, update_by).

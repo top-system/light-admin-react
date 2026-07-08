@@ -44,7 +44,7 @@ INSERT INTO t_menu (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14, $15, $16,
-    NOW(), NOW()
+    sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateMenu :exec
@@ -64,17 +64,17 @@ UPDATE t_menu SET
     icon        = $14,
     redirect    = $15,
     params      = $16,
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: DeleteMenu :exec
 DELETE FROM t_menu WHERE id = $1;
 
 -- name: UpdateMenuVisible :exec
-UPDATE t_menu SET visible = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_menu SET visible = $2, update_time = sqlc.arg('now') WHERE id = $1;
 
 -- name: UpdateMenuTreePath :exec
-UPDATE t_menu SET tree_path = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_menu SET tree_path = $2, update_time = sqlc.arg('now') WHERE id = $1;
 
 -- name: ListMenusByRoleIDs :many
 -- Menus assigned to any of the given roles, ordered by sort ASC.

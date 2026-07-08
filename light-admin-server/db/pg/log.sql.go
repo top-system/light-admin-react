@@ -7,8 +7,7 @@ package pg
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const batchDeleteLogs = `-- name: BatchDeleteLogs :exec
@@ -31,8 +30,8 @@ WHERE ($1::text   IS NULL OR module = $1)
 type CountLogsParams struct {
 	Module     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 }
 
 func (q *Queries) CountLogs(ctx context.Context, arg CountLogsParams) (int64, error) {
@@ -55,7 +54,7 @@ INSERT INTO sys_log (
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $10, $11, $12,
-    $13, $14, $15, $16, NOW()
+    $13, $14, $15, $16, $17
 )
 `
 
@@ -76,6 +75,7 @@ type CreateLogParams struct {
 	BrowserVersion  string
 	Os              string
 	CreateBy        string
+	Now             time.Time
 }
 
 func (q *Queries) CreateLog(ctx context.Context, arg CreateLogParams) error {
@@ -96,6 +96,7 @@ func (q *Queries) CreateLog(ctx context.Context, arg CreateLogParams) error {
 		arg.BrowserVersion,
 		arg.Os,
 		arg.CreateBy,
+		arg.Now,
 	)
 	return err
 }
@@ -157,8 +158,8 @@ OFFSET $5
 type ListLogsParams struct {
 	Module     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	Offset     *int32
 	Limit      *int32
 }

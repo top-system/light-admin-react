@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -88,7 +87,7 @@ func (a DictRepository) GetAll() (system.Dicts, error) {
 func (a DictRepository) Get(id string) (*system.Dict, error) {
 	row, err := a.q.GetDict(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -106,7 +105,7 @@ func (a DictRepository) GetByCode(dictCode string, excludeID ...string) (*system
 
 	row, err := a.q.GetDictByCode(context.Background(), params)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -147,6 +146,7 @@ func (a DictRepository) Create(dict *system.Dict) error {
 		CreateBy:  dict.CreateBy,
 		UpdateBy:  dict.UpdateBy,
 		IsDeleted: int32(dict.IsDeleted),
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -163,6 +163,7 @@ func (a DictRepository) Update(id string, dict *system.Dict) error {
 		Status:   int32(dict.Status),
 		Remark:   dict.Remark,
 		UpdateBy: dict.UpdateBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -175,6 +176,7 @@ func (a DictRepository) Delete(id string, deletedBy string) error {
 	err := a.q.SoftDeleteDict(context.Background(), store.SoftDeleteDictParams{
 		ID:       id,
 		UpdateBy: deletedBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -190,6 +192,7 @@ func (a DictRepository) DeleteByIDs(ids []string, deletedBy string) error {
 	err := a.q.SoftDeleteDictsByIDs(context.Background(), store.SoftDeleteDictsByIDsParams{
 		Ids:      ids,
 		UpdateBy: deletedBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -202,6 +205,7 @@ func (a DictRepository) UpdateDictItemsCode(oldCode, newCode string) error {
 	err := a.q.UpdateDictItemsDictCode(context.Background(), store.UpdateDictItemsDictCodeParams{
 		OldCode: oldCode,
 		NewCode: newCode,
+		Now:     time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -217,9 +221,9 @@ func toDomainDict(r store.TDict) *system.Dict {
 		Status:     int(r.Status),
 		Remark:     r.Remark,
 		CreateBy:   r.CreateBy,
-		CreateTime: dto.DateTime(r.CreateTime.Time),
+		CreateTime: dto.DateTime(r.CreateTime),
 		UpdateBy:   r.UpdateBy,
-		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		UpdateTime: dto.DateTime(r.UpdateTime),
 		IsDeleted:  int(r.IsDeleted),
 	}
 }

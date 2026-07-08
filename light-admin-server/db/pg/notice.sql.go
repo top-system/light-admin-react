@@ -7,8 +7,7 @@ package pg
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const countNotices = `-- name: CountNotices :one
@@ -38,7 +37,7 @@ INSERT INTO t_notice (
     publish_status, create_by, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
-    $8, $9, $10, NOW(), NOW()
+    $8, $9, $10, $11, $11
 )
 `
 
@@ -53,6 +52,7 @@ type CreateNoticeParams struct {
 	PublishStatus int32
 	CreateBy      string
 	IsDeleted     int32
+	Now           time.Time
 }
 
 func (q *Queries) CreateNotice(ctx context.Context, arg CreateNoticeParams) error {
@@ -67,6 +67,7 @@ func (q *Queries) CreateNotice(ctx context.Context, arg CreateNoticeParams) erro
 		arg.PublishStatus,
 		arg.CreateBy,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -167,17 +168,18 @@ func (q *Queries) ListNotices(ctx context.Context, arg ListNoticesParams) ([]TNo
 }
 
 const softDeleteNoticesByIDs = `-- name: SoftDeleteNoticesByIDs :exec
-UPDATE t_notice SET is_deleted = 1, update_by = $1, update_time = NOW()
-WHERE id = ANY($2::text[])
+UPDATE t_notice SET is_deleted = 1, update_by = $1, update_time = $2
+WHERE id = ANY($3::text[])
 `
 
 type SoftDeleteNoticesByIDsParams struct {
 	UpdateBy string
+	Now      time.Time
 	Ids      []string
 }
 
 func (q *Queries) SoftDeleteNoticesByIDs(ctx context.Context, arg SoftDeleteNoticesByIDsParams) error {
-	_, err := q.db.Exec(ctx, softDeleteNoticesByIDs, arg.UpdateBy, arg.Ids)
+	_, err := q.db.Exec(ctx, softDeleteNoticesByIDs, arg.UpdateBy, arg.Now, arg.Ids)
 	return err
 }
 
@@ -190,7 +192,7 @@ UPDATE t_notice SET
     target_type     = $6,
     target_user_ids = $7,
     update_by       = $8,
-    update_time     = NOW()
+    update_time     = $9
 WHERE id = $1
 `
 
@@ -203,6 +205,7 @@ type UpdateNoticeParams struct {
 	TargetType    int32
 	TargetUserIds string
 	UpdateBy      string
+	Now           time.Time
 }
 
 func (q *Queries) UpdateNotice(ctx context.Context, arg UpdateNoticeParams) error {
@@ -215,6 +218,7 @@ func (q *Queries) UpdateNotice(ctx context.Context, arg UpdateNoticeParams) erro
 		arg.TargetType,
 		arg.TargetUserIds,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }
@@ -225,15 +229,16 @@ UPDATE t_notice SET
     publisher_id   = $2,
     publish_time   = COALESCE($3, publish_time),
     revoke_time    = COALESCE($4, revoke_time),
-    update_time    = NOW()
-WHERE id = $5
+    update_time    = $5
+WHERE id = $6
 `
 
 type UpdateNoticeStatusParams struct {
 	PublishStatus int32
 	PublisherID   string
-	PublishTime   pgtype.Timestamptz
-	RevokeTime    pgtype.Timestamptz
+	PublishTime   *time.Time
+	RevokeTime    *time.Time
+	Now           time.Time
 	ID            string
 }
 
@@ -243,6 +248,7 @@ func (q *Queries) UpdateNoticeStatus(ctx context.Context, arg UpdateNoticeStatus
 		arg.PublisherID,
 		arg.PublishTime,
 		arg.RevokeTime,
+		arg.Now,
 		arg.ID,
 	)
 	return err

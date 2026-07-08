@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const countMenus = `-- name: CountMenus :one
@@ -53,7 +54,7 @@ INSERT INTO t_menu (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14, $15, $16,
-    NOW(), NOW()
+    $17, $17
 )
 `
 
@@ -74,6 +75,7 @@ type CreateMenuParams struct {
 	Icon       string
 	Redirect   string
 	Params     string
+	Now        time.Time
 }
 
 func (q *Queries) CreateMenu(ctx context.Context, arg CreateMenuParams) error {
@@ -94,6 +96,7 @@ func (q *Queries) CreateMenu(ctx context.Context, arg CreateMenuParams) error {
 		arg.Icon,
 		arg.Redirect,
 		arg.Params,
+		arg.Now,
 	)
 	return err
 }
@@ -317,7 +320,7 @@ UPDATE t_menu SET
     icon        = $14,
     redirect    = $15,
     params      = $16,
-    update_time = NOW()
+    update_time = $17
 WHERE id = $1
 `
 
@@ -338,6 +341,7 @@ type UpdateMenuParams struct {
 	Icon       string
 	Redirect   string
 	Params     string
+	Now        time.Time
 }
 
 func (q *Queries) UpdateMenu(ctx context.Context, arg UpdateMenuParams) error {
@@ -358,34 +362,37 @@ func (q *Queries) UpdateMenu(ctx context.Context, arg UpdateMenuParams) error {
 		arg.Icon,
 		arg.Redirect,
 		arg.Params,
+		arg.Now,
 	)
 	return err
 }
 
 const updateMenuTreePath = `-- name: UpdateMenuTreePath :exec
-UPDATE t_menu SET tree_path = $2, update_time = NOW() WHERE id = $1
+UPDATE t_menu SET tree_path = $2, update_time = $3 WHERE id = $1
 `
 
 type UpdateMenuTreePathParams struct {
 	ID       string
 	TreePath string
+	Now      time.Time
 }
 
 func (q *Queries) UpdateMenuTreePath(ctx context.Context, arg UpdateMenuTreePathParams) error {
-	_, err := q.db.Exec(ctx, updateMenuTreePath, arg.ID, arg.TreePath)
+	_, err := q.db.Exec(ctx, updateMenuTreePath, arg.ID, arg.TreePath, arg.Now)
 	return err
 }
 
 const updateMenuVisible = `-- name: UpdateMenuVisible :exec
-UPDATE t_menu SET visible = $2, update_time = NOW() WHERE id = $1
+UPDATE t_menu SET visible = $2, update_time = $3 WHERE id = $1
 `
 
 type UpdateMenuVisibleParams struct {
 	ID      string
 	Visible int32
+	Now     time.Time
 }
 
 func (q *Queries) UpdateMenuVisible(ctx context.Context, arg UpdateMenuVisibleParams) error {
-	_, err := q.db.Exec(ctx, updateMenuVisible, arg.ID, arg.Visible)
+	_, err := q.db.Exec(ctx, updateMenuVisible, arg.ID, arg.Visible, arg.Now)
 	return err
 }

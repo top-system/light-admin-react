@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/top-system/light-admin/pkg/uuid"
 
 	"github.com/top-system/light-admin/db/store"
@@ -44,13 +43,14 @@ func (r *queueTaskRepository) Create(ctx context.Context, task *queue.TaskModel)
 		PublicError:            task.PublicState.Error,
 		PublicErrorHistory:     marshalErrorHistory(task.PublicState.ErrorHistory),
 		PublicResumeTime:       task.PublicState.ResumeTime,
+		Now:                    time.Now(),
 	})
 	if err != nil {
 		return err
 	}
 	task.ID = uint64(row.ID)
-	task.CreatedAt = row.CreatedAt.Time
-	task.UpdatedAt = row.UpdatedAt.Time
+	task.CreatedAt = row.CreatedAt
+	task.UpdatedAt = row.UpdatedAt
 	return nil
 }
 
@@ -68,14 +68,15 @@ func (r *queueTaskRepository) Update(ctx context.Context, task *queue.TaskModel)
 		PublicError:            task.PublicState.Error,
 		PublicErrorHistory:     marshalErrorHistory(task.PublicState.ErrorHistory),
 		PublicResumeTime:       task.PublicState.ResumeTime,
+		Now:                    time.Now(),
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return queue.ErrTaskNotFound
 		}
 		return err
 	}
-	task.UpdatedAt = row.UpdatedAt.Time
+	task.UpdatedAt = row.UpdatedAt
 	return nil
 }
 
@@ -83,7 +84,7 @@ func (r *queueTaskRepository) Update(ctx context.Context, task *queue.TaskModel)
 func (r *queueTaskRepository) GetByID(ctx context.Context, id uint64) (*queue.TaskModel, error) {
 	row, err := r.q.GetQueueTask(ctx, int64(id))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, queue.ErrTaskNotFound
 		}
 		return nil, err
@@ -112,7 +113,10 @@ func (r *queueTaskRepository) GetPendingTasks(ctx context.Context, types ...stri
 // Delete soft-deletes the task (sets deleted_at), matching the previous engine
 // behaviour.
 func (r *queueTaskRepository) Delete(ctx context.Context, id uint64) error {
-	return r.q.SoftDeleteQueueTask(ctx, int64(id))
+	return r.q.SoftDeleteQueueTask(ctx, store.SoftDeleteQueueTaskParams{
+		ID:  int64(id),
+		Now: time.Now(),
+	})
 }
 
 // toQueueModel maps a sys_tasks row to the framework-agnostic queue.TaskModel.
@@ -134,8 +138,8 @@ func toQueueModel(row store.SysTask) *queue.TaskModel {
 			ErrorHistory:     history,
 			ResumeTime:       row.PublicResumeTime,
 		},
-		CreatedAt: row.CreatedAt.Time,
-		UpdatedAt: row.UpdatedAt.Time,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
 	}
 }
 

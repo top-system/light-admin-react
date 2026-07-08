@@ -29,7 +29,7 @@ INSERT INTO t_notice (
     publish_status, create_by, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
-    $8, $9, $10, NOW(), NOW()
+    $8, $9, $10, sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateNotice :exec
@@ -41,7 +41,7 @@ UPDATE t_notice SET
     target_type     = $6,
     target_user_ids = $7,
     update_by       = $8,
-    update_time     = NOW()
+    update_time     = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: UpdateNoticeStatus :exec
@@ -50,9 +50,9 @@ UPDATE t_notice SET
     publisher_id   = sqlc.arg('publisher_id'),
     publish_time   = COALESCE(sqlc.narg('publish_time'), publish_time),
     revoke_time    = COALESCE(sqlc.narg('revoke_time'), revoke_time),
-    update_time    = NOW()
+    update_time    = sqlc.arg('now')
 WHERE id = sqlc.arg('id');
 
 -- name: SoftDeleteNoticesByIDs :exec
-UPDATE t_notice SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = NOW()
+UPDATE t_notice SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = sqlc.arg('now')
 WHERE id = ANY(sqlc.arg('ids')::text[]);

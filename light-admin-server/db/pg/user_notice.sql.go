@@ -7,8 +7,7 @@ package pg
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const batchCreateUserNotices = `-- name: BatchCreateUserNotices :exec
@@ -122,7 +121,7 @@ type ListMyNoticesRow struct {
 	Title       *string
 	Type        *int32
 	Level       *string
-	PublishTime pgtype.Timestamptz
+	PublishTime *time.Time
 	IsRead      int32
 }
 
@@ -165,26 +164,32 @@ func (q *Queries) ListMyNotices(ctx context.Context, arg ListMyNoticesParams) ([
 }
 
 const markAllUserNoticesRead = `-- name: MarkAllUserNoticesRead :exec
-UPDATE t_user_notice SET is_read = 1, read_time = NOW(), update_time = NOW()
+UPDATE t_user_notice SET is_read = 1, read_time = $2::timestamptz, update_time = $2::timestamptz
 WHERE user_id = $1 AND is_read = 0
 `
 
-func (q *Queries) MarkAllUserNoticesRead(ctx context.Context, userID string) error {
-	_, err := q.db.Exec(ctx, markAllUserNoticesRead, userID)
+type MarkAllUserNoticesReadParams struct {
+	UserID string
+	Now    time.Time
+}
+
+func (q *Queries) MarkAllUserNoticesRead(ctx context.Context, arg MarkAllUserNoticesReadParams) error {
+	_, err := q.db.Exec(ctx, markAllUserNoticesRead, arg.UserID, arg.Now)
 	return err
 }
 
 const markUserNoticeRead = `-- name: MarkUserNoticeRead :exec
-UPDATE t_user_notice SET is_read = 1, read_time = NOW(), update_time = NOW()
+UPDATE t_user_notice SET is_read = 1, read_time = $3::timestamptz, update_time = $3::timestamptz
 WHERE notice_id = $1 AND user_id = $2 AND is_read = 0
 `
 
 type MarkUserNoticeReadParams struct {
 	NoticeID string
 	UserID   string
+	Now      time.Time
 }
 
 func (q *Queries) MarkUserNoticeRead(ctx context.Context, arg MarkUserNoticeReadParams) error {
-	_, err := q.db.Exec(ctx, markUserNoticeRead, arg.NoticeID, arg.UserID)
+	_, err := q.db.Exec(ctx, markUserNoticeRead, arg.NoticeID, arg.UserID, arg.Now)
 	return err
 }

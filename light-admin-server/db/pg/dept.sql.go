@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const createDept = `-- name: CreateDept :exec
@@ -15,7 +16,7 @@ INSERT INTO t_dept (
     create_by, update_by, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
-    $8, $9, $10, NOW(), NOW()
+    $8, $9, $10, $11, $11
 )
 `
 
@@ -30,6 +31,7 @@ type CreateDeptParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 func (q *Queries) CreateDept(ctx context.Context, arg CreateDeptParams) error {
@@ -44,6 +46,7 @@ func (q *Queries) CreateDept(ctx context.Context, arg CreateDeptParams) error {
 		arg.CreateBy,
 		arg.UpdateBy,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -237,28 +240,30 @@ func (q *Queries) ListEnabledDepts(ctx context.Context) ([]TDept, error) {
 }
 
 const softDeleteDept = `-- name: SoftDeleteDept :exec
-UPDATE t_dept SET is_deleted = 1, update_by = $2, update_time = NOW()
+UPDATE t_dept SET is_deleted = 1, update_by = $2, update_time = $3
 WHERE id = $1
 `
 
 type SoftDeleteDeptParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) SoftDeleteDept(ctx context.Context, arg SoftDeleteDeptParams) error {
-	_, err := q.db.Exec(ctx, softDeleteDept, arg.ID, arg.UpdateBy)
+	_, err := q.db.Exec(ctx, softDeleteDept, arg.ID, arg.UpdateBy, arg.Now)
 	return err
 }
 
 const softDeleteDeptByTreePath = `-- name: SoftDeleteDeptByTreePath :exec
-UPDATE t_dept SET is_deleted = 1, update_by = $1, update_time = NOW()
-WHERE id = $2
-   OR (',' || tree_path || ',') LIKE $3
+UPDATE t_dept SET is_deleted = 1, update_by = $1, update_time = $2
+WHERE id = $3
+   OR (',' || tree_path || ',') LIKE $4
 `
 
 type SoftDeleteDeptByTreePathParams struct {
 	UpdateBy     string
+	Now          time.Time
 	ID           string
 	TreePathLike string
 }
@@ -267,7 +272,12 @@ type SoftDeleteDeptByTreePathParams struct {
 // when its comma-wrapped tree_path contains ",<id>,". Matches the previous GORM
 // expression built from DBCompat.TreePathLike.
 func (q *Queries) SoftDeleteDeptByTreePath(ctx context.Context, arg SoftDeleteDeptByTreePathParams) error {
-	_, err := q.db.Exec(ctx, softDeleteDeptByTreePath, arg.UpdateBy, arg.ID, arg.TreePathLike)
+	_, err := q.db.Exec(ctx, softDeleteDeptByTreePath,
+		arg.UpdateBy,
+		arg.Now,
+		arg.ID,
+		arg.TreePathLike,
+	)
 	return err
 }
 
@@ -280,7 +290,7 @@ UPDATE t_dept SET
     sort        = $6,
     status      = $7,
     update_by   = $8,
-    update_time = NOW()
+    update_time = $9
 WHERE id = $1
 `
 
@@ -293,6 +303,7 @@ type UpdateDeptParams struct {
 	Sort     int32
 	Status   int32
 	UpdateBy string
+	Now      time.Time
 }
 
 // Mirrors the previous Select-scoped GORM update
@@ -307,6 +318,7 @@ func (q *Queries) UpdateDept(ctx context.Context, arg UpdateDeptParams) error {
 		arg.Sort,
 		arg.Status,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }

@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const countDicts = `-- name: CountDicts :one
@@ -27,7 +28,7 @@ INSERT INTO t_dict (
     id, dict_code, name, status, remark, create_by, update_by, is_deleted,
     create_time, update_time
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $9
 )
 `
 
@@ -40,6 +41,7 @@ type CreateDictParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 func (q *Queries) CreateDict(ctx context.Context, arg CreateDictParams) error {
@@ -52,6 +54,7 @@ func (q *Queries) CreateDict(ctx context.Context, arg CreateDictParams) error {
 		arg.CreateBy,
 		arg.UpdateBy,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -230,31 +233,33 @@ func (q *Queries) ListEnabledDicts(ctx context.Context) ([]TDict, error) {
 }
 
 const softDeleteDict = `-- name: SoftDeleteDict :exec
-UPDATE t_dict SET is_deleted = 1, update_by = $2, update_time = NOW() WHERE id = $1
+UPDATE t_dict SET is_deleted = 1, update_by = $2, update_time = $3 WHERE id = $1
 `
 
 type SoftDeleteDictParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) SoftDeleteDict(ctx context.Context, arg SoftDeleteDictParams) error {
-	_, err := q.db.Exec(ctx, softDeleteDict, arg.ID, arg.UpdateBy)
+	_, err := q.db.Exec(ctx, softDeleteDict, arg.ID, arg.UpdateBy, arg.Now)
 	return err
 }
 
 const softDeleteDictsByIDs = `-- name: SoftDeleteDictsByIDs :exec
-UPDATE t_dict SET is_deleted = 1, update_by = $1, update_time = NOW()
-WHERE id = ANY($2::text[])
+UPDATE t_dict SET is_deleted = 1, update_by = $1, update_time = $2
+WHERE id = ANY($3::text[])
 `
 
 type SoftDeleteDictsByIDsParams struct {
 	UpdateBy string
+	Now      time.Time
 	Ids      []string
 }
 
 func (q *Queries) SoftDeleteDictsByIDs(ctx context.Context, arg SoftDeleteDictsByIDsParams) error {
-	_, err := q.db.Exec(ctx, softDeleteDictsByIDs, arg.UpdateBy, arg.Ids)
+	_, err := q.db.Exec(ctx, softDeleteDictsByIDs, arg.UpdateBy, arg.Now, arg.Ids)
 	return err
 }
 
@@ -265,7 +270,7 @@ UPDATE t_dict SET
     status      = $4,
     remark      = $5,
     update_by   = $6,
-    update_time = NOW()
+    update_time = $7
 WHERE id = $1
 `
 
@@ -276,6 +281,7 @@ type UpdateDictParams struct {
 	Status   int32
 	Remark   string
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) UpdateDict(ctx context.Context, arg UpdateDictParams) error {
@@ -286,6 +292,7 @@ func (q *Queries) UpdateDict(ctx context.Context, arg UpdateDictParams) error {
 		arg.Status,
 		arg.Remark,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }

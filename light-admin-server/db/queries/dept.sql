@@ -38,7 +38,7 @@ INSERT INTO t_dept (
     create_by, update_by, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
-    $8, $9, $10, NOW(), NOW()
+    $8, $9, $10, sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateDept :exec
@@ -52,17 +52,17 @@ UPDATE t_dept SET
     sort        = $6,
     status      = $7,
     update_by   = $8,
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: SoftDeleteDept :exec
-UPDATE t_dept SET is_deleted = 1, update_by = $2, update_time = NOW()
+UPDATE t_dept SET is_deleted = 1, update_by = $2, update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: SoftDeleteDeptByTreePath :exec
 -- Soft-deletes a department and all of its descendants. A node is a descendant
 -- when its comma-wrapped tree_path contains ",<id>,". Matches the previous GORM
 -- expression built from DBCompat.TreePathLike.
-UPDATE t_dept SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = NOW()
+UPDATE t_dept SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = sqlc.arg('now')
 WHERE id = sqlc.arg('id')
    OR (',' || tree_path || ',') LIKE sqlc.arg('tree_path_like');

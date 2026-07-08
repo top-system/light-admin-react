@@ -36,7 +36,7 @@ INSERT INTO t_dict (
     id, dict_code, name, status, remark, create_by, update_by, is_deleted,
     create_time, update_time
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateDict :exec
@@ -46,12 +46,12 @@ UPDATE t_dict SET
     status      = $4,
     remark      = $5,
     update_by   = $6,
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: SoftDeleteDict :exec
-UPDATE t_dict SET is_deleted = 1, update_by = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_dict SET is_deleted = 1, update_by = $2, update_time = sqlc.arg('now') WHERE id = $1;
 
 -- name: SoftDeleteDictsByIDs :exec
-UPDATE t_dict SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = NOW()
+UPDATE t_dict SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = sqlc.arg('now')
 WHERE id = ANY(sqlc.arg('ids')::text[]);

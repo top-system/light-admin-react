@@ -7,8 +7,7 @@ package pg
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const batchDeleteTasks = `-- name: BatchDeleteTasks :exec
@@ -36,8 +35,8 @@ type CountTasksParams struct {
 	Status        *string
 	CorrelationID *string
 	Keywords      *string
-	CreateFrom    pgtype.Timestamptz
-	CreateTo      pgtype.Timestamptz
+	CreateFrom    *time.Time
+	CreateTo      *time.Time
 }
 
 func (q *Queries) CountTasks(ctx context.Context, arg CountTasksParams) (int64, error) {
@@ -168,8 +167,8 @@ type ListTasksParams struct {
 	Status        *string
 	CorrelationID *string
 	Keywords      *string
-	CreateFrom    pgtype.Timestamptz
-	CreateTo      pgtype.Timestamptz
+	CreateFrom    *time.Time
+	CreateTo      *time.Time
 	Offset        *int32
 	Limit         *int32
 }

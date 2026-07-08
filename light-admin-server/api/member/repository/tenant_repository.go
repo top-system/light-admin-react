@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -68,7 +67,7 @@ func (a TenantRepository) Query(param *tenant.TenantQueryParam) (*tenant.TenantQ
 func (a TenantRepository) GetByCode(code string) (*tenant.Tenant, error) {
 	row, err := a.q.GetTenantByCode(context.Background(), code)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.TenantNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -79,7 +78,7 @@ func (a TenantRepository) GetByCode(code string) (*tenant.Tenant, error) {
 func (a TenantRepository) Get(id string) (*tenant.Tenant, error) {
 	row, err := a.q.GetTenant(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.TenantNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -99,6 +98,7 @@ func (a TenantRepository) Create(t *tenant.Tenant) error {
 		Status:    int32(t.Status),
 		CreateBy:  t.CreateBy,
 		IsDeleted: int32(t.IsDeleted),
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -113,6 +113,7 @@ func (a TenantRepository) Update(id string, t *tenant.Tenant) error {
 		Name:     t.Name,
 		Status:   int32(t.Status),
 		UpdateBy: t.UpdateBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -121,7 +122,7 @@ func (a TenantRepository) Update(id string, t *tenant.Tenant) error {
 }
 
 func (a TenantRepository) Delete(id string) error {
-	if err := a.q.SoftDeleteTenant(context.Background(), id); err != nil {
+	if err := a.q.SoftDeleteTenant(context.Background(), store.SoftDeleteTenantParams{ID: id, Now: time.Now()}); err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return nil
@@ -133,9 +134,9 @@ func toDomainTenant(r store.TTenant) *tenant.Tenant {
 		Code:       r.Code,
 		Name:       r.Name,
 		Status:     int(r.Status),
-		CreateTime: dto.DateTime(r.CreateTime.Time),
+		CreateTime: dto.DateTime(r.CreateTime),
 		CreateBy:   r.CreateBy,
-		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		UpdateTime: dto.DateTime(r.UpdateTime),
 		UpdateBy:   r.UpdateBy,
 		IsDeleted:  int(r.IsDeleted),
 	}

@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const countRoles = `-- name: CountRoles :one
@@ -51,7 +52,7 @@ INSERT INTO t_role (
     create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9,
-    NOW(), NOW()
+    $10, $10
 )
 `
 
@@ -65,6 +66,7 @@ type CreateRoleParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) error {
@@ -78,6 +80,7 @@ func (q *Queries) CreateRole(ctx context.Context, arg CreateRoleParams) error {
 		arg.CreateBy,
 		arg.UpdateBy,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -208,11 +211,16 @@ func (q *Queries) ListRoles(ctx context.Context, arg ListRolesParams) ([]TRole, 
 }
 
 const softDeleteRole = `-- name: SoftDeleteRole :exec
-UPDATE t_role SET is_deleted = 1, update_time = NOW() WHERE id = $1
+UPDATE t_role SET is_deleted = 1, update_time = $2 WHERE id = $1
 `
 
-func (q *Queries) SoftDeleteRole(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, softDeleteRole, id)
+type SoftDeleteRoleParams struct {
+	ID  string
+	Now time.Time
+}
+
+func (q *Queries) SoftDeleteRole(ctx context.Context, arg SoftDeleteRoleParams) error {
+	_, err := q.db.Exec(ctx, softDeleteRole, arg.ID, arg.Now)
 	return err
 }
 
@@ -224,7 +232,7 @@ UPDATE t_role SET
     status      = $5,
     data_scope  = $6,
     update_by   = $7,
-    update_time = NOW()
+    update_time = $8
 WHERE id = $1
 `
 
@@ -236,6 +244,7 @@ type UpdateRoleParams struct {
 	Status    int32
 	DataScope int32
 	UpdateBy  string
+	Now       time.Time
 }
 
 // Mirrors the previous Select-scoped GORM update
@@ -249,20 +258,22 @@ func (q *Queries) UpdateRole(ctx context.Context, arg UpdateRoleParams) error {
 		arg.Status,
 		arg.DataScope,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }
 
 const updateRoleStatus = `-- name: UpdateRoleStatus :exec
-UPDATE t_role SET status = $2, update_time = NOW() WHERE id = $1
+UPDATE t_role SET status = $2, update_time = $3 WHERE id = $1
 `
 
 type UpdateRoleStatusParams struct {
 	ID     string
 	Status int32
+	Now    time.Time
 }
 
 func (q *Queries) UpdateRoleStatus(ctx context.Context, arg UpdateRoleStatusParams) error {
-	_, err := q.db.Exec(ctx, updateRoleStatus, arg.ID, arg.Status)
+	_, err := q.db.Exec(ctx, updateRoleStatus, arg.ID, arg.Status, arg.Now)
 	return err
 }

@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -45,7 +44,7 @@ func (a MemberRepository) GetByUsername(tenantID, username string) (*member.Memb
 		Username: username,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.MemberRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -59,7 +58,7 @@ func (a MemberRepository) GetByID(tenantID, id string) (*member.Member, error) {
 		ID:       id,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.MemberRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -95,6 +94,7 @@ func (a MemberRepository) Create(m *member.Member) error {
 		Gender:    int32(m.Gender),
 		Status:    int32(m.Status),
 		IsDeleted: int32(m.IsDeleted),
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -111,6 +111,7 @@ func (a MemberRepository) UpdateProfile(tenantID, id string, form *member.Member
 		Gender:   int32(form.Gender),
 		Mobile:   form.Mobile,
 		Email:    form.Email,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -123,6 +124,7 @@ func (a MemberRepository) UpdateStatus(tenantID, id string, status int) error {
 		TenantID: tenantID,
 		ID:       id,
 		Status:   int32(status),
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -135,6 +137,7 @@ func (a MemberRepository) UpdatePassword(tenantID, id, hashed string) error {
 		TenantID: tenantID,
 		ID:       id,
 		Password: hashed,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -147,6 +150,7 @@ func (a MemberRepository) UpdateLoginInfo(tenantID, id, ip string) error {
 		TenantID:    tenantID,
 		ID:          id,
 		LastLoginIp: ip,
+		Now:         time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -212,10 +216,19 @@ func toDomainMember(r store.TMember) *member.Member {
 		Avatar:        r.Avatar,
 		Gender:        int(r.Gender),
 		Status:        int(r.Status),
-		LastLoginTime: dto.DateTime(r.LastLoginTime.Time),
+		LastLoginTime: dto.DateTime(tsOrZero(r.LastLoginTime)),
 		LastLoginIP:   r.LastLoginIp,
-		CreateTime:    dto.DateTime(r.CreateTime.Time),
-		UpdateTime:    dto.DateTime(r.UpdateTime.Time),
+		CreateTime:    dto.DateTime(r.CreateTime),
+		UpdateTime:    dto.DateTime(r.UpdateTime),
 		IsDeleted:     int(r.IsDeleted),
 	}
+}
+
+// tsOrZero dereferences a nullable timestamp column, yielding the zero time when
+// the column is NULL — matching the previous pgtype.Timestamptz.Time behaviour.
+func tsOrZero(p *time.Time) time.Time {
+	if p == nil {
+		return time.Time{}
+	}
+	return *p
 }

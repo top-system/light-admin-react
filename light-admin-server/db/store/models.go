@@ -2,7 +2,9 @@
 
 package store
 
-import "github.com/jackc/pgx/v5/pgtype"
+import (
+	"time"
+)
 
 type BatchCreateRoleMenusParams struct {
 	RoleIds []string
@@ -34,15 +36,15 @@ type CountDownloadTasksParams struct {
 	Status     *string
 	Downloader *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 }
 
 type CountLogsParams struct {
 	Module     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 }
 
 type CountMembersByUsernameParams struct {
@@ -92,8 +94,8 @@ type CountTasksParams struct {
 	Status        *string
 	CorrelationID *string
 	Keywords      *string
-	CreateFrom    pgtype.Timestamptz
-	CreateTo      pgtype.Timestamptz
+	CreateFrom    *time.Time
+	CreateTo      *time.Time
 }
 
 type CountTenantsParams struct {
@@ -112,8 +114,8 @@ type CountUsersParams struct {
 	Status     *int32
 	DeptID     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	RoleIds    []string
 }
 
@@ -126,6 +128,7 @@ type CreateConfigParams struct {
 	CreateBy    string
 	UpdateBy    string
 	IsDeleted   int32
+	Now         time.Time
 }
 
 type CreateDeptParams struct {
@@ -139,6 +142,7 @@ type CreateDeptParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 type CreateDictItemParams struct {
@@ -153,6 +157,7 @@ type CreateDictItemParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 type CreateDictParams struct {
@@ -164,6 +169,7 @@ type CreateDictParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 type CreateDownloadTaskParams struct {
@@ -182,6 +188,7 @@ type CreateDownloadTaskParams struct {
 	SavePath      string
 	ErrorMessage  string
 	OwnerID       string
+	Now           time.Time
 }
 
 type CreateLogParams struct {
@@ -201,6 +208,7 @@ type CreateLogParams struct {
 	BrowserVersion  string
 	Os              string
 	CreateBy        string
+	Now             time.Time
 }
 
 type CreateMemberParams struct {
@@ -215,6 +223,7 @@ type CreateMemberParams struct {
 	Gender    int32
 	Status    int32
 	IsDeleted int32
+	Now       time.Time
 }
 
 type CreateMenuParams struct {
@@ -234,6 +243,7 @@ type CreateMenuParams struct {
 	Icon       string
 	Redirect   string
 	Params     string
+	Now        time.Time
 }
 
 type CreateNoticeParams struct {
@@ -247,6 +257,7 @@ type CreateNoticeParams struct {
 	PublishStatus int32
 	CreateBy      string
 	IsDeleted     int32
+	Now           time.Time
 }
 
 type CreateQueueTaskParams struct {
@@ -260,6 +271,7 @@ type CreateQueueTaskParams struct {
 	PublicError            string
 	PublicErrorHistory     string
 	PublicResumeTime       int64
+	Now                    time.Time
 }
 
 type CreateRoleParams struct {
@@ -272,6 +284,7 @@ type CreateRoleParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 type CreateTenantParams struct {
@@ -281,6 +294,7 @@ type CreateTenantParams struct {
 	Status    int32
 	CreateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 type CreateUserNoticeParams struct {
@@ -305,6 +319,7 @@ type CreateUserParams struct {
 	UpdateBy  string
 	IsDeleted int32
 	Openid    string
+	Now       time.Time
 }
 
 type CreateUserRoleParams struct {
@@ -373,8 +388,8 @@ type ListDownloadTasksParams struct {
 	Status     *string
 	Downloader *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	Offset     *int32
 	Limit      *int32
 }
@@ -382,8 +397,8 @@ type ListDownloadTasksParams struct {
 type ListLogsParams struct {
 	Module     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	Offset     *int32
 	Limit      *int32
 }
@@ -423,7 +438,7 @@ type ListMyNoticesRow struct {
 	Title       *string
 	Type        *int32
 	Level       *string
-	PublishTime pgtype.Timestamptz
+	PublishTime *time.Time
 	IsRead      int32
 }
 
@@ -456,8 +471,8 @@ type ListTasksParams struct {
 	Status        *string
 	CorrelationID *string
 	Keywords      *string
-	CreateFrom    pgtype.Timestamptz
-	CreateTo      pgtype.Timestamptz
+	CreateFrom    *time.Time
+	CreateTo      *time.Time
 	Offset        *int32
 	Limit         *int32
 }
@@ -482,25 +497,33 @@ type ListUsersParams struct {
 	Status     *int32
 	DeptID     *string
 	Keywords   *string
-	CreateFrom pgtype.Timestamptz
-	CreateTo   pgtype.Timestamptz
+	CreateFrom *time.Time
+	CreateTo   *time.Time
 	RoleIds    []string
 	Offset     *int32
 	Limit      *int32
 }
 
+type MarkAllUserNoticesReadParams struct {
+	UserID string
+	Now    time.Time
+}
+
 type MarkUserNoticeReadParams struct {
 	NoticeID string
 	UserID   string
+	Now      time.Time
 }
 
 type SoftDeleteConfigParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 type SoftDeleteDeptByTreePathParams struct {
 	UpdateBy     string
+	Now          time.Time
 	ID           string
 	TreePathLike string
 }
@@ -508,36 +531,63 @@ type SoftDeleteDeptByTreePathParams struct {
 type SoftDeleteDeptParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 type SoftDeleteDictItemParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 type SoftDeleteDictItemsByDictCodesParams struct {
 	UpdateBy  string
+	Now       time.Time
 	DictCodes []string
 }
 
 type SoftDeleteDictItemsByIDsParams struct {
 	UpdateBy string
+	Now      time.Time
 	Ids      []string
 }
 
 type SoftDeleteDictParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 type SoftDeleteDictsByIDsParams struct {
 	UpdateBy string
+	Now      time.Time
 	Ids      []string
 }
 
 type SoftDeleteNoticesByIDsParams struct {
 	UpdateBy string
+	Now      time.Time
 	Ids      []string
+}
+
+type SoftDeleteQueueTaskParams struct {
+	ID  int64
+	Now time.Time
+}
+
+type SoftDeleteRoleParams struct {
+	ID  string
+	Now time.Time
+}
+
+type SoftDeleteTenantParams struct {
+	ID  string
+	Now time.Time
+}
+
+type SoftDeleteUserParams struct {
+	ID  string
+	Now time.Time
 }
 
 type SysDownloadTask struct {
@@ -557,9 +607,9 @@ type SysDownloadTask struct {
 	SavePath      string
 	ErrorMessage  string
 	OwnerID       string
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	DeletedAt     pgtype.Timestamptz
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	DeletedAt     *time.Time
 }
 
 type SysLog struct {
@@ -579,7 +629,7 @@ type SysLog struct {
 	BrowserVersion  string
 	Os              string
 	CreateBy        string
-	CreateTime      pgtype.Timestamptz
+	CreateTime      time.Time
 }
 
 type SysTask struct {
@@ -594,9 +644,9 @@ type SysTask struct {
 	PublicError            string
 	PublicErrorHistory     string
 	PublicResumeTime       int64
-	CreatedAt              pgtype.Timestamptz
-	UpdatedAt              pgtype.Timestamptz
-	DeletedAt              pgtype.Timestamptz
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	DeletedAt              *time.Time
 }
 
 type TConfig struct {
@@ -605,9 +655,9 @@ type TConfig struct {
 	ConfigKey   string
 	ConfigValue string
 	Remark      string
-	CreateTime  pgtype.Timestamptz
+	CreateTime  time.Time
 	CreateBy    string
-	UpdateTime  pgtype.Timestamptz
+	UpdateTime  time.Time
 	UpdateBy    string
 	IsDeleted   int32
 }
@@ -621,9 +671,9 @@ type TDept struct {
 	Sort       int32
 	Status     int32
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -634,9 +684,9 @@ type TDict struct {
 	Status     int32
 	Remark     string
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -650,9 +700,9 @@ type TDictItem struct {
 	Status     int32
 	Remark     string
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -667,10 +717,10 @@ type TMember struct {
 	Avatar        string
 	Gender        int32
 	Status        int32
-	LastLoginTime pgtype.Timestamptz
+	LastLoginTime *time.Time
 	LastLoginIp   string
-	CreateTime    pgtype.Timestamptz
-	UpdateTime    pgtype.Timestamptz
+	CreateTime    time.Time
+	UpdateTime    time.Time
 	IsDeleted     int32
 }
 
@@ -691,8 +741,8 @@ type TMenu struct {
 	Icon       string
 	Redirect   string
 	Params     string
-	CreateTime pgtype.Timestamptz
-	UpdateTime pgtype.Timestamptz
+	CreateTime time.Time
+	UpdateTime time.Time
 }
 
 type TNotice struct {
@@ -705,12 +755,12 @@ type TNotice struct {
 	TargetUserIds string
 	PublisherID   string
 	PublishStatus int32
-	PublishTime   pgtype.Timestamptz
-	RevokeTime    pgtype.Timestamptz
+	PublishTime   *time.Time
+	RevokeTime    *time.Time
 	CreateBy      string
-	CreateTime    pgtype.Timestamptz
+	CreateTime    time.Time
 	UpdateBy      string
-	UpdateTime    pgtype.Timestamptz
+	UpdateTime    time.Time
 	IsDeleted     int32
 }
 
@@ -722,9 +772,9 @@ type TRole struct {
 	Status     int32
 	DataScope  int32
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -738,9 +788,9 @@ type TTenant struct {
 	Code       string
 	Name       string
 	Status     int32
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	CreateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	UpdateBy   string
 	IsDeleted  int32
 }
@@ -756,9 +806,9 @@ type TUser struct {
 	Mobile     string
 	Status     int32
 	Email      string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	CreateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	UpdateBy   string
 	IsDeleted  int32
 	Openid     string
@@ -769,9 +819,9 @@ type TUserNotice struct {
 	NoticeID   string
 	UserID     string
 	IsRead     int32
-	ReadTime   pgtype.Timestamptz
-	CreateTime pgtype.Timestamptz
-	UpdateTime pgtype.Timestamptz
+	ReadTime   *time.Time
+	CreateTime time.Time
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -787,6 +837,7 @@ type UpdateConfigParams struct {
 	ConfigValue string
 	Remark      string
 	UpdateBy    string
+	Now         time.Time
 }
 
 type UpdateDeptParams struct {
@@ -798,6 +849,7 @@ type UpdateDeptParams struct {
 	Sort     int32
 	Status   int32
 	UpdateBy string
+	Now      time.Time
 }
 
 type UpdateDictItemParams struct {
@@ -810,10 +862,12 @@ type UpdateDictItemParams struct {
 	Status   int32
 	Remark   string
 	UpdateBy string
+	Now      time.Time
 }
 
 type UpdateDictItemsDictCodeParams struct {
 	NewCode string
+	Now     time.Time
 	OldCode string
 }
 
@@ -824,6 +878,7 @@ type UpdateDictParams struct {
 	Status   int32
 	Remark   string
 	UpdateBy string
+	Now      time.Time
 }
 
 type UpdateDownloadTaskFromDownloaderParams struct {
@@ -838,6 +893,7 @@ type UpdateDownloadTaskFromDownloaderParams struct {
 	Hash          interface{}
 	Name          interface{}
 	SavePath      interface{}
+	Now           time.Time
 	ID            int64
 }
 
@@ -858,6 +914,7 @@ type UpdateDownloadTaskParams struct {
 	SavePath      string
 	ErrorMessage  string
 	OwnerID       string
+	Now           time.Time
 }
 
 type UpdateDownloadTaskStatusParams struct {
@@ -869,18 +926,21 @@ type UpdateDownloadTaskStatusParams struct {
 	Uploaded      int64
 	UploadSpeed   int64
 	ErrorMessage  string
+	Now           time.Time
 }
 
 type UpdateMemberLoginInfoParams struct {
 	TenantID    string
 	ID          string
 	LastLoginIp string
+	Now         time.Time
 }
 
 type UpdateMemberPasswordParams struct {
 	TenantID string
 	ID       string
 	Password string
+	Now      time.Time
 }
 
 type UpdateMemberProfileParams struct {
@@ -889,6 +949,7 @@ type UpdateMemberProfileParams struct {
 	Gender   int32
 	Mobile   string
 	Email    string
+	Now      time.Time
 	TenantID string
 	ID       string
 }
@@ -897,6 +958,7 @@ type UpdateMemberStatusParams struct {
 	TenantID string
 	ID       string
 	Status   int32
+	Now      time.Time
 }
 
 type UpdateMenuParams struct {
@@ -916,16 +978,19 @@ type UpdateMenuParams struct {
 	Icon       string
 	Redirect   string
 	Params     string
+	Now        time.Time
 }
 
 type UpdateMenuTreePathParams struct {
 	ID       string
 	TreePath string
+	Now      time.Time
 }
 
 type UpdateMenuVisibleParams struct {
 	ID      string
 	Visible int32
+	Now     time.Time
 }
 
 type UpdateNoticeParams struct {
@@ -937,13 +1002,15 @@ type UpdateNoticeParams struct {
 	TargetType    int32
 	TargetUserIds string
 	UpdateBy      string
+	Now           time.Time
 }
 
 type UpdateNoticeStatusParams struct {
 	PublishStatus int32
 	PublisherID   string
-	PublishTime   pgtype.Timestamptz
-	RevokeTime    pgtype.Timestamptz
+	PublishTime   *time.Time
+	RevokeTime    *time.Time
+	Now           time.Time
 	ID            string
 }
 
@@ -959,6 +1026,7 @@ type UpdateQueueTaskParams struct {
 	PublicError            string
 	PublicErrorHistory     string
 	PublicResumeTime       int64
+	Now                    time.Time
 }
 
 type UpdateRoleParams struct {
@@ -969,11 +1037,13 @@ type UpdateRoleParams struct {
 	Status    int32
 	DataScope int32
 	UpdateBy  string
+	Now       time.Time
 }
 
 type UpdateRoleStatusParams struct {
 	ID     string
 	Status int32
+	Now    time.Time
 }
 
 type UpdateTenantParams struct {
@@ -982,6 +1052,7 @@ type UpdateTenantParams struct {
 	Name     string
 	Status   int32
 	UpdateBy string
+	Now      time.Time
 }
 
 type UpdateUserParams struct {
@@ -995,11 +1066,13 @@ type UpdateUserParams struct {
 	Status   int32
 	Email    string
 	UpdateBy string
+	Now      time.Time
 }
 
 type UpdateUserPasswordParams struct {
 	ID       string
 	Password string
+	Now      time.Time
 }
 
 type UpdateUserProfileParams struct {
@@ -1008,10 +1081,12 @@ type UpdateUserProfileParams struct {
 	Avatar   *string
 	Mobile   *string
 	Email    *string
+	Now      time.Time
 	ID       string
 }
 
 type UpdateUserStatusParams struct {
 	ID     string
 	Status int32
+	Now    time.Time
 }

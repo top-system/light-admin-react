@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -73,7 +72,7 @@ func (a ConfigRepository) Query(param *system.ConfigQueryParam) (*system.ConfigQ
 func (a ConfigRepository) Get(id string) (*system.Config, error) {
 	row, err := a.q.GetConfig(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -84,7 +83,7 @@ func (a ConfigRepository) Get(id string) (*system.Config, error) {
 func (a ConfigRepository) GetByKey(key string) (*system.Config, error) {
 	row, err := a.q.GetConfigByKey(context.Background(), key)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -133,6 +132,7 @@ func (a ConfigRepository) Create(config *system.Config) error {
 		CreateBy:    config.CreateBy,
 		UpdateBy:    config.UpdateBy,
 		IsDeleted:   int32(config.IsDeleted),
+		Now:         time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -149,6 +149,7 @@ func (a ConfigRepository) Update(id string, config *system.Config) error {
 		ConfigValue: config.ConfigValue,
 		Remark:      config.Remark,
 		UpdateBy:    config.UpdateBy,
+		Now:         time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -161,6 +162,7 @@ func (a ConfigRepository) Delete(id string, deletedBy string) error {
 	err := a.q.SoftDeleteConfig(context.Background(), store.SoftDeleteConfigParams{
 		ID:       id,
 		UpdateBy: deletedBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -175,9 +177,9 @@ func toDomainConfig(r store.TConfig) *system.Config {
 		ConfigKey:   r.ConfigKey,
 		ConfigValue: r.ConfigValue,
 		Remark:      r.Remark,
-		CreateTime:  dto.DateTime(r.CreateTime.Time),
+		CreateTime:  dto.DateTime(r.CreateTime),
 		CreateBy:    r.CreateBy,
-		UpdateTime:  dto.DateTime(r.UpdateTime.Time),
+		UpdateTime:  dto.DateTime(r.UpdateTime),
 		UpdateBy:    r.UpdateBy,
 		IsDeleted:   int(r.IsDeleted),
 	}

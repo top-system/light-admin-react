@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -79,7 +78,7 @@ func (a MenuRepository) Query(param *system.MenuQueryParam) (*system.MenuQueryRe
 func (a MenuRepository) Get(id string) (*system.Menu, error) {
 	row, err := a.q.GetMenu(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -110,6 +109,7 @@ func (a MenuRepository) Create(menu *system.Menu) error {
 		Icon:       menu.Icon,
 		Redirect:   menu.Redirect,
 		Params:     menu.Params,
+		Now:        time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -137,6 +137,7 @@ func (a MenuRepository) Update(id string, menu *system.Menu) error {
 		Icon:       menu.Icon,
 		Redirect:   menu.Redirect,
 		Params:     menu.Params,
+		Now:        time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -156,6 +157,7 @@ func (a MenuRepository) UpdateVisible(id string, visible int) error {
 	err := a.q.UpdateMenuVisible(context.Background(), store.UpdateMenuVisibleParams{
 		ID:      id,
 		Visible: int32(visible),
+		Now:     time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -167,6 +169,7 @@ func (a MenuRepository) UpdateTreePath(id string, treePath string) error {
 	err := a.q.UpdateMenuTreePath(context.Background(), store.UpdateMenuTreePathParams{
 		ID:       id,
 		TreePath: treePath,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -290,7 +293,7 @@ func toDomainMenu(r store.TMenu) *system.Menu {
 		Icon:       r.Icon,
 		Redirect:   r.Redirect,
 		Params:     r.Params,
-		CreateTime: dto.DateTime(r.CreateTime.Time),
-		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		CreateTime: dto.DateTime(r.CreateTime),
+		UpdateTime: dto.DateTime(r.UpdateTime),
 	}
 }

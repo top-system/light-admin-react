@@ -32,7 +32,7 @@ INSERT INTO t_dict_item (
     create_by, update_by, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, NOW(), NOW()
+    $9, $10, $11, sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateDictItem :exec
@@ -45,22 +45,22 @@ UPDATE t_dict_item SET
     status      = $7,
     remark      = $8,
     update_by   = $9,
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: SoftDeleteDictItem :exec
-UPDATE t_dict_item SET is_deleted = 1, update_by = $2, update_time = NOW() WHERE id = $1;
+UPDATE t_dict_item SET is_deleted = 1, update_by = $2, update_time = sqlc.arg('now') WHERE id = $1;
 
 -- name: SoftDeleteDictItemsByIDs :exec
-UPDATE t_dict_item SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = NOW()
+UPDATE t_dict_item SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = sqlc.arg('now')
 WHERE id = ANY(sqlc.arg('ids')::text[]);
 
 -- name: SoftDeleteDictItemsByDictCodes :exec
-UPDATE t_dict_item SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = NOW()
+UPDATE t_dict_item SET is_deleted = 1, update_by = sqlc.arg('update_by'), update_time = sqlc.arg('now')
 WHERE dict_code = ANY(sqlc.arg('dict_codes')::text[]);
 
 -- name: UpdateDictItemsDictCode :exec
 -- Cascade a dictionary code rename onto its items. Called by DictRepository when a
 -- dictionary's code changes.
-UPDATE t_dict_item SET dict_code = sqlc.arg('new_code'), update_time = NOW()
+UPDATE t_dict_item SET dict_code = sqlc.arg('new_code'), update_time = sqlc.arg('now')
 WHERE dict_code = sqlc.arg('old_code');

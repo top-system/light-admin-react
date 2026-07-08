@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const createQueueTask = `-- name: CreateQueueTask :one
@@ -16,7 +17,7 @@ INSERT INTO sys_tasks (
     public_retry_count, public_executed_duration, public_error,
     public_error_history, public_resume_time, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11
 )
 RETURNING id, type, status, correlation_id, owner_id, private_state, public_retry_count, public_executed_duration, public_error, public_error_history, public_resume_time, created_at, updated_at, deleted_at
 `
@@ -32,6 +33,7 @@ type CreateQueueTaskParams struct {
 	PublicError            string
 	PublicErrorHistory     string
 	PublicResumeTime       int64
+	Now                    time.Time
 }
 
 // queue_task.sql
@@ -53,6 +55,7 @@ func (q *Queries) CreateQueueTask(ctx context.Context, arg CreateQueueTaskParams
 		arg.PublicError,
 		arg.PublicErrorHistory,
 		arg.PublicResumeTime,
+		arg.Now,
 	)
 	var i SysTask
 	err := row.Scan(
@@ -144,11 +147,16 @@ func (q *Queries) ListPendingQueueTasks(ctx context.Context, types []string) ([]
 }
 
 const softDeleteQueueTask = `-- name: SoftDeleteQueueTask :exec
-UPDATE sys_tasks SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL
+UPDATE sys_tasks SET deleted_at = $2::timestamptz WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) SoftDeleteQueueTask(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, softDeleteQueueTask, id)
+type SoftDeleteQueueTaskParams struct {
+	ID  int64
+	Now time.Time
+}
+
+func (q *Queries) SoftDeleteQueueTask(ctx context.Context, arg SoftDeleteQueueTaskParams) error {
+	_, err := q.db.Exec(ctx, softDeleteQueueTask, arg.ID, arg.Now)
 	return err
 }
 
@@ -164,7 +172,7 @@ UPDATE sys_tasks SET
     public_error             = $9,
     public_error_history     = $10,
     public_resume_time       = $11,
-    updated_at               = NOW()
+    updated_at               = $12
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING id, type, status, correlation_id, owner_id, private_state, public_retry_count, public_executed_duration, public_error, public_error_history, public_resume_time, created_at, updated_at, deleted_at
 `
@@ -181,6 +189,7 @@ type UpdateQueueTaskParams struct {
 	PublicError            string
 	PublicErrorHistory     string
 	PublicResumeTime       int64
+	Now                    time.Time
 }
 
 func (q *Queries) UpdateQueueTask(ctx context.Context, arg UpdateQueueTaskParams) (SysTask, error) {
@@ -196,6 +205,7 @@ func (q *Queries) UpdateQueueTask(ctx context.Context, arg UpdateQueueTaskParams
 		arg.PublicError,
 		arg.PublicErrorHistory,
 		arg.PublicResumeTime,
+		arg.Now,
 	)
 	var i SysTask
 	err := row.Scan(

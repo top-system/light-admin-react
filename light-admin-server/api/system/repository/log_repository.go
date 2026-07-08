@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -92,7 +91,7 @@ func (a LogRepository) Query(param *system.LogQueryParam) (*system.LogQueryResul
 func (a LogRepository) Get(id string) (*system.Log, error) {
 	row, err := a.q.GetLog(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -123,6 +122,7 @@ func (a LogRepository) Create(log *system.Log) error {
 		BrowserVersion:  log.BrowserVersion,
 		Os:              log.OS,
 		CreateBy:        log.CreateBy,
+		Now:             time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -167,6 +167,6 @@ func toDomainLog(r store.SysLog) *system.Log {
 		BrowserVersion:  r.BrowserVersion,
 		OS:              r.Os,
 		CreateBy:        r.CreateBy,
-		CreateTime:      dto.DateTime(r.CreateTime.Time),
+		CreateTime:      dto.DateTime(r.CreateTime),
 	}
 }

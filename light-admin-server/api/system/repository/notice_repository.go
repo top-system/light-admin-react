@@ -5,9 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -93,7 +90,7 @@ func (a NoticeRepository) Query(param *system.NoticeQueryParam) (*system.NoticeQ
 func (a NoticeRepository) Get(id string) (*system.Notice, error) {
 	row, err := a.q.GetNotice(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -118,6 +115,7 @@ func (a NoticeRepository) Create(notice *system.Notice) error {
 		PublishStatus: int32(notice.PublishStatus),
 		CreateBy:      notice.CreateBy,
 		IsDeleted:     int32(notice.IsDeleted),
+		Now:           time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -136,6 +134,7 @@ func (a NoticeRepository) Update(id string, notice *system.Notice) error {
 		TargetType:    int32(notice.TargetType),
 		TargetUserIds: notice.TargetUserIds,
 		UpdateBy:      notice.UpdateBy,
+		Now:           time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -150,12 +149,13 @@ func (a NoticeRepository) UpdateStatus(id string, status int, publisherId string
 		ID:            id,
 		PublishStatus: int32(status),
 		PublisherID:   publisherId,
+		Now:           time.Now(),
 	}
-	now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	now := time.Now()
 	if status == 1 {
-		params.PublishTime = now
+		params.PublishTime = &now
 	} else if status == -1 {
-		params.RevokeTime = now
+		params.RevokeTime = &now
 	}
 
 	if err := a.q.UpdateNoticeStatus(context.Background(), params); err != nil {
@@ -177,6 +177,7 @@ func (a NoticeRepository) BatchDelete(ids []string, deletedBy string) error {
 	err := a.q.SoftDeleteNoticesByIDs(context.Background(), store.SoftDeleteNoticesByIDsParams{
 		Ids:      ids,
 		UpdateBy: deletedBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -195,12 +196,12 @@ func toDomainNotice(r store.TNotice) *system.Notice {
 		TargetUserIds: r.TargetUserIds,
 		PublisherId:   r.PublisherID,
 		PublishStatus: int(r.PublishStatus),
-		PublishTime:   dto.NullDateTime{Time: r.PublishTime.Time, Valid: r.PublishTime.Valid},
-		RevokeTime:    dto.NullDateTime{Time: r.RevokeTime.Time, Valid: r.RevokeTime.Valid},
+		PublishTime:   dto.NullDateTime{Time: tsOrZero(r.PublishTime), Valid: r.PublishTime != nil},
+		RevokeTime:    dto.NullDateTime{Time: tsOrZero(r.RevokeTime), Valid: r.RevokeTime != nil},
 		CreateBy:      r.CreateBy,
-		CreateTime:    dto.DateTime(r.CreateTime.Time),
+		CreateTime:    dto.DateTime(r.CreateTime),
 		UpdateBy:      r.UpdateBy,
-		UpdateTime:    dto.DateTime(r.UpdateTime.Time),
+		UpdateTime:    dto.DateTime(r.UpdateTime),
 		IsDeleted:     int(r.IsDeleted),
 	}
 }

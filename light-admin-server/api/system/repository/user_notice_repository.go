@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -75,7 +76,7 @@ func (a UserNoticeRepository) GetMyNoticePage(param *system.NoticeQueryParam) ([
 				Title:       derefString(r.Title),
 				Type:        int(derefInt32(r.Type)),
 				Level:       derefString(r.Level),
-				PublishTime: dto.NullDateTime{Time: r.PublishTime.Time, Valid: r.PublishTime.Valid},
+				PublishTime: dto.NullDateTime{Time: tsOrZero(r.PublishTime), Valid: r.PublishTime != nil},
 				IsRead:      int(r.IsRead),
 			})
 		}
@@ -136,6 +137,7 @@ func (a UserNoticeRepository) MarkAsRead(noticeID, userID string) error {
 	err := a.q.MarkUserNoticeRead(context.Background(), store.MarkUserNoticeReadParams{
 		NoticeID: noticeID,
 		UserID:   userID,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -145,7 +147,7 @@ func (a UserNoticeRepository) MarkAsRead(noticeID, userID string) error {
 
 // MarkAllAsRead marks every unread notice read for a user.
 func (a UserNoticeRepository) MarkAllAsRead(userID string) error {
-	if err := a.q.MarkAllUserNoticesRead(context.Background(), userID); err != nil {
+	if err := a.q.MarkAllUserNoticesRead(context.Background(), store.MarkAllUserNoticesReadParams{UserID: userID, Now: time.Now()}); err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return nil

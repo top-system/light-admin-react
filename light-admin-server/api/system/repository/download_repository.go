@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -111,7 +110,7 @@ func (a DownloadRepository) GetByQueueTaskID(queueTaskID uint64) (*system.Downlo
 func (a DownloadRepository) getOne(fetch func() (store.SysDownloadTask, error)) (*system.DownloadTask, error) {
 	row, err := fetch()
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -137,6 +136,7 @@ func (a DownloadRepository) Create(task *system.DownloadTask) error {
 		SavePath:      task.SavePath,
 		ErrorMessage:  task.ErrorMessage,
 		OwnerID:       task.OwnerID,
+		Now:           time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -164,6 +164,7 @@ func (a DownloadRepository) Update(task *system.DownloadTask) error {
 		SavePath:      task.SavePath,
 		ErrorMessage:  task.ErrorMessage,
 		OwnerID:       task.OwnerID,
+		Now:           time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -181,6 +182,7 @@ func (a DownloadRepository) UpdateStatus(id uint64, status string, downloaded, t
 		Uploaded:      uploaded,
 		UploadSpeed:   uploadSpeed,
 		ErrorMessage:  errorMessage,
+		Now:           time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -269,6 +271,7 @@ func (a DownloadRepository) UpdateFromDownloader(id uint64, taskID, hash, name, 
 		Hash:          hash,
 		Name:          name,
 		SavePath:      savePath,
+		Now:           time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -294,8 +297,8 @@ func toDomainDownloadTask(r store.SysDownloadTask) *system.DownloadTask {
 		SavePath:      r.SavePath,
 		ErrorMessage:  r.ErrorMessage,
 		OwnerID:       r.OwnerID,
-		CreatedAt:     r.CreatedAt.Time,
-		UpdatedAt:     r.UpdatedAt.Time,
-		DeletedAt:     dto.DateTime(r.DeletedAt.Time),
+		CreatedAt:     r.CreatedAt,
+		UpdatedAt:     r.UpdatedAt,
+		DeletedAt:     dto.DateTime(tsOrZero(r.DeletedAt)),
 	}
 }

@@ -5,7 +5,6 @@ import (
 	stderrors "errors"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/top-system/light-admin/api/member/repository"
@@ -56,7 +55,7 @@ func (m *memberStoreQuerier) GetMemberByUsername(_ context.Context, arg store.Ge
 			return r, nil
 		}
 	}
-	return store.TMember{}, pgx.ErrNoRows
+	return store.TMember{}, store.ErrNoRows
 }
 
 func (m *memberStoreQuerier) UpdateMemberStatus(_ context.Context, arg store.UpdateMemberStatusParams) error {

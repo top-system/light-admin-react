@@ -37,11 +37,11 @@ SELECT unnest(@ids::text[]), unnest(@notice_ids::text[]), unnest(@user_ids::text
 INSERT INTO t_user_notice (id, notice_id, user_id, is_read) VALUES ($1, $2, $3, $4);
 
 -- name: MarkUserNoticeRead :exec
-UPDATE t_user_notice SET is_read = 1, read_time = NOW(), update_time = NOW()
+UPDATE t_user_notice SET is_read = 1, read_time = sqlc.arg('now')::timestamptz, update_time = sqlc.arg('now')::timestamptz
 WHERE notice_id = $1 AND user_id = $2 AND is_read = 0;
 
 -- name: MarkAllUserNoticesRead :exec
-UPDATE t_user_notice SET is_read = 1, read_time = NOW(), update_time = NOW()
+UPDATE t_user_notice SET is_read = 1, read_time = sqlc.arg('now')::timestamptz, update_time = sqlc.arg('now')::timestamptz
 WHERE user_id = $1 AND is_read = 0;
 
 -- name: DeleteUserNoticesByNoticeID :exec

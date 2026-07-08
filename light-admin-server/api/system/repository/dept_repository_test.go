@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -71,8 +69,8 @@ func sampleDeptRow() store.TDept {
 		TreePath:   "0",
 		Sort:       1,
 		Status:     1,
-		CreateTime: pgtype.Timestamptz{Time: now, Valid: true},
-		UpdateTime: pgtype.Timestamptz{Time: now, Valid: true},
+		CreateTime: now,
+		UpdateTime: now,
 	}
 }
 
@@ -95,7 +93,7 @@ func TestDeptRepository_Get_MapsRow(t *testing.T) {
 func TestDeptRepository_Get_NotFound(t *testing.T) {
 	repo := newTestDeptRepo(&deptMockQuerier{
 		getDept: func(ctx context.Context, id string) (store.TDept, error) {
-			return store.TDept{}, pgx.ErrNoRows
+			return store.TDept{}, store.ErrNoRows
 		},
 	})
 
@@ -106,7 +104,7 @@ func TestDeptRepository_Get_NotFound(t *testing.T) {
 func TestDeptRepository_GetByCode_NotFoundReturnsNil(t *testing.T) {
 	repo := newTestDeptRepo(&deptMockQuerier{
 		getDeptByCode: func(ctx context.Context, arg store.GetDeptByCodeParams) (store.TDept, error) {
-			return store.TDept{}, pgx.ErrNoRows
+			return store.TDept{}, store.ErrNoRows
 		},
 	})
 

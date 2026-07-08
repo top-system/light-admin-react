@@ -43,7 +43,7 @@ INSERT INTO sys_download_tasks (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7,
     $8, $9, $10, $11, $12,
-    $13, $14, $15, NOW(), NOW()
+    $13, $14, $15, sqlc.arg('now'), sqlc.arg('now')
 )
 RETURNING id;
 
@@ -64,7 +64,7 @@ UPDATE sys_download_tasks SET
     save_path      = $14,
     error_message  = $15,
     owner_id       = $16,
-    updated_at     = NOW()
+    updated_at     = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: UpdateDownloadTaskStatus :exec
@@ -76,7 +76,7 @@ UPDATE sys_download_tasks SET
     uploaded       = $6,
     upload_speed   = $7,
     error_message  = $8,
-    updated_at     = NOW()
+    updated_at     = sqlc.arg('now')
 WHERE id = $1;
 
 -- name: UpdateDownloadTaskFromDownloader :exec
@@ -95,7 +95,7 @@ UPDATE sys_download_tasks SET
     hash           = COALESCE(NULLIF(sqlc.arg('hash'), ''), hash),
     name           = COALESCE(NULLIF(sqlc.arg('name'), ''), name),
     save_path      = COALESCE(NULLIF(sqlc.arg('save_path'), ''), save_path),
-    updated_at     = NOW()
+    updated_at     = sqlc.arg('now')
 WHERE id = sqlc.arg('id');
 
 -- name: DeleteDownloadTask :exec

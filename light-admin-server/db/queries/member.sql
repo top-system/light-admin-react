@@ -21,7 +21,7 @@ INSERT INTO t_member (
     gender, status, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, NOW(), NOW()
+    $9, $10, $11, sqlc.arg('now'), sqlc.arg('now')
 );
 
 -- name: UpdateMemberProfile :exec
@@ -31,19 +31,19 @@ UPDATE t_member SET
     gender      = sqlc.arg('gender'),
     mobile      = sqlc.arg('mobile'),
     email       = sqlc.arg('email'),
-    update_time = NOW()
+    update_time = sqlc.arg('now')
 WHERE tenant_id = sqlc.arg('tenant_id') AND id = sqlc.arg('id');
 
 -- name: UpdateMemberStatus :exec
-UPDATE t_member SET status = $3, update_time = NOW()
+UPDATE t_member SET status = $3, update_time = sqlc.arg('now')
 WHERE tenant_id = $1 AND id = $2;
 
 -- name: UpdateMemberPassword :exec
-UPDATE t_member SET password = $3, update_time = NOW()
+UPDATE t_member SET password = $3, update_time = sqlc.arg('now')
 WHERE tenant_id = $1 AND id = $2;
 
 -- name: UpdateMemberLoginInfo :exec
-UPDATE t_member SET last_login_ip = $3, last_login_time = NOW(), update_time = NOW()
+UPDATE t_member SET last_login_ip = $3, last_login_time = sqlc.arg('now')::timestamptz, update_time = sqlc.arg('now')::timestamptz
 WHERE tenant_id = $1 AND id = $2;
 
 -- name: ListMembers :many

@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -80,7 +79,7 @@ func (a RoleRepository) Query(param *system.RoleQueryParam) (*system.RoleQueryRe
 func (a RoleRepository) Get(id string) (*system.Role, error) {
 	row, err := a.q.GetRole(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -92,7 +91,7 @@ func (a RoleRepository) Get(id string) (*system.Role, error) {
 func (a RoleRepository) GetByCode(code string) (*system.Role, error) {
 	row, err := a.q.GetRoleByCode(context.Background(), code)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -118,6 +117,7 @@ func (a RoleRepository) Create(role *system.Role) error {
 		CreateBy:  role.CreateBy,
 		UpdateBy:  role.UpdateBy,
 		IsDeleted: int32(role.IsDeleted),
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -136,6 +136,7 @@ func (a RoleRepository) Update(id string, role *system.Role) error {
 		Status:    int32(role.Status),
 		DataScope: int32(role.DataScope),
 		UpdateBy:  role.UpdateBy,
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -145,7 +146,7 @@ func (a RoleRepository) Update(id string, role *system.Role) error {
 
 // Delete soft-deletes a role (is_deleted = 1).
 func (a RoleRepository) Delete(id string) error {
-	if err := a.q.SoftDeleteRole(context.Background(), id); err != nil {
+	if err := a.q.SoftDeleteRole(context.Background(), store.SoftDeleteRoleParams{ID: id, Now: time.Now()}); err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return nil
@@ -156,6 +157,7 @@ func (a RoleRepository) UpdateStatus(id string, status int) error {
 	err := a.q.UpdateRoleStatus(context.Background(), store.UpdateRoleStatusParams{
 		ID:     id,
 		Status: int32(status),
+		Now:    time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -231,9 +233,9 @@ func toDomainRole(r store.TRole) *system.Role {
 		Status:     int(r.Status),
 		DataScope:  int(r.DataScope),
 		CreateBy:   r.CreateBy,
-		CreateTime: dto.DateTime(r.CreateTime.Time),
+		CreateTime: dto.DateTime(r.CreateTime),
 		UpdateBy:   r.UpdateBy,
-		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		UpdateTime: dto.DateTime(r.UpdateTime),
 		IsDeleted:  int(r.IsDeleted),
 	}
 }

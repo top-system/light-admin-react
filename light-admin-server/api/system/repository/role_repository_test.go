@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -73,9 +71,9 @@ func sampleRoleRow() store.TRole {
 		Status:     1,
 		DataScope:  2,
 		CreateBy:   "u1",
-		CreateTime: pgtype.Timestamptz{Time: now, Valid: true},
+		CreateTime: now,
 		UpdateBy:   "u1",
-		UpdateTime: pgtype.Timestamptz{Time: now, Valid: true},
+		UpdateTime: now,
 		IsDeleted:  0,
 	}
 }
@@ -96,13 +94,13 @@ func TestRoleRepository_Get_MapsRow(t *testing.T) {
 	assert.Equal(t, 3, got.Sort)
 	assert.Equal(t, 1, got.Status)
 	assert.Equal(t, 2, got.DataScope)
-	assert.Equal(t, row.CreateTime.Time, time.Time(got.CreateTime))
+	assert.Equal(t, row.CreateTime, time.Time(got.CreateTime))
 }
 
 func TestRoleRepository_Get_NotFound(t *testing.T) {
 	repo := newTestRoleRepo(&roleMockQuerier{
 		getRole: func(ctx context.Context, id string) (store.TRole, error) {
-			return store.TRole{}, pgx.ErrNoRows
+			return store.TRole{}, store.ErrNoRows
 		},
 	})
 
@@ -113,7 +111,7 @@ func TestRoleRepository_Get_NotFound(t *testing.T) {
 func TestRoleRepository_GetByCode_NotFound(t *testing.T) {
 	repo := newTestRoleRepo(&roleMockQuerier{
 		getRoleByCod: func(ctx context.Context, code string) (store.TRole, error) {
-			return store.TRole{}, pgx.ErrNoRows
+			return store.TRole{}, store.ErrNoRows
 		},
 	})
 

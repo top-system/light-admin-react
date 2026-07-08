@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const countTenants = `-- name: CountTenants :one
@@ -30,7 +31,7 @@ func (q *Queries) CountTenants(ctx context.Context, arg CountTenantsParams) (int
 
 const createTenant = `-- name: CreateTenant :exec
 INSERT INTO t_tenant (id, code, name, status, create_by, is_deleted, create_time, update_time)
-VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
 `
 
 type CreateTenantParams struct {
@@ -40,6 +41,7 @@ type CreateTenantParams struct {
 	Status    int32
 	CreateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) error {
@@ -50,6 +52,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) erro
 		arg.Status,
 		arg.CreateBy,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -153,16 +156,21 @@ func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]TTe
 }
 
 const softDeleteTenant = `-- name: SoftDeleteTenant :exec
-UPDATE t_tenant SET is_deleted = 1, update_time = NOW() WHERE id = $1
+UPDATE t_tenant SET is_deleted = 1, update_time = $2 WHERE id = $1
 `
 
-func (q *Queries) SoftDeleteTenant(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, softDeleteTenant, id)
+type SoftDeleteTenantParams struct {
+	ID  string
+	Now time.Time
+}
+
+func (q *Queries) SoftDeleteTenant(ctx context.Context, arg SoftDeleteTenantParams) error {
+	_, err := q.db.Exec(ctx, softDeleteTenant, arg.ID, arg.Now)
 	return err
 }
 
 const updateTenant = `-- name: UpdateTenant :exec
-UPDATE t_tenant SET code = $2, name = $3, status = $4, update_by = $5, update_time = NOW()
+UPDATE t_tenant SET code = $2, name = $3, status = $4, update_by = $5, update_time = $6
 WHERE id = $1
 `
 
@@ -172,6 +180,7 @@ type UpdateTenantParams struct {
 	Name     string
 	Status   int32
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) UpdateTenant(ctx context.Context, arg UpdateTenantParams) error {
@@ -181,6 +190,7 @@ func (q *Queries) UpdateTenant(ctx context.Context, arg UpdateTenantParams) erro
 		arg.Name,
 		arg.Status,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }

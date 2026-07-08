@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const countDictItems = `-- name: CountDictItems :one
@@ -34,7 +35,7 @@ INSERT INTO t_dict_item (
     create_by, update_by, is_deleted, create_time, update_time
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, NOW(), NOW()
+    $9, $10, $11, $12, $12
 )
 `
 
@@ -50,6 +51,7 @@ type CreateDictItemParams struct {
 	CreateBy  string
 	UpdateBy  string
 	IsDeleted int32
+	Now       time.Time
 }
 
 func (q *Queries) CreateDictItem(ctx context.Context, arg CreateDictItemParams) error {
@@ -65,6 +67,7 @@ func (q *Queries) CreateDictItem(ctx context.Context, arg CreateDictItemParams) 
 		arg.CreateBy,
 		arg.UpdateBy,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -196,46 +199,49 @@ func (q *Queries) ListDictItemsByDictCode(ctx context.Context, dictCode string) 
 }
 
 const softDeleteDictItem = `-- name: SoftDeleteDictItem :exec
-UPDATE t_dict_item SET is_deleted = 1, update_by = $2, update_time = NOW() WHERE id = $1
+UPDATE t_dict_item SET is_deleted = 1, update_by = $2, update_time = $3 WHERE id = $1
 `
 
 type SoftDeleteDictItemParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) SoftDeleteDictItem(ctx context.Context, arg SoftDeleteDictItemParams) error {
-	_, err := q.db.Exec(ctx, softDeleteDictItem, arg.ID, arg.UpdateBy)
+	_, err := q.db.Exec(ctx, softDeleteDictItem, arg.ID, arg.UpdateBy, arg.Now)
 	return err
 }
 
 const softDeleteDictItemsByDictCodes = `-- name: SoftDeleteDictItemsByDictCodes :exec
-UPDATE t_dict_item SET is_deleted = 1, update_by = $1, update_time = NOW()
-WHERE dict_code = ANY($2::text[])
+UPDATE t_dict_item SET is_deleted = 1, update_by = $1, update_time = $2
+WHERE dict_code = ANY($3::text[])
 `
 
 type SoftDeleteDictItemsByDictCodesParams struct {
 	UpdateBy  string
+	Now       time.Time
 	DictCodes []string
 }
 
 func (q *Queries) SoftDeleteDictItemsByDictCodes(ctx context.Context, arg SoftDeleteDictItemsByDictCodesParams) error {
-	_, err := q.db.Exec(ctx, softDeleteDictItemsByDictCodes, arg.UpdateBy, arg.DictCodes)
+	_, err := q.db.Exec(ctx, softDeleteDictItemsByDictCodes, arg.UpdateBy, arg.Now, arg.DictCodes)
 	return err
 }
 
 const softDeleteDictItemsByIDs = `-- name: SoftDeleteDictItemsByIDs :exec
-UPDATE t_dict_item SET is_deleted = 1, update_by = $1, update_time = NOW()
-WHERE id = ANY($2::text[])
+UPDATE t_dict_item SET is_deleted = 1, update_by = $1, update_time = $2
+WHERE id = ANY($3::text[])
 `
 
 type SoftDeleteDictItemsByIDsParams struct {
 	UpdateBy string
+	Now      time.Time
 	Ids      []string
 }
 
 func (q *Queries) SoftDeleteDictItemsByIDs(ctx context.Context, arg SoftDeleteDictItemsByIDsParams) error {
-	_, err := q.db.Exec(ctx, softDeleteDictItemsByIDs, arg.UpdateBy, arg.Ids)
+	_, err := q.db.Exec(ctx, softDeleteDictItemsByIDs, arg.UpdateBy, arg.Now, arg.Ids)
 	return err
 }
 
@@ -249,7 +255,7 @@ UPDATE t_dict_item SET
     status      = $7,
     remark      = $8,
     update_by   = $9,
-    update_time = NOW()
+    update_time = $10
 WHERE id = $1
 `
 
@@ -263,6 +269,7 @@ type UpdateDictItemParams struct {
 	Status   int32
 	Remark   string
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) UpdateDictItem(ctx context.Context, arg UpdateDictItemParams) error {
@@ -276,23 +283,25 @@ func (q *Queries) UpdateDictItem(ctx context.Context, arg UpdateDictItemParams) 
 		arg.Status,
 		arg.Remark,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }
 
 const updateDictItemsDictCode = `-- name: UpdateDictItemsDictCode :exec
-UPDATE t_dict_item SET dict_code = $1, update_time = NOW()
-WHERE dict_code = $2
+UPDATE t_dict_item SET dict_code = $1, update_time = $2
+WHERE dict_code = $3
 `
 
 type UpdateDictItemsDictCodeParams struct {
 	NewCode string
+	Now     time.Time
 	OldCode string
 }
 
 // Cascade a dictionary code rename onto its items. Called by DictRepository when a
 // dictionary's code changes.
 func (q *Queries) UpdateDictItemsDictCode(ctx context.Context, arg UpdateDictItemsDictCodeParams) error {
-	_, err := q.db.Exec(ctx, updateDictItemsDictCode, arg.NewCode, arg.OldCode)
+	_, err := q.db.Exec(ctx, updateDictItemsDictCode, arg.NewCode, arg.Now, arg.OldCode)
 	return err
 }

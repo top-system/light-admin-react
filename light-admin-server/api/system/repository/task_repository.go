@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -103,7 +101,7 @@ func (a TaskRepository) Query(param *system.TaskQueryParam) (*system.TaskQueryRe
 func (a TaskRepository) Get(id uint64) (*system.Task, error) {
 	row, err := a.q.GetTask(context.Background(), int64(id))
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -186,7 +184,7 @@ func toDomainTask(r store.SysTask) *system.Task {
 		Error:            r.PublicError,
 		ErrorHistory:     r.PublicErrorHistory,
 		ResumeTime:       r.PublicResumeTime,
-		CreatedAt:        r.CreatedAt.Time,
-		UpdatedAt:        r.UpdatedAt.Time,
+		CreatedAt:        r.CreatedAt,
+		UpdatedAt:        r.UpdatedAt,
 	}
 }

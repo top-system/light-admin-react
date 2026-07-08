@@ -12,7 +12,7 @@ INSERT INTO sys_tasks (
     public_retry_count, public_executed_duration, public_error,
     public_error_history, public_resume_time, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, sqlc.arg('now'), sqlc.arg('now')
 )
 RETURNING *;
 
@@ -28,7 +28,7 @@ UPDATE sys_tasks SET
     public_error             = $9,
     public_error_history     = $10,
     public_resume_time       = $11,
-    updated_at               = NOW()
+    updated_at               = sqlc.arg('now')
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
 
@@ -43,4 +43,4 @@ WHERE deleted_at IS NULL
 ORDER BY id;
 
 -- name: SoftDeleteQueueTask :exec
-UPDATE sys_tasks SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL;
+UPDATE sys_tasks SET deleted_at = sqlc.arg('now')::timestamptz WHERE id = $1 AND deleted_at IS NULL;

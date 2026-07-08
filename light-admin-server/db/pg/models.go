@@ -5,7 +5,7 @@
 package pg
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 type SysDownloadTask struct {
@@ -25,9 +25,9 @@ type SysDownloadTask struct {
 	SavePath      string
 	ErrorMessage  string
 	OwnerID       string
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	DeletedAt     pgtype.Timestamptz
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	DeletedAt     *time.Time
 }
 
 type SysLog struct {
@@ -47,7 +47,7 @@ type SysLog struct {
 	BrowserVersion  string
 	Os              string
 	CreateBy        string
-	CreateTime      pgtype.Timestamptz
+	CreateTime      time.Time
 }
 
 type SysTask struct {
@@ -62,9 +62,9 @@ type SysTask struct {
 	PublicError            string
 	PublicErrorHistory     string
 	PublicResumeTime       int64
-	CreatedAt              pgtype.Timestamptz
-	UpdatedAt              pgtype.Timestamptz
-	DeletedAt              pgtype.Timestamptz
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	DeletedAt              *time.Time
 }
 
 type TConfig struct {
@@ -73,9 +73,9 @@ type TConfig struct {
 	ConfigKey   string
 	ConfigValue string
 	Remark      string
-	CreateTime  pgtype.Timestamptz
+	CreateTime  time.Time
 	CreateBy    string
-	UpdateTime  pgtype.Timestamptz
+	UpdateTime  time.Time
 	UpdateBy    string
 	IsDeleted   int32
 }
@@ -89,9 +89,9 @@ type TDept struct {
 	Sort       int32
 	Status     int32
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -102,9 +102,9 @@ type TDict struct {
 	Status     int32
 	Remark     string
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -118,9 +118,9 @@ type TDictItem struct {
 	Status     int32
 	Remark     string
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -135,10 +135,10 @@ type TMember struct {
 	Avatar        string
 	Gender        int32
 	Status        int32
-	LastLoginTime pgtype.Timestamptz
+	LastLoginTime *time.Time
 	LastLoginIp   string
-	CreateTime    pgtype.Timestamptz
-	UpdateTime    pgtype.Timestamptz
+	CreateTime    time.Time
+	UpdateTime    time.Time
 	IsDeleted     int32
 }
 
@@ -159,8 +159,8 @@ type TMenu struct {
 	Icon       string
 	Redirect   string
 	Params     string
-	CreateTime pgtype.Timestamptz
-	UpdateTime pgtype.Timestamptz
+	CreateTime time.Time
+	UpdateTime time.Time
 }
 
 type TNotice struct {
@@ -173,12 +173,12 @@ type TNotice struct {
 	TargetUserIds string
 	PublisherID   string
 	PublishStatus int32
-	PublishTime   pgtype.Timestamptz
-	RevokeTime    pgtype.Timestamptz
+	PublishTime   *time.Time
+	RevokeTime    *time.Time
 	CreateBy      string
-	CreateTime    pgtype.Timestamptz
+	CreateTime    time.Time
 	UpdateBy      string
-	UpdateTime    pgtype.Timestamptz
+	UpdateTime    time.Time
 	IsDeleted     int32
 }
 
@@ -190,9 +190,9 @@ type TRole struct {
 	Status     int32
 	DataScope  int32
 	CreateBy   string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	UpdateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 
@@ -206,9 +206,9 @@ type TTenant struct {
 	Code       string
 	Name       string
 	Status     int32
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	CreateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	UpdateBy   string
 	IsDeleted  int32
 }
@@ -224,9 +224,9 @@ type TUser struct {
 	Mobile     string
 	Status     int32
 	Email      string
-	CreateTime pgtype.Timestamptz
+	CreateTime time.Time
 	CreateBy   string
-	UpdateTime pgtype.Timestamptz
+	UpdateTime time.Time
 	UpdateBy   string
 	IsDeleted  int32
 	Openid     string
@@ -237,9 +237,9 @@ type TUserNotice struct {
 	NoticeID   string
 	UserID     string
 	IsRead     int32
-	ReadTime   pgtype.Timestamptz
-	CreateTime pgtype.Timestamptz
-	UpdateTime pgtype.Timestamptz
+	ReadTime   *time.Time
+	CreateTime time.Time
+	UpdateTime time.Time
 	IsDeleted  int32
 }
 

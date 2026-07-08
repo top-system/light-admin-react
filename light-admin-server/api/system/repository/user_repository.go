@@ -5,9 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -85,7 +82,7 @@ func (a UserRepository) Query(param *system.UserQueryParam) (*system.UserQueryRe
 func (a UserRepository) Get(id string) (*system.User, error) {
 	row, err := a.q.GetUser(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -97,7 +94,7 @@ func (a UserRepository) Get(id string) (*system.User, error) {
 func (a UserRepository) GetByUsername(username string) (*system.User, error) {
 	row, err := a.q.GetUserByUsername(context.Background(), username)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -126,6 +123,7 @@ func (a UserRepository) Create(user *system.User) error {
 		UpdateBy:  user.UpdateBy,
 		IsDeleted: int32(user.IsDeleted),
 		Openid:    user.OpenID,
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -147,6 +145,7 @@ func (a UserRepository) Update(id string, user *system.User) error {
 		Status:   int32(user.Status),
 		Email:    user.Email,
 		UpdateBy: user.UpdateBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -156,7 +155,7 @@ func (a UserRepository) Update(id string, user *system.User) error {
 
 // Delete soft-deletes a user (is_deleted = 1).
 func (a UserRepository) Delete(id string) error {
-	if err := a.q.SoftDeleteUser(context.Background(), id); err != nil {
+	if err := a.q.SoftDeleteUser(context.Background(), store.SoftDeleteUserParams{ID: id, Now: time.Now()}); err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
 	}
 	return nil
@@ -167,6 +166,7 @@ func (a UserRepository) UpdateStatus(id string, status int) error {
 	err := a.q.UpdateUserStatus(context.Background(), store.UpdateUserStatusParams{
 		ID:     id,
 		Status: int32(status),
+		Now:    time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -179,6 +179,7 @@ func (a UserRepository) UpdatePassword(id string, password string) error {
 	err := a.q.UpdateUserPassword(context.Background(), store.UpdateUserPasswordParams{
 		ID:       id,
 		Password: password,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -189,7 +190,7 @@ func (a UserRepository) UpdatePassword(id string, password string) error {
 // UpdateProfile updates only the non-empty profile fields supplied by the user.
 // Empty fields are left unchanged (COALESCE with a NULL argument).
 func (a UserRepository) UpdateProfile(id string, profile *system.ProfileForm) error {
-	params := store.UpdateUserProfileParams{ID: id}
+	params := store.UpdateUserProfileParams{ID: id, Now: time.Now()}
 	if profile.Nickname != "" {
 		params.Nickname = ptr(profile.Nickname)
 	}
@@ -220,8 +221,8 @@ type userFilter struct {
 	status     *int32
 	deptID     *string
 	keywords   *string
-	createFrom pgtype.Timestamptz
-	createTo   pgtype.Timestamptz
+	createFrom *time.Time
+	createTo   *time.Time
 	roleIDs    []string
 }
 
@@ -310,9 +311,9 @@ func toDomainUser(r store.TUser) *system.User {
 		Mobile:     r.Mobile,
 		Status:     int(r.Status),
 		Email:      r.Email,
-		CreateTime: dto.DateTime(r.CreateTime.Time),
+		CreateTime: dto.DateTime(r.CreateTime),
 		CreateBy:   r.CreateBy,
-		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		UpdateTime: dto.DateTime(r.UpdateTime),
 		UpdateBy:   r.UpdateBy,
 		IsDeleted:  int(r.IsDeleted),
 		OpenID:     r.Openid,
@@ -321,27 +322,28 @@ func toDomainUser(r store.TUser) *system.User {
 
 // startOfDayFilter parses a "2006-01-02" or "2006-01-02 15:04:05" string for a
 // >= comparison. An empty or unparseable value disables the filter.
-func startOfDayFilter(s string) pgtype.Timestamptz {
+func startOfDayFilter(s string) *time.Time {
 	if t, ok := parseFlexibleTime(s); ok {
-		return pgtype.Timestamptz{Time: t, Valid: true}
+		return &t
 	}
-	return pgtype.Timestamptz{}
+	return nil
 }
 
 // endOfDayFilter parses a date/datetime for a <= comparison. A date-only value
 // is extended to 23:59:59 to include the whole day (matching the previous
-// `value + " 23:59:59"` behaviour).
-func endOfDayFilter(s string) pgtype.Timestamptz {
+// `value + " 23:59:59"` behaviour). A nil return disables the filter.
+func endOfDayFilter(s string) *time.Time {
 	if s == "" {
-		return pgtype.Timestamptz{}
+		return nil
 	}
 	if t, err := time.ParseInLocation("2006-01-02 15:04:05", s, time.Local); err == nil {
-		return pgtype.Timestamptz{Time: t, Valid: true}
+		return &t
 	}
 	if d, err := time.ParseInLocation("2006-01-02", s, time.Local); err == nil {
-		return pgtype.Timestamptz{Time: d.Add(23*time.Hour + 59*time.Minute + 59*time.Second), Valid: true}
+		t := d.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		return &t
 	}
-	return pgtype.Timestamptz{}
+	return nil
 }
 
 func parseFlexibleTime(s string) (time.Time, bool) {
@@ -357,3 +359,12 @@ func parseFlexibleTime(s string) (time.Time, bool) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// tsOrZero dereferences a nullable timestamp column, yielding the zero time when
+// the column is NULL — matching the previous pgtype.Timestamptz.Time behaviour.
+func tsOrZero(p *time.Time) time.Time {
+	if p == nil {
+		return time.Time{}
+	}
+	return *p
+}

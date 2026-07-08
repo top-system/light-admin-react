@@ -15,3 +15,16 @@ sql:
         emit_empty_slices: true               # :many returns []T{} not nil
         emit_exact_table_names: false
         emit_json_tags: false
+        # Converge timestamptz onto the standard library time.Time (engine-neutral
+        # target, see multi-database-plan §4) instead of pgtype.Timestamptz, so the
+        # neutral store layer and repositories stay free of the pgx type. Nullable
+        # columns/args map to *time.Time.
+        overrides:
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true

@@ -3,8 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
-
-	"github.com/jackc/pgx/v5"
+	"time"
 
 	"github.com/top-system/light-admin/db/store"
 	apperrors "github.com/top-system/light-admin/errors"
@@ -64,7 +63,7 @@ func (a DeptRepository) Query(param *system.DeptQueryParam) (system.Depts, error
 func (a DeptRepository) Get(id string) (*system.Dept, error) {
 	row, err := a.q.GetDept(context.Background(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, apperrors.DatabaseRecordNotFound
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -82,7 +81,7 @@ func (a DeptRepository) GetByCode(code string, excludeID ...string) (*system.Dep
 
 	row, err := a.q.GetDeptByCode(context.Background(), params)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, store.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -107,6 +106,7 @@ func (a DeptRepository) Create(dept *system.Dept) error {
 		CreateBy:  dept.CreateBy,
 		UpdateBy:  dept.UpdateBy,
 		IsDeleted: int32(dept.IsDeleted),
+		Now:       time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -125,6 +125,7 @@ func (a DeptRepository) Update(id string, dept *system.Dept) error {
 		Sort:     int32(dept.Sort),
 		Status:   int32(dept.Status),
 		UpdateBy: dept.UpdateBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -137,6 +138,7 @@ func (a DeptRepository) Delete(id string, deletedBy string) error {
 	err := a.q.SoftDeleteDept(context.Background(), store.SoftDeleteDeptParams{
 		ID:       id,
 		UpdateBy: deletedBy,
+		Now:      time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -150,6 +152,7 @@ func (a DeptRepository) DeleteByTreePath(deptId string, deletedBy string) error 
 		ID:           deptId,
 		UpdateBy:     deletedBy,
 		TreePathLike: "%," + deptId + ",%",
+		Now:          time.Now(),
 	})
 	if err != nil {
 		return apperrors.Wrap(apperrors.DatabaseInternalError, err.Error())
@@ -200,9 +203,9 @@ func toDomainDept(r store.TDept) *system.Dept {
 		Sort:       int(r.Sort),
 		Status:     int(r.Status),
 		CreateBy:   r.CreateBy,
-		CreateTime: dto.DateTime(r.CreateTime.Time),
+		CreateTime: dto.DateTime(r.CreateTime),
 		UpdateBy:   r.UpdateBy,
-		UpdateTime: dto.DateTime(r.UpdateTime.Time),
+		UpdateTime: dto.DateTime(r.UpdateTime),
 		IsDeleted:  int(r.IsDeleted),
 	}
 }

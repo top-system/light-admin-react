@@ -7,6 +7,7 @@ package pg
 
 import (
 	"context"
+	"time"
 )
 
 const countConfigs = `-- name: CountConfigs :one
@@ -46,7 +47,7 @@ INSERT INTO t_config (
     id, config_name, config_key, config_value, remark, create_by, update_by, is_deleted,
     create_time, update_time
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $9
 )
 `
 
@@ -59,6 +60,7 @@ type CreateConfigParams struct {
 	CreateBy    string
 	UpdateBy    string
 	IsDeleted   int32
+	Now         time.Time
 }
 
 func (q *Queries) CreateConfig(ctx context.Context, arg CreateConfigParams) error {
@@ -71,6 +73,7 @@ func (q *Queries) CreateConfig(ctx context.Context, arg CreateConfigParams) erro
 		arg.CreateBy,
 		arg.UpdateBy,
 		arg.IsDeleted,
+		arg.Now,
 	)
 	return err
 }
@@ -205,16 +208,17 @@ func (q *Queries) ListConfigs(ctx context.Context, arg ListConfigsParams) ([]TCo
 }
 
 const softDeleteConfig = `-- name: SoftDeleteConfig :exec
-UPDATE t_config SET is_deleted = 1, update_by = $2, update_time = NOW() WHERE id = $1
+UPDATE t_config SET is_deleted = 1, update_by = $2, update_time = $3 WHERE id = $1
 `
 
 type SoftDeleteConfigParams struct {
 	ID       string
 	UpdateBy string
+	Now      time.Time
 }
 
 func (q *Queries) SoftDeleteConfig(ctx context.Context, arg SoftDeleteConfigParams) error {
-	_, err := q.db.Exec(ctx, softDeleteConfig, arg.ID, arg.UpdateBy)
+	_, err := q.db.Exec(ctx, softDeleteConfig, arg.ID, arg.UpdateBy, arg.Now)
 	return err
 }
 
@@ -225,7 +229,7 @@ UPDATE t_config SET
     config_value = $4,
     remark       = $5,
     update_by    = $6,
-    update_time  = NOW()
+    update_time  = $7
 WHERE id = $1
 `
 
@@ -236,6 +240,7 @@ type UpdateConfigParams struct {
 	ConfigValue string
 	Remark      string
 	UpdateBy    string
+	Now         time.Time
 }
 
 func (q *Queries) UpdateConfig(ctx context.Context, arg UpdateConfigParams) error {
@@ -246,6 +251,7 @@ func (q *Queries) UpdateConfig(ctx context.Context, arg UpdateConfigParams) erro
 		arg.ConfigValue,
 		arg.Remark,
 		arg.UpdateBy,
+		arg.Now,
 	)
 	return err
 }

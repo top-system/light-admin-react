@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -45,7 +44,7 @@ func newTestMenuRepo(q store.Store) MenuRepository {
 func TestMenuRepository_Get_NotFound(t *testing.T) {
 	repo := newTestMenuRepo(&menuMockQuerier{
 		getMenu: func(ctx context.Context, id string) (store.TMenu, error) {
-			return store.TMenu{}, pgx.ErrNoRows
+			return store.TMenu{}, store.ErrNoRows
 		},
 	})
 	_, err := repo.Get("x")
