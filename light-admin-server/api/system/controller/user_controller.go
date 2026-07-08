@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -304,7 +305,7 @@ func (a UserController) UpdateProfile(ctx echo.Context) error {
 
 			fileInfo, err := a.fileService.UploadFile(file.Filename, src, file.Size, file.Header.Get("Content-Type"))
 			if err != nil {
-				a.logger.Zap.Errorf("Failed to upload avatar: %v", err)
+				a.logger.Error(fmt.Sprintf("Failed to upload avatar: %v", err))
 				return echox.Response{Code: http.StatusInternalServerError, Message: err}.JSON(ctx)
 			}
 			profile.Avatar = fileInfo.URL

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/top-system/light-admin/api/platform/service"
@@ -53,7 +54,7 @@ func (c FileController) Upload(ctx echo.Context) error {
 	// 上传文件
 	fileInfo, err := c.fileService.UploadFile(file.Filename, src, file.Size, file.Header.Get("Content-Type"))
 	if err != nil {
-		c.logger.Zap.Errorf("Failed to upload file: %v", err)
+		c.logger.Error(fmt.Sprintf("Failed to upload file: %v", err))
 		return echox.Response{Code: http.StatusInternalServerError, Message: err}.JSON(ctx)
 	}
 
@@ -76,7 +77,7 @@ func (c FileController) Delete(ctx echo.Context) error {
 	}
 
 	if err := c.fileService.DeleteFile(filePath); err != nil {
-		c.logger.Zap.Errorf("Failed to delete file: %v", err)
+		c.logger.Error(fmt.Sprintf("Failed to delete file: %v", err))
 		return echox.Response{Code: http.StatusInternalServerError, Message: err}.JSON(ctx)
 	}
 

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 
 	platformctrl "github.com/top-system/light-admin/api/platform/controller"
 	"github.com/top-system/light-admin/lib"
@@ -36,17 +35,16 @@ type errInvalidToken struct{}
 
 func (e *errInvalidToken) Error() string { return "invalid token" }
 
-// nopLogger returns a lib.Logger backed by zap.NewNop().
+// nopLogger returns a lib.Logger that discards all output.
 func nopLogger() lib.Logger {
-	z := zap.NewNop()
-	return lib.Logger{Zap: z.Sugar(), DesugarZap: z}
+	return lib.NopLogger()
 }
 
 // newWSTestServer wires up a Hub + controller + httptest.Server. The caller is
 // responsible for stopping the server via srv.Close().
 func newWSTestServer(t *testing.T, token, username string) (*httptest.Server, *ws.WebSocket) {
 	t.Helper()
-	wsSvc := ws.New(zap.NewNop())
+	wsSvc := ws.New(lib.NopLogger())
 	ctrl := platformctrl.NewWebSocketControllerWithParser(
 		wsSvc,
 		nopLogger(),

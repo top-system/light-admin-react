@@ -30,7 +30,7 @@ func NewDownloadRoutes(
 
 // Setup download routes
 func (a DownloadRoutes) Setup() {
-	a.logger.Zap.Info("Setting up download routes")
+	a.logger.Info("Setting up download routes")
 	api := a.handler.RouterV1.Group("/downloads")
 	{
 		api.GET("/stats", a.downloadController.GetStats)                // 获取统计信息

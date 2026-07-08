@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -53,7 +54,7 @@ func (m LogMiddleware) logWorker() {
 	defer m.wg.Done()
 	for log := range m.logCh {
 		if err := m.logService.Create(log); err != nil {
-			m.logger.Zap.Errorf("Failed to save log: %v", err)
+			m.logger.Error(fmt.Sprintf("Failed to save log: %v", err))
 		}
 	}
 }
@@ -62,7 +63,7 @@ func (m LogMiddleware) logWorker() {
 func (m LogMiddleware) Shutdown() {
 	close(m.logCh)
 	m.wg.Wait()
-	m.logger.Zap.Info("Log middleware workers stopped, all pending logs flushed")
+	m.logger.Info("Log middleware workers stopped, all pending logs flushed")
 }
 
 // Setup sets up the log middleware
@@ -251,7 +252,7 @@ func (m LogMiddleware) Handle() echo.MiddlewareFunc {
 			select {
 			case m.logCh <- log:
 			default:
-				m.logger.Zap.Warn("Log channel full, dropping log entry")
+				m.logger.Warn("Log channel full, dropping log entry")
 			}
 
 			return err

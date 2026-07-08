@@ -1,6 +1,6 @@
 # 基础库封装方案(防依赖锁定)— light-admin 版
 
-> 状态:批次 0/1/3 已落地(2026-07-08),批次 2(slog 收敛)待做。
+> 状态:批次 0/1/2/3 全部落地(2026-07-08)。
 > 姊妹篇:`docs/multi-database-plan.md`(pgx 的抽离由该方案的阶段一负责,本文
 > 不重复)。airdesk 有同名方案(`airdesk/admin-server/docs/infra-abstraction-plan.md`),
 > 判断原则与机制完全相同;本项目是 airdesk 的上游脚手架,**这里先落地即是
@@ -57,6 +57,16 @@ Cache 接口漏了,就地修补。开源项目角度还有一个理由:v8 依赖
   (75 个文件)并删掉 Zap 字段;
 - fxlog、zap_middleware(echo 请求日志)同步对接 slog handler。
 
+**落地说明(2026-07-08)**:实际用 `type Logger = *slog.Logger` 别名替代逐个改
+签名——业务面即依赖标准 slog,而 51 个只透传 logger 的构造函数零改动(去掉
+`lib.Logger` 名、全量写成 `*slog.Logger` 留作 cosmetic 后续)。后端走
+`go.uber.org/zap/exp/zapslog` 桥接既有 zapcore(编码器 + lumberjack 不变)。
+调用点转换取「忠实/机械」路线:`Xxxf(fmt, a...)` → `Info(fmt.Sprintf(...))`,
+保证日志文本零漂移;`Fatalf` → `Error(...)+os.Exit(1)`(slog 无 Fatal);
+zap_middleware / pkg/websocket 的结构化字段改写为 `slog.String/Int/Any`。
+**key-value 结构化改造**(把 `Sprintf` 拆成 slog 属性)留作独立后续,不阻塞锁定解除。
+`fx.NopLogger` 在用,故无 fxevent 迁移。
+
 ## 4. 边界守护(CI,最先做)
 
 golangci-lint **depguard**:
@@ -85,7 +95,7 @@ api/**/service/**、api/**/repository/**、pkg/**(队列/下载器等领域包):
 |---|---|---|---|
 | 0 | depguard 上线(warn 起步) | 半天级 | ✅ `.golangci.yml`(depguard,warning 级);摸底:仅 5 处 pgx@repository(归 multi-database-plan 存量),echo/redis/zap 在业务层零直引 |
 | 1 | go-redis v8→v9(1 文件 + go.mod) | 小,顺带验证 Cache 封装 | ✅ 仅动 `lib/cache_redis.go`,Cache 接口未漏——封装达标已验证 |
-| 2 | slog 收敛(123 调用点 + 75 签名,脚本辅助) | 本方案主体,纯机械 | ⏳ 待做(独立会话) |
+| 2 | slog 收敛(120 调用点 + 75 签名) | 本方案主体,纯机械 | ✅ `lib.Logger` 改为 `type Logger = *slog.Logger` 别名(slog 前端 + zapslog 后端,lumberjack/格式不变);120 处 `.Zap.Xxx` 收敛为 slog(printf 风格 → `fmt.Sprintf`,Fatal → `Error`+`os.Exit(1)`);pkg/websocket 一并脱 zap。别名使 51 个纯透传签名零改动;去掉 `lib.Logger` 名改写 `*slog.Logger` 为纯 cosmetic 后续 |
 | 3 | TokenCodec + uuid 收敛 | 小 | ✅ `lib.TokenCodec`(Sign/Parse + Err* + RegisteredClaims 转出);两套 auth service + 两个 dto claims 脱 jwt;gofrs/uuid 全量并入 `pkg/uuid`(google 背书),移除一库 |
 
 与 `multi-database-plan.md` 阶段一(pgx→store)互不阻塞,可并行;depguard 一条

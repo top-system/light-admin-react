@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/top-system/light-admin/api/system/repository"
@@ -21,19 +22,19 @@ type downloaderLogger struct {
 }
 
 func (l *downloaderLogger) Info(format string, args ...interface{}) {
-	l.logger.Zap.Infof(format, args...)
+	l.logger.Info(fmt.Sprintf(format, args...))
 }
 
 func (l *downloaderLogger) Debug(format string, args ...interface{}) {
-	l.logger.Zap.Debugf(format, args...)
+	l.logger.Debug(fmt.Sprintf(format, args...))
 }
 
 func (l *downloaderLogger) Warning(format string, args ...interface{}) {
-	l.logger.Zap.Warnf(format, args...)
+	l.logger.Warn(fmt.Sprintf(format, args...))
 }
 
 func (l *downloaderLogger) Error(format string, args ...interface{}) {
-	l.logger.Zap.Errorf(format, args...)
+	l.logger.Error(fmt.Sprintf(format, args...))
 }
 
 // DownloadService service layer
@@ -91,7 +92,7 @@ func (a *DownloadService) initDownloaders() {
 		})
 		a.downloaders["aria2"] = aria2Downloader
 		a.downloaderRegistry.Register("aria2", aria2Downloader)
-		a.logger.Zap.Info("Aria2 downloader initialized")
+		a.logger.Info("Aria2 downloader initialized")
 	}
 
 	if a.config.Downloader.QBittorrent != nil && a.config.Downloader.QBittorrent.Server != "" {
@@ -103,11 +104,11 @@ func (a *DownloadService) initDownloaders() {
 			Options:  a.config.Downloader.QBittorrent.Options,
 		})
 		if err != nil {
-			a.logger.Zap.Errorf("Failed to initialize qBittorrent downloader: %v", err)
+			a.logger.Error(fmt.Sprintf("Failed to initialize qBittorrent downloader: %v", err))
 		} else {
 			a.downloaders["qbittorrent"] = qbDownloader
 			a.downloaderRegistry.Register("qbittorrent", qbDownloader)
-			a.logger.Zap.Info("qBittorrent downloader initialized")
+			a.logger.Info("qBittorrent downloader initialized")
 		}
 	}
 }
@@ -262,7 +263,7 @@ func (a DownloadService) Create(ctx context.Context, form *system.DownloadTaskCr
 		return nil, err
 	}
 
-	a.logger.Zap.Infof("Download task created and queued: %d", task.ID)
+	a.logger.Info(fmt.Sprintf("Download task created and queued: %d", task.ID))
 	return task, nil
 }
 
@@ -278,7 +279,7 @@ func (a DownloadService) Cancel(ctx context.Context, id uint64) error {
 		if qTask, ok := a.taskQueue.Registry.Get(int(task.QueueTaskID)); ok && qTask != nil {
 			if remoteTask, ok := qTask.(*queue.RemoteDownloadTask); ok {
 				if err := remoteTask.CancelDownload(ctx); err != nil {
-					a.logger.Zap.Warnf("Failed to cancel download in downloader: %v", err)
+					a.logger.Warn(fmt.Sprintf("Failed to cancel download in downloader: %v", err))
 				}
 			}
 		}
@@ -295,7 +296,7 @@ func (a DownloadService) Cancel(ctx context.Context, id uint64) error {
 			Hash: task.Hash,
 		}
 		if err := dl.Cancel(ctx, handle); err != nil {
-			a.logger.Zap.Warnf("Failed to cancel task in downloader: %v", err)
+			a.logger.Warn(fmt.Sprintf("Failed to cancel task in downloader: %v", err))
 		}
 	}
 
@@ -402,7 +403,7 @@ func (a DownloadService) cancelDownloaderTask(ctx context.Context, id uint64) er
 
 	if ok {
 		if err := dl.Cancel(ctx, handle); err != nil {
-			a.logger.Zap.Warnf("Failed to cancel task in downloader: %v", err)
+			a.logger.Warn(fmt.Sprintf("Failed to cancel task in downloader: %v", err))
 		}
 	}
 
@@ -514,7 +515,7 @@ func (a DownloadService) SyncAllActiveTasks(ctx context.Context) error {
 
 	for _, task := range tasks {
 		if err := a.SyncTaskStatus(ctx, task.ID); err != nil {
-			a.logger.Zap.Warnf("Failed to sync task %d: %v", task.ID, err)
+			a.logger.Warn(fmt.Sprintf("Failed to sync task %d: %v", task.ID, err))
 		}
 	}
 

@@ -2,6 +2,7 @@ package service
 
 import (
 	stderrors "errors"
+	"fmt"
 
 	"github.com/top-system/light-admin/api/member/repository"
 	"github.com/top-system/light-admin/errors"
@@ -70,7 +71,7 @@ func (a MemberService) Verify(tenantID, username, password string) (*member.Memb
 
 func (a MemberService) RecordLogin(tenantID, id, ip string) {
 	if err := a.memberRepo.UpdateLoginInfo(tenantID, id, ip); err != nil {
-		a.logger.Zap.Warnf("failed to record login for member %s: %v", id, err)
+		a.logger.Warn(fmt.Sprintf("failed to record login for member %s: %v", id, err))
 	}
 }
 

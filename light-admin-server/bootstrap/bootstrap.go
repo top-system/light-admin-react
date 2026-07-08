@@ -2,7 +2,9 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/top-system/light-admin/api"
@@ -63,12 +65,13 @@ func bootstrap(
 					MaxHeaderBytes: 1 << 20, // 1MB
 				}
 
-				logger.Zap.Infof("Server started on %s", config.Http.ListenAddr())
+				logger.Info(fmt.Sprintf("Server started on %s", config.Http.ListenAddr()))
 				if err := server.ListenAndServe(); err != nil {
 					if errors.Is(err, http.ErrServerClosed) {
-						logger.Zap.Debug("Shutting down the Application")
+						logger.Debug("Shutting down the Application")
 					} else {
-						logger.Zap.Fatalf("Error to Start Application: %v", err)
+						logger.Error(fmt.Sprintf("Error to Start Application: %v", err))
+						os.Exit(1)
 					}
 				}
 			}()
@@ -76,14 +79,14 @@ func bootstrap(
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			logger.Zap.Info("Stopping Application")
+			logger.Info("Stopping Application")
 
 			// Graceful shutdown: 等待在途请求完成（最多30秒）
 			if server != nil {
 				shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 				defer cancel()
 				if err := server.Shutdown(shutdownCtx); err != nil {
-					logger.Zap.Errorf("Server forced shutdown: %v", err)
+					logger.Error(fmt.Sprintf("Server forced shutdown: %v", err))
 				}
 			}
 

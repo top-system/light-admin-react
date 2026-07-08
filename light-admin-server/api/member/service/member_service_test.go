@@ -72,8 +72,8 @@ func (m *memberStoreQuerier) UpdateMemberStatus(_ context.Context, arg sqlc.Upda
 func newTestService(t *testing.T) (MemberService, *memberStoreQuerier) {
 	t.Helper()
 	store := &memberStoreQuerier{}
-	repo := repository.NewMemberRepositoryWithQuerier(store, lib.Logger{})
-	return NewMemberService(lib.Logger{}, repo), store
+	repo := repository.NewMemberRepositoryWithQuerier(store, lib.NopLogger())
+	return NewMemberService(lib.NopLogger(), repo), store
 }
 
 func TestRegister_Then_Verify_Succeeds(t *testing.T) {

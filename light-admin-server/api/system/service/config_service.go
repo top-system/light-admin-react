@@ -1,6 +1,8 @@
 package service
 
 import (
+	"fmt"
+
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/errors"
 	"github.com/top-system/light-admin/lib"
@@ -127,7 +129,7 @@ func (a ConfigService) RefreshCache() error {
 	cacheKey := "sys:config"
 	_, err := a.cache.Delete(cacheKey)
 	if err != nil {
-		a.logger.Zap.Warnf("Failed to delete config cache: %v", err)
+		a.logger.Warn(fmt.Sprintf("Failed to delete config cache: %v", err))
 	}
 
 	// 获取所有配置
@@ -144,7 +146,7 @@ func (a ConfigService) RefreshCache() error {
 
 	if len(configMap) > 0 {
 		if err := a.cache.HMSet(cacheKey, configMap); err != nil {
-			a.logger.Zap.Warnf("Failed to set config cache: %v", err)
+			a.logger.Warn(fmt.Sprintf("Failed to set config cache: %v", err))
 		}
 	}
 

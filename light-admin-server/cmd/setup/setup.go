@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,7 +47,8 @@ var StartCmd = &cobra.Command{
 		// pgx pool + sqlc Queries for the migrated (sqlc-backed) repositories.
 		pool, err := pgxpool.New(context.Background(), config.Database.PgxDSN())
 		if err != nil {
-			logger.Zap.Fatalf("failed to create pgx pool: %v", err)
+			logger.Error(fmt.Sprintf("failed to create pgx pool: %v", err))
+			os.Exit(1)
 		}
 		defer pool.Close()
 		queries := sqlc.New(pool)
@@ -73,25 +75,29 @@ var StartCmd = &cobra.Command{
 
 		// Step 1: 导入菜单数据
 		if !file.IsFile(menuFile) {
-			logger.Zap.Fatal("menu file does not exist")
+			logger.Error("menu file does not exist")
+			os.Exit(1)
 		}
 
 		fs, err := os.Open(menuFile)
 		if err != nil {
-			logger.Zap.Fatalf("menu file could not be opened: %v", err)
+			logger.Error(fmt.Sprintf("menu file could not be opened: %v", err))
+			os.Exit(1)
 		}
 		defer fs.Close()
 
 		var menuTrees system.MenuTrees
 		yd := yaml.NewDecoder(fs)
 		if err = yd.Decode(&menuTrees); err != nil {
-			logger.Zap.Fatalf("menu file decode error: %v", err)
+			logger.Error(fmt.Sprintf("menu file decode error: %v", err))
+			os.Exit(1)
 		}
 
 		if err = menuService.CreateMenus("", menuTrees); err != nil {
-			logger.Zap.Fatalf("menu file init err: %v", err)
+			logger.Error(fmt.Sprintf("menu file init err: %v", err))
+			os.Exit(1)
 		}
-		logger.Zap.Info("Step 1: Menu data imported successfully")
+		logger.Info("Step 1: Menu data imported successfully")
 
 		// Step 2: 创建超级管理员角色
 		var roleID string
@@ -106,13 +112,14 @@ var StartCmd = &cobra.Command{
 		existingRole, _ := roleRepo.Query(&system.RoleQueryParam{Code: "ROOT"})
 		if existingRole != nil && len(existingRole.List) > 0 {
 			roleID = existingRole.List[0].ID
-			logger.Zap.Info("Step 2: ROOT role already exists, skipping creation")
+			logger.Info("Step 2: ROOT role already exists, skipping creation")
 		} else {
 			if err := roleRepo.Create(adminRole); err != nil {
-				logger.Zap.Fatalf("failed to create admin role: %v", err)
+				logger.Error(fmt.Sprintf("failed to create admin role: %v", err))
+				os.Exit(1)
 			}
 			roleID = adminRole.ID
-			logger.Zap.Info("Step 2: ROOT role created successfully")
+			logger.Info("Step 2: ROOT role created successfully")
 		}
 
 		// Step 3: 为角色分配所有菜单权限
@@ -121,12 +128,13 @@ var StartCmd = &cobra.Command{
 			PaginationParam: dto.PaginationParam{PageSize: 9999, PageNum: 1},
 		})
 		if err != nil {
-			logger.Zap.Fatalf("failed to query menus: %v", err)
+			logger.Error(fmt.Sprintf("failed to query menus: %v", err))
+			os.Exit(1)
 		}
 
 		// 先删除该角色的所有权限，再重新分配
 		if err := roleMenuRepo.DeleteByRoleID(roleID); err != nil {
-			logger.Zap.Warnf("failed to delete existing role menus: %v", err)
+			logger.Warn(fmt.Sprintf("failed to delete existing role menus: %v", err))
 		}
 
 		// 为角色分配所有菜单权限
@@ -139,9 +147,9 @@ var StartCmd = &cobra.Command{
 		}
 
 		if err := roleMenuRepo.BatchCreate(roleMenus); err != nil {
-			logger.Zap.Warnf("failed to create role menus: %v", err)
+			logger.Warn(fmt.Sprintf("failed to create role menus: %v", err))
 		}
-		logger.Zap.Infof("Step 3: Assigned %d permissions to ROOT role", len(menuQR.List))
+		logger.Info(fmt.Sprintf("Step 3: Assigned %d permissions to ROOT role", len(menuQR.List)))
 
 		// Step 4: 创建管理员用户
 		adminUsername := "admin"
@@ -150,7 +158,7 @@ var StartCmd = &cobra.Command{
 		// 检查用户是否已存在
 		existingUser, _ := userRepo.Query(&system.UserQueryParam{Username: adminUsername})
 		if existingUser != nil && len(existingUser.List) > 0 {
-			logger.Zap.Info("Step 4: Admin user already exists, skipping creation")
+			logger.Info("Step 4: Admin user already exists, skipping creation")
 		} else {
 			adminUser := &system.User{
 				Username: adminUsername,
@@ -162,7 +170,8 @@ var StartCmd = &cobra.Command{
 			}
 
 			if err := userRepo.Create(adminUser); err != nil {
-				logger.Zap.Fatalf("failed to create admin user: %v", err)
+				logger.Error(fmt.Sprintf("failed to create admin user: %v", err))
+				os.Exit(1)
 			}
 
 			// 关联用户和角色
@@ -171,10 +180,11 @@ var StartCmd = &cobra.Command{
 				RoleID: roleID,
 			}
 			if err := userRoleRepo.Create(userRole); err != nil {
-				logger.Zap.Fatalf("failed to create user role: %v", err)
+				logger.Error(fmt.Sprintf("failed to create user role: %v", err))
+				os.Exit(1)
 			}
 
-			logger.Zap.Info("Step 4: Admin user created successfully")
+			logger.Info("Step 4: Admin user created successfully")
 		}
 
 		// Step 5: 初始化字典数据
@@ -200,10 +210,10 @@ var StartCmd = &cobra.Command{
 				CreateBy: "",
 			}
 			if err := dictRepo.Create(dict); err != nil {
-				logger.Zap.Warnf("failed to create dict %s: %v", d.DictCode, err)
+				logger.Warn(fmt.Sprintf("failed to create dict %s: %v", d.DictCode, err))
 			}
 		}
-		logger.Zap.Info("Step 5: Dict data initialized successfully")
+		logger.Info("Step 5: Dict data initialized successfully")
 
 		// Step 6: 初始化字典项数据
 		initDictItems := []struct {
@@ -254,31 +264,32 @@ var StartCmd = &cobra.Command{
 				CreateBy: "",
 			}
 			if err := dictItemRepo.Create(dictItem); err != nil {
-				logger.Zap.Warnf("failed to create dict item %s-%s: %v", item.DictCode, item.Value, err)
+				logger.Warn(fmt.Sprintf("failed to create dict item %s-%s: %v", item.DictCode, item.Value, err))
 			}
 		}
-		logger.Zap.Info("Step 6: Dict item data initialized successfully")
+		logger.Info("Step 6: Dict item data initialized successfully")
 
 		// Step 7: 预置 default 租户（多租户关闭时的兜底归属）
 		tenantRepo := memberrepo.NewTenantRepository(queries, logger)
 		if _, err := tenantRepo.GetByCode("default"); err == nil {
-			logger.Zap.Info("Step 7: default tenant already exists, skipping creation")
+			logger.Info("Step 7: default tenant already exists, skipping creation")
 		} else {
 			if err := tenantRepo.Create(&tenant.Tenant{
 				Code:   "default",
 				Name:   "默认租户",
 				Status: 1,
 			}); err != nil {
-				logger.Zap.Fatalf("create default tenant err: %v", err)
+				logger.Error(fmt.Sprintf("create default tenant err: %v", err))
+				os.Exit(1)
 			}
-			logger.Zap.Info("Step 7: default tenant created successfully")
+			logger.Info("Step 7: default tenant created successfully")
 		}
 
-		logger.Zap.Info("========================================")
-		logger.Zap.Info("Setup completed!")
-		logger.Zap.Info("Admin credentials:")
-		logger.Zap.Infof("  Username: %s", adminUsername)
-		logger.Zap.Infof("  Password: %s", adminPassword)
-		logger.Zap.Info("========================================")
+		logger.Info("========================================")
+		logger.Info("Setup completed!")
+		logger.Info("Admin credentials:")
+		logger.Info(fmt.Sprintf("  Username: %s", adminUsername))
+		logger.Info(fmt.Sprintf("  Password: %s", adminPassword))
+		logger.Info("========================================")
 	},
 }

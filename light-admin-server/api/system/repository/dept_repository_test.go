@@ -58,7 +58,7 @@ func (m *deptMockQuerier) SoftDeleteDeptByTreePath(ctx context.Context, arg sqlc
 }
 
 func newTestDeptRepo(q sqlc.Querier) DeptRepository {
-	return DeptRepository{q: q, logger: lib.Logger{}}
+	return DeptRepository{q: q, logger: lib.NopLogger()}
 }
 
 func sampleDeptRow() sqlc.TDept {

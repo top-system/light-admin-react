@@ -2,6 +2,8 @@ package lib
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,15 +27,17 @@ type PgxPool struct {
 // misconfiguration because the sqlc repositories cannot run against it.
 func NewPgxPool(lc fx.Lifecycle, config Config, logger Logger) PgxPool {
 	if !config.Database.IsPostgreSQL() {
-		logger.Zap.Fatalf(
+		logger.Error(fmt.Sprintf(
 			"pgx pool requires Database.Engine=postgres (got %q); the sqlc data layer is PostgreSQL-only",
 			config.Database.Engine,
-		)
+		))
+		os.Exit(1)
 	}
 
 	poolConfig, err := pgxpool.ParseConfig(config.Database.PgxDSN())
 	if err != nil {
-		logger.Zap.Fatalf("Error parsing pgx pool config: %v", err)
+		logger.Error(fmt.Sprintf("Error parsing pgx pool config: %v", err))
+		os.Exit(1)
 	}
 
 	if n := config.Database.MaxOpenConns; n > 0 {
@@ -54,10 +58,12 @@ func NewPgxPool(lc fx.Lifecycle, config Config, logger Logger) PgxPool {
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
-		logger.Zap.Fatalf("Error creating pgx pool: %v", err)
+		logger.Error(fmt.Sprintf("Error creating pgx pool: %v", err))
+		os.Exit(1)
 	}
 	if err := pool.Ping(ctx); err != nil {
-		logger.Zap.Fatalf("Error pinging PostgreSQL via pgx: %v", err)
+		logger.Error(fmt.Sprintf("Error pinging PostgreSQL via pgx: %v", err))
+		os.Exit(1)
 	}
 
 	lc.Append(fx.Hook{
@@ -67,6 +73,6 @@ func NewPgxPool(lc fx.Lifecycle, config Config, logger Logger) PgxPool {
 		},
 	})
 
-	logger.Zap.Infof("pgx pool established (max_conns=%d)", poolConfig.MaxConns)
+	logger.Info(fmt.Sprintf("pgx pool established (max_conns=%d)", poolConfig.MaxConns))
 	return PgxPool{Pool: pool}
 }

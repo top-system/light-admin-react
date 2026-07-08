@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -72,7 +73,7 @@ func NewWebSocketControllerWithParser(
 // Authentication happens pre-upgrade via the `token` query parameter; any
 // invalid token produces a 401 without touching the upgrade machinery.
 func (c WebSocketController) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	c.logger.Zap.Infof("WebSocket upgrade request from: %s", r.RemoteAddr)
+	c.logger.Info(fmt.Sprintf("WebSocket upgrade request from: %s", r.RemoteAddr))
 
 	token := r.URL.Query().Get("token")
 	if token == "" {
@@ -86,14 +87,14 @@ func (c WebSocketController) HandleWebSocket(w http.ResponseWriter, r *http.Requ
 	}
 	claims, err := c.authService.ParseToken(token)
 	if err != nil {
-		c.logger.Zap.Warnf("WebSocket auth failed: %v", err)
+		c.logger.Warn(fmt.Sprintf("WebSocket auth failed: %v", err))
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		c.logger.Zap.Errorf("Failed to upgrade to websocket: %v", err)
+		c.logger.Error(fmt.Sprintf("Failed to upgrade to websocket: %v", err))
 		return
 	}
 
@@ -118,16 +119,16 @@ func (c WebSocketController) HandleWebSocket(w http.ResponseWriter, r *http.Requ
 func (c WebSocketController) readLoop(clientID, username string, conn *websocket.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
-			c.logger.Zap.Errorf("panic in ws readLoop: %v", r)
+			c.logger.Error(fmt.Sprintf("panic in ws readLoop: %v", r))
 		}
 		c.ws.Hub.Unregister(clientID)
-		c.logger.Zap.Infof("WebSocket disconnected: user=%s, client=%s", username, clientID)
+		c.logger.Info(fmt.Sprintf("WebSocket disconnected: user=%s, client=%s", username, clientID))
 	}()
 
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			c.logger.Zap.Debugf("ws ReadMessage error: %v", err)
+			c.logger.Debug(fmt.Sprintf("ws ReadMessage error: %v", err))
 			return
 		}
 		if len(message) == 0 {
@@ -135,7 +136,7 @@ func (c WebSocketController) readLoop(clientID, username string, conn *websocket
 		}
 		var frame ws.Frame
 		if err := json.Unmarshal(message, &frame); err != nil {
-			c.logger.Zap.Warnf("ws malformed frame from %s: %v", username, err)
+			c.logger.Warn(fmt.Sprintf("ws malformed frame from %s: %v", username, err))
 			continue
 		}
 		switch frame.Type {
@@ -146,7 +147,7 @@ func (c WebSocketController) readLoop(clientID, username string, conn *websocket
 			// works even behind aggressive proxies that eat WS control frames.
 			_ = conn.WriteMessage(websocket.TextMessage, mustJSON(ws.MustFrame(ws.FrameTypePong, nil)))
 		default:
-			c.logger.Zap.Debugf("ws ignoring frame type=%s from %s", frame.Type, username)
+			c.logger.Debug(fmt.Sprintf("ws ignoring frame type=%s from %s", frame.Type, username))
 		}
 	}
 }

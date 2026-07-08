@@ -55,7 +55,7 @@ func (a PermissionCache) GetUserRoleIDs(userID string) ([]string, error) {
 
 	// 写入缓存
 	if err := a.cache.Set(cacheKey, roleIDs, permCacheExpiration); err != nil {
-		a.logger.Zap.Warn("Failed to cache user roles: " + err.Error())
+		a.logger.Warn("Failed to cache user roles: " + err.Error())
 	}
 
 	return roleIDs, nil
@@ -65,7 +65,7 @@ func (a PermissionCache) GetUserRoleIDs(userID string) ([]string, error) {
 func (a PermissionCache) SetUserPerms(userID string, perms []string) {
 	cacheKey := fmt.Sprintf(permCacheKeyUserPerms, userID)
 	if err := a.cache.Set(cacheKey, perms, permCacheExpiration); err != nil {
-		a.logger.Zap.Warn("Failed to cache user perms: " + err.Error())
+		a.logger.Warn("Failed to cache user perms: " + err.Error())
 	}
 }
 
@@ -85,7 +85,7 @@ func (a PermissionCache) InvalidateUserCache(userID string) {
 	permsKey := fmt.Sprintf(permCacheKeyUserPerms, userID)
 
 	if _, err := a.cache.Delete(rolesKey, permsKey); err != nil {
-		a.logger.Zap.Warn("Failed to invalidate user cache: " + err.Error())
+		a.logger.Warn("Failed to invalidate user cache: " + err.Error())
 	}
 }
 
@@ -94,7 +94,7 @@ func (a PermissionCache) InvalidateRoleCache(roleID string) {
 	// 角色权限变更时，需要清除所有拥有该角色的用户的权限缓存
 	userIDs, err := a.userRoleRepository.GetUserIDsByRoleID(roleID)
 	if err != nil {
-		a.logger.Zap.Warn("Failed to get users for role: " + err.Error())
+		a.logger.Warn("Failed to get users for role: " + err.Error())
 		return
 	}
 
@@ -112,6 +112,6 @@ func (a PermissionCache) InvalidateRoleCache(roleID string) {
 	}
 
 	if _, err := a.cache.Delete(keys...); err != nil {
-		a.logger.Zap.Warn("Failed to batch invalidate role cache: " + err.Error())
+		a.logger.Warn("Failed to batch invalidate role cache: " + err.Error())
 	}
 }

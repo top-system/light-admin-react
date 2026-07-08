@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -48,7 +49,7 @@ func (m TxManager) RunInTx(ctx context.Context, fn func(q *sqlc.Queries) error) 
 
 	if err := fn(sqlc.New(tx)); err != nil {
 		if rbErr := tx.Rollback(ctx); rbErr != nil {
-			m.logger.Zap.Errorf("tx rollback failed: %v (original error: %v)", rbErr, err)
+			m.logger.Error(fmt.Sprintf("tx rollback failed: %v (original error: %v)", rbErr, err))
 		}
 		return err
 	}

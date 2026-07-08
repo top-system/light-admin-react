@@ -3,6 +3,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/top-system/light-admin/constants"
@@ -32,10 +33,11 @@ func NewRedisCache(config Config, logger Logger) *RedisCache {
 	defer cancel()
 
 	if _, err := client.Ping(ctx).Result(); err != nil {
-		logger.Zap.Fatalf("Failed to connect to Redis[%s]: %v", addr, err)
+		logger.Error(fmt.Sprintf("Failed to connect to Redis[%s]: %v", addr, err))
+		os.Exit(1)
 	}
 
-	logger.Zap.Info("Redis cache connection established")
+	logger.Info("Redis cache connection established")
 	return &RedisCache{
 		client: client,
 		prefix: config.Cache.KeyPrefix,

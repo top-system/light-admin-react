@@ -3,11 +3,10 @@ package websocket
 import (
 	"encoding/json"
 	"sync"
+	"log/slog"
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 // fakeConn implements the Conn interface for tests.
@@ -61,7 +60,7 @@ func (f *fakeConn) frames(t *testing.T) []Frame {
 }
 
 func newTestHub() *Hub {
-	return NewHub(zap.NewNop())
+	return NewHub(slog.New(slog.DiscardHandler))
 }
 
 func TestHub_RegisterUnregister(t *testing.T) {

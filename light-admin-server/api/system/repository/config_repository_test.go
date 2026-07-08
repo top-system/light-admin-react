@@ -32,7 +32,7 @@ func (m *configMockQuerier) CountConfigsByKey(ctx context.Context, arg sqlc.Coun
 }
 
 func newTestConfigRepo(q sqlc.Querier) ConfigRepository {
-	return ConfigRepository{q: q, logger: lib.Logger{}}
+	return ConfigRepository{q: q, logger: lib.NopLogger()}
 }
 
 func TestConfigRepository_Get_NotFound(t *testing.T) {

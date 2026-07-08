@@ -45,7 +45,7 @@ func (m *dictMockQuerier) UpdateDictItemsDictCode(ctx context.Context, arg sqlc.
 }
 
 func newTestDictRepo(q sqlc.Querier) DictRepository {
-	return DictRepository{q: q, logger: lib.Logger{}}
+	return DictRepository{q: q, logger: lib.NopLogger()}
 }
 
 func TestDictRepository_GetByCode_NotFoundReturnsNil(t *testing.T) {

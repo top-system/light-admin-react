@@ -1,9 +1,8 @@
 package websocket
 
 import (
+	"log/slog"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 // WebSocket is the application-facing service around Hub. Handlers and
@@ -11,16 +10,16 @@ import (
 // the WebSocket controller which owns the upgrade / read-pump.
 type WebSocket struct {
 	Hub    *Hub
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
 // New constructs a WebSocket service backed by a fresh Hub. It wires the
 // presence callback so the hub broadcasts online counts on connect/disconnect.
-func New(logger *zap.Logger) *WebSocket {
+func New(logger *slog.Logger) *WebSocket {
 	hub := NewHub(logger)
 	ws := &WebSocket{
 		Hub:    hub,
-		logger: logger.With(zap.String("module", "websocket")),
+		logger: logger.With(slog.String("module", "websocket")),
 	}
 	hub.OnPresenceChange = ws.broadcastOnlineCount
 	return ws

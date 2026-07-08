@@ -30,7 +30,7 @@ func NewTaskRoutes(
 
 // Setup task routes
 func (a TaskRoutes) Setup() {
-	a.logger.Zap.Info("Setting up task routes")
+	a.logger.Info("Setting up task routes")
 	api := a.handler.RouterV1.Group("/tasks")
 	{
 		api.GET("/stats", a.taskController.GetStats)   // 获取队列统计信息，无需特定权限

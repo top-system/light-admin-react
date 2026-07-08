@@ -1,12 +1,14 @@
 package lib
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/exp/zapslog"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
@@ -14,17 +16,22 @@ import (
 	"github.com/top-system/light-admin/pkg/file"
 )
 
-// Zap SugaredLogger by default
-// DesugarZap performance-sensitive code
-type Logger struct {
-	Zap        *zap.SugaredLogger
-	DesugarZap *zap.Logger
-}
+// Logger is the application logger. It is a plain *slog.Logger so business code
+// depends only on the standard library — the concrete backend (currently zap +
+// lumberjack, wired below via zapslog) can be swapped by touching this file
+// alone. See docs/infra-abstraction-plan.md §3.
+//
+// NOTE: this is an alias, so `lib.Logger` and `*slog.Logger` are the same type.
+// Dropping the alias name in favour of writing `*slog.Logger` everywhere is a
+// mechanical follow-up; keeping it here avoids churning 50+ pass-through
+// signatures in this pass.
+type Logger = *slog.Logger
 
+// NewLogger builds the application logger. slog is the front end; a zap core
+// (JSON/console encoder + stdout + lumberjack rotation) is the back end, bridged
+// by zapslog so the on-disk format and rotation are unchanged from the previous
+// zap-only setup.
 func NewLogger(config Config) Logger {
-	var options []zap.Option
-	var encoder zapcore.Encoder
-
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "ts",
 		LevelKey:       "level",
@@ -40,6 +47,7 @@ func NewLogger(config Config) Logger {
 		EncodeTime:     localTimeEncoder,
 	}
 
+	var encoder zapcore.Encoder
 	if config.Log.Format == "json" {
 		encoder = zapcore.NewJSONEncoder(encoderConfig)
 	} else {
@@ -47,19 +55,18 @@ func NewLogger(config Config) Logger {
 	}
 
 	level := zap.NewAtomicLevelAt(toLevel(config.Log.Level))
-
 	core := zapcore.NewCore(encoder, toWriter(config), level)
 
-	stackLevel := zap.NewAtomicLevel()
-	stackLevel.SetLevel(zap.WarnLevel)
-	options = append(options,
-		zap.AddCaller(),
-		zap.AddCallerSkip(1),
-		zap.AddStacktrace(stackLevel),
+	handler := zapslog.NewHandler(core,
+		zapslog.WithCaller(true),
+		zapslog.AddStacktraceAt(slog.LevelWarn),
 	)
+	return slog.New(handler)
+}
 
-	logger := zap.New(core, options...)
-	return Logger{Zap: logger.Sugar(), DesugarZap: logger}
+// NopLogger returns a logger that discards all records. Intended for tests.
+func NopLogger() Logger {
+	return slog.New(slog.DiscardHandler)
 }
 
 func localTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {

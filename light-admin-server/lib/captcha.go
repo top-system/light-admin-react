@@ -1,10 +1,10 @@
 package lib
 
 import (
+	"fmt"
 	"image/color"
+	"log/slog"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/top-system/light-admin/constants"
 	"github.com/mojocn/base64Captcha"
@@ -17,7 +17,7 @@ type Captcha struct {
 type CaptchaStore struct {
 	key    string
 	cache  Cache
-	logger *zap.SugaredLogger
+	logger *slog.Logger
 }
 
 func NewCaptcha(cache Cache, logger Logger) Captcha {
@@ -37,7 +37,7 @@ func NewCaptcha(cache Cache, logger Logger) Captcha {
 	store := &CaptchaStore{
 		cache:  cache,
 		key:    constants.CaptchaKeyPrefix,
-		logger: logger.Zap.With(zap.String("module", "captcha")),
+		logger: logger.With(slog.String("module", "captcha")),
 	}
 
 	return Captcha{Captcha: base64Captcha.NewCaptcha(driver, store)}
@@ -50,7 +50,7 @@ func (a *CaptchaStore) getKey(v string) string {
 func (a *CaptchaStore) Set(id string, value string) error {
 	err := a.cache.Set(a.getKey(id), value, time.Second*constants.CaptchaExpireTimes)
 	if err != nil {
-		a.logger.Errorf("captcha - error writing cache: %v", err)
+		a.logger.Error(fmt.Sprintf("captcha - error writing cache: %v", err))
 	}
 	return err
 }
@@ -63,14 +63,14 @@ func (a *CaptchaStore) Get(id string, clear bool) string {
 
 	err := a.cache.Get(key, &val)
 	if err != nil {
-		a.logger.Errorf("captcha - error reading cache: %v", err)
+		a.logger.Error(fmt.Sprintf("captcha - error reading cache: %v", err))
 		return ""
 	}
 
 	if clear {
 		_, err := a.cache.Delete(key)
 		if err != nil {
-			a.logger.Errorf("captcha - error deleting item from cache: %v", err)
+			a.logger.Error(fmt.Sprintf("captcha - error deleting item from cache: %v", err))
 		}
 	}
 

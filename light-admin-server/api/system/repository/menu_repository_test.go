@@ -39,7 +39,7 @@ func (m *menuMockQuerier) ListMenus(ctx context.Context, arg sqlc.ListMenusParam
 }
 
 func newTestMenuRepo(q sqlc.Querier) MenuRepository {
-	return MenuRepository{q: q, logger: lib.Logger{}}
+	return MenuRepository{q: q, logger: lib.NopLogger()}
 }
 
 func TestMenuRepository_Get_NotFound(t *testing.T) {

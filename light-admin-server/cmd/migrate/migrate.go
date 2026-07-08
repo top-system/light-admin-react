@@ -1,6 +1,9 @@
 package migrate
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 
 	"github.com/top-system/light-admin/db"
@@ -34,19 +37,21 @@ var StartCmd = &cobra.Command{
 		// golang-migrate owns the sqlc-managed tables (t_user, t_user_role, ...).
 		if down {
 			if err := db.Down(config.Database.PgxURL()); err != nil {
-				logger.Zap.Fatalf("Error rolling back migration: %v", err)
+				logger.Error(fmt.Sprintf("Error rolling back migration: %v", err))
+				os.Exit(1)
 			}
-			logger.Zap.Info("Migration rolled back successfully")
+			logger.Info("Migration rolled back successfully")
 			return
 		}
 
 		if err := db.Up(config.Database.PgxURL()); err != nil {
-			logger.Zap.Fatalf("Error applying golang-migrate migrations: %v", err)
+			logger.Error(fmt.Sprintf("Error applying golang-migrate migrations: %v", err))
+			os.Exit(1)
 		}
-		logger.Zap.Info("golang-migrate migrations applied successfully")
+		logger.Info("golang-migrate migrations applied successfully")
 
 		// All modules have been migrated to sqlc: golang-migrate now owns every
 		// table (through 000011), so there is no remaining GORM AutoMigrate step.
-		logger.Zap.Info("Database migration completed successfully")
+		logger.Info("Database migration completed successfully")
 	},
 }

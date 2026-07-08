@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/fx"
 
@@ -71,16 +72,16 @@ type queueLogger struct {
 }
 
 func (l *queueLogger) Info(format string, args ...interface{}) {
-	l.logger.Zap.Infof(l.prefix+format, args...)
+	l.logger.Info(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *queueLogger) Debug(format string, args ...interface{}) {
-	l.logger.Zap.Debugf(l.prefix+format, args...)
+	l.logger.Debug(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *queueLogger) Warning(format string, args ...interface{}) {
-	l.logger.Zap.Warnf(l.prefix+format, args...)
+	l.logger.Warn(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *queueLogger) Error(format string, args ...interface{}) {
-	l.logger.Zap.Errorf(l.prefix+format, args...)
+	l.logger.Error(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *queueLogger) CopyWithPrefix(prefix string) queue.Logger {
 	return &queueLogger{logger: l.logger, prefix: prefix + " "}
@@ -93,7 +94,7 @@ func (l *queueLogger) CopyWithPrefix(prefix string) queue.Logger {
 func NewTaskQueue(lc fx.Lifecycle, config Config, logger Logger, taskRepo queue.TaskRepository) TaskQueue {
 	cfg := config.Queue
 	if cfg == nil || !cfg.Enable {
-		logger.Zap.Info("Queue is disabled")
+		logger.Info("Queue is disabled")
 		return TaskQueue{}
 	}
 
@@ -118,18 +119,18 @@ func NewTaskQueue(lc fx.Lifecycle, config Config, logger Logger, taskRepo queue.
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Zap.Info("Starting Task Queue")
+			logger.Info("Starting Task Queue")
 			q.Start()
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			logger.Zap.Info("Stopping Task Queue")
+			logger.Info("Stopping Task Queue")
 			q.Shutdown()
 			return nil
 		},
 	})
 
-	logger.Zap.Infof("Task Queue initialized with %d workers", cfg.WorkerNum)
+	logger.Info(fmt.Sprintf("Task Queue initialized with %d workers", cfg.WorkerNum))
 	return TaskQueue{Queue: q, Registry: registry}
 }
 
@@ -180,16 +181,16 @@ type crontabLogger struct {
 }
 
 func (l *crontabLogger) Info(format string, args ...interface{}) {
-	l.logger.Zap.Infof(l.prefix+format, args...)
+	l.logger.Info(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *crontabLogger) Debug(format string, args ...interface{}) {
-	l.logger.Zap.Debugf(l.prefix+format, args...)
+	l.logger.Debug(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *crontabLogger) Warning(format string, args ...interface{}) {
-	l.logger.Zap.Warnf(l.prefix+format, args...)
+	l.logger.Warn(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *crontabLogger) Error(format string, args ...interface{}) {
-	l.logger.Zap.Errorf(l.prefix+format, args...)
+	l.logger.Error(fmt.Sprintf(l.prefix+format, args...))
 }
 func (l *crontabLogger) CopyWithPrefix(prefix string) crontab.Logger {
 	return &crontabLogger{logger: l.logger, prefix: prefix + " "}
@@ -199,7 +200,7 @@ func (l *crontabLogger) CopyWithPrefix(prefix string) crontab.Logger {
 func NewCrontab(lc fx.Lifecycle, config Config, logger Logger) Crontab {
 	cfg := config.Crontab
 	if cfg == nil || !cfg.Enable {
-		logger.Zap.Info("Crontab is disabled")
+		logger.Info("Crontab is disabled")
 		return Crontab{}
 	}
 
@@ -207,17 +208,17 @@ func NewCrontab(lc fx.Lifecycle, config Config, logger Logger) Crontab {
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			logger.Zap.Info("Starting Crontab")
+			logger.Info("Starting Crontab")
 			return c.Start()
 		},
 		OnStop: func(ctx context.Context) error {
-			logger.Zap.Info("Stopping Crontab")
+			logger.Info("Stopping Crontab")
 			c.Stop()
 			return nil
 		},
 	})
 
-	logger.Zap.Info("Crontab initialized")
+	logger.Info("Crontab initialized")
 	return Crontab{Cron: c}
 }
 
@@ -263,23 +264,23 @@ type downloaderLogger struct {
 }
 
 func (l *downloaderLogger) Info(format string, args ...interface{}) {
-	l.logger.Zap.Infof(format, args...)
+	l.logger.Info(fmt.Sprintf(format, args...))
 }
 func (l *downloaderLogger) Debug(format string, args ...interface{}) {
-	l.logger.Zap.Debugf(format, args...)
+	l.logger.Debug(fmt.Sprintf(format, args...))
 }
 func (l *downloaderLogger) Warning(format string, args ...interface{}) {
-	l.logger.Zap.Warnf(format, args...)
+	l.logger.Warn(fmt.Sprintf(format, args...))
 }
 func (l *downloaderLogger) Error(format string, args ...interface{}) {
-	l.logger.Zap.Errorf(format, args...)
+	l.logger.Error(fmt.Sprintf(format, args...))
 }
 
 // NewDownloader 创建下载器
 func NewDownloader(config Config, logger Logger) Downloader {
 	cfg := config.Downloader
 	if cfg == nil || !cfg.Enable {
-		logger.Zap.Info("Downloader is disabled")
+		logger.Info("Downloader is disabled")
 		return Downloader{}
 	}
 
@@ -288,7 +289,7 @@ func NewDownloader(config Config, logger Logger) Downloader {
 	switch cfg.Type {
 	case "aria2":
 		if cfg.Aria2 == nil {
-			logger.Zap.Error("Aria2 config is missing")
+			logger.Error("Aria2 config is missing")
 			return Downloader{}
 		}
 		client := aria2.New(dl, &aria2.Settings{
@@ -297,12 +298,12 @@ func NewDownloader(config Config, logger Logger) Downloader {
 			TempPath: cfg.Aria2.TempPath,
 			Options:  cfg.Aria2.Options,
 		})
-		logger.Zap.Infof("Aria2 downloader initialized: %s", cfg.Aria2.Server)
+		logger.Info(fmt.Sprintf("Aria2 downloader initialized: %s", cfg.Aria2.Server))
 		return Downloader{Client: client, Type: "aria2"}
 
 	case "qbittorrent":
 		if cfg.QBittorrent == nil {
-			logger.Zap.Error("QBittorrent config is missing")
+			logger.Error("QBittorrent config is missing")
 			return Downloader{}
 		}
 		client, err := qbittorrent.New(dl, &qbittorrent.Settings{
@@ -313,14 +314,14 @@ func NewDownloader(config Config, logger Logger) Downloader {
 			Options:  cfg.QBittorrent.Options,
 		})
 		if err != nil {
-			logger.Zap.Errorf("Failed to create qBittorrent client: %v", err)
+			logger.Error(fmt.Sprintf("Failed to create qBittorrent client: %v", err))
 			return Downloader{}
 		}
-		logger.Zap.Infof("QBittorrent downloader initialized: %s", cfg.QBittorrent.Server)
+		logger.Info(fmt.Sprintf("QBittorrent downloader initialized: %s", cfg.QBittorrent.Server))
 		return Downloader{Client: client, Type: "qbittorrent"}
 
 	default:
-		logger.Zap.Errorf("Unknown downloader type: %s", cfg.Type)
+		logger.Error(fmt.Sprintf("Unknown downloader type: %s", cfg.Type))
 		return Downloader{}
 	}
 }

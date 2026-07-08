@@ -26,25 +26,25 @@ type FileService interface {
 func NewFileService(config lib.Config, logger lib.Logger) FileService {
 	ossConfig := config.OSS
 	if ossConfig == nil {
-		logger.Zap.Warn("OSS config not found, using local storage")
+		logger.Warn("OSS config not found, using local storage")
 		return NewLocalFileService("./uploads", logger)
 	}
 
 	switch ossConfig.Type {
 	case "minio":
 		if ossConfig.Minio == nil {
-			logger.Zap.Warn("Minio config not found, using local storage")
+			logger.Warn("Minio config not found, using local storage")
 			return NewLocalFileService("./uploads", logger)
 		}
 		svc, err := NewMinioFileService(ossConfig.Minio, logger)
 		if err != nil {
-			logger.Zap.Errorf("Failed to create minio service: %v, using local storage", err)
+			logger.Error(fmt.Sprintf("Failed to create minio service: %v, using local storage", err))
 			return NewLocalFileService("./uploads", logger)
 		}
 		return svc
 	case "aliyun":
 		if ossConfig.Aliyun == nil {
-			logger.Zap.Warn("Aliyun config not found, using local storage")
+			logger.Warn("Aliyun config not found, using local storage")
 			return NewLocalFileService("./uploads", logger)
 		}
 		return NewAliyunFileService(ossConfig.Aliyun, logger)
@@ -69,7 +69,7 @@ type LocalFileService struct {
 func NewLocalFileService(storagePath string, logger lib.Logger) *LocalFileService {
 	// 确保存储目录存在
 	if err := os.MkdirAll(storagePath, 0755); err != nil {
-		logger.Zap.Errorf("Failed to create storage directory: %v", err)
+		logger.Error(fmt.Sprintf("Failed to create storage directory: %v", err))
 	}
 	return &LocalFileService{
 		storagePath: storagePath,
@@ -186,7 +186,7 @@ func NewMinioFileService(config *lib.MinioOSSConfig, logger lib.Logger) (*MinioF
 
 	// 确保bucket存在
 	if err := svc.ensureBucket(); err != nil {
-		logger.Zap.Warnf("Failed to ensure bucket: %v", err)
+		logger.Warn(fmt.Sprintf("Failed to ensure bucket: %v", err))
 	}
 
 	return svc, nil
@@ -217,7 +217,7 @@ func (s *MinioFileService) ensureBucket() error {
 		}`, s.bucketName)
 
 		if err := s.client.SetBucketPolicy(ctx, s.bucketName, policy); err != nil {
-			s.logger.Zap.Warnf("Failed to set bucket policy: %v", err)
+			s.logger.Warn(fmt.Sprintf("Failed to set bucket policy: %v", err))
 		}
 	}
 

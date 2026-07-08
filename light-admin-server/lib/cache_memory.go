@@ -50,7 +50,7 @@ func NewMemoryCache(config Config, logger Logger) *MemoryCache {
 	// Start cleanup goroutine
 	go mc.cleanupLoop()
 
-	logger.Zap.Info("Memory cache initialized")
+	logger.Info("Memory cache initialized")
 	return mc
 }
 

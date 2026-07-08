@@ -6,8 +6,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"log/slog"
+
 	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 )
 
 // Heartbeat parameters.
@@ -68,12 +69,12 @@ type OnlineUser struct {
 
 // Hub owns the set of active connections and multiplexes server → client frames.
 type Hub struct {
-	mu      sync.RWMutex
-	byID    map[string]*client            // clientID -> client
-	byUser  map[string]map[string]*client // username -> clientID -> client
-	logger  *zap.Logger
-	nowFn   func() time.Time
-	msgSeq  atomic.Uint64
+	mu     sync.RWMutex
+	byID   map[string]*client            // clientID -> client
+	byUser map[string]map[string]*client // username -> clientID -> client
+	logger *slog.Logger
+	nowFn  func() time.Time
+	msgSeq atomic.Uint64
 
 	// OnPresenceChange is fired after Register / Unregister so callers can
 	// broadcast online counts, etc. Called with the hub lock NOT held.
@@ -81,11 +82,11 @@ type Hub struct {
 }
 
 // NewHub constructs an empty Hub.
-func NewHub(logger *zap.Logger) *Hub {
+func NewHub(logger *slog.Logger) *Hub {
 	return &Hub{
 		byID:   make(map[string]*client),
 		byUser: make(map[string]map[string]*client),
-		logger: logger.With(zap.String("module", "ws-hub")),
+		logger: logger.With(slog.String("module", "ws-hub")),
 		nowFn:  time.Now,
 	}
 }
@@ -112,8 +113,8 @@ func (h *Hub) Register(clientID, username string, conn Conn) *client {
 	h.mu.Unlock()
 
 	h.logger.Info("client registered",
-		zap.String("clientID", clientID),
-		zap.String("username", username))
+		slog.String("clientID", clientID),
+		slog.String("username", username))
 
 	if h.OnPresenceChange != nil {
 		h.OnPresenceChange()
@@ -141,8 +142,8 @@ func (h *Hub) Unregister(clientID string) {
 	c.close()
 
 	h.logger.Info("client unregistered",
-		zap.String("clientID", clientID),
-		zap.String("username", c.username))
+		slog.String("clientID", clientID),
+		slog.String("username", c.username))
 
 	if h.OnPresenceChange != nil {
 		h.OnPresenceChange()
@@ -165,9 +166,9 @@ func (h *Hub) SendToUser(username string, frame Frame) int {
 	for _, c := range clients {
 		if err := c.send(frame); err != nil {
 			h.logger.Warn("send-to-user failed",
-				zap.String("username", username),
-				zap.String("clientID", c.id),
-				zap.Error(err))
+				slog.String("username", username),
+				slog.String("clientID", c.id),
+				slog.Any("error", err))
 			continue
 		}
 		delivered++
@@ -189,8 +190,8 @@ func (h *Hub) Broadcast(frame Frame) int {
 	for _, c := range clients {
 		if err := c.send(frame); err != nil {
 			h.logger.Warn("broadcast failed",
-				zap.String("clientID", c.id),
-				zap.Error(err))
+				slog.String("clientID", c.id),
+				slog.Any("error", err))
 			continue
 		}
 		delivered++
@@ -299,15 +300,15 @@ func (h *Hub) sweepAndPing(ping Frame) {
 	for _, c := range clients {
 		if now-c.lastPong.Load() > readDeadline.Milliseconds() {
 			h.logger.Info("client timed out, dropping",
-				zap.String("clientID", c.id),
-				zap.String("username", c.username))
+				slog.String("clientID", c.id),
+				slog.String("username", c.username))
 			h.Unregister(c.id)
 			continue
 		}
 		if err := c.send(ping); err != nil {
 			h.logger.Warn("ping failed, dropping",
-				zap.String("clientID", c.id),
-				zap.Error(err))
+				slog.String("clientID", c.id),
+				slog.Any("error", err))
 			h.Unregister(c.id)
 		}
 	}

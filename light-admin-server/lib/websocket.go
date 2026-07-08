@@ -6,5 +6,5 @@ import (
 
 // NewWebSocket 创建WebSocket管理器
 func NewWebSocket(logger Logger) *websocket.WebSocket {
-	return websocket.New(logger.DesugarZap)
+	return websocket.New(logger)
 }

@@ -60,7 +60,7 @@ func (m *roleMockQuerier) CreateRole(ctx context.Context, arg sqlc.CreateRolePar
 }
 
 func newTestRoleRepo(q sqlc.Querier) RoleRepository {
-	return RoleRepository{q: q, logger: lib.Logger{}}
+	return RoleRepository{q: q, logger: lib.NopLogger()}
 }
 
 func sampleRoleRow() sqlc.TRole {

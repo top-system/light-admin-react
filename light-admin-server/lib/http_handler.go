@@ -94,7 +94,7 @@ func NewHttpHandler(logger Logger, config Config) HttpHandler {
 			}
 
 			if err != nil {
-				logger.DesugarZap.Error(err.Error())
+				logger.Error(err.Error())
 			}
 		}
 	}

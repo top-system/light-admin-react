@@ -46,7 +46,7 @@ func (m *mockQuerier) CountUsers(ctx context.Context, arg sqlc.CountUsersParams)
 }
 
 func newTestUserRepo(q sqlc.Querier) UserRepository {
-	return UserRepository{q: q, logger: lib.Logger{}}
+	return UserRepository{q: q, logger: lib.NopLogger()}
 }
 
 func sampleRow() sqlc.TUser {
