@@ -3,8 +3,8 @@ sql:
   - engine: "postgresql"
     # Schema is the golang-migrate migration set; sqlc reads *.up.sql and
     # ignores *.down.sql, so migrations remain the single source of truth.
-    schema: "db/migrations"
-    queries: "db/queries"
+    schema: "db/migrations/postgres"
+    queries: "db/queries/postgres"
     gen:
       go:
         package: "pg"

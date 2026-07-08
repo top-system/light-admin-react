@@ -277,7 +277,9 @@ UTC 文本、Go 侧转换。**三引擎的时间语义以「Go 侧 time.Time 正
       (由 `gen-store` 生成),repository/service 不再直接 import `pgx`;
 - [x] 中立时间字段 `pgtype.Timestamptz` → `time.Time` / `*time.Time`(sqlc `overrides` 收敛,§4 目标),
       repository 不再直接 import `pgtype`;depguard `business-layers` 5 条 warn-phase 存量告警清零(`golangci-lint run ./...` 0 issues);
-- [ ] 目录平移:`db/migrations` → `db/migrations/postgres`、`db/queries` → `db/queries/postgres`(为阶段二/三多引擎目录腾位)。
+- [x] 目录平移:`db/migrations` → `db/migrations/postgres`、`db/queries` → `db/queries/postgres`
+      (`sqlc.yaml` schema/queries、`db/embed.go` 的 `//go:embed`、`db/migrate.go` 的 `iofs` 根同步;
+      为阶段二/三多引擎目录腾位)。
 
 ### 阶段二:SQLite
 

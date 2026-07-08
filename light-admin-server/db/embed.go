@@ -6,7 +6,9 @@ package db
 import "embed"
 
 // MigrationsFS embeds every migration file so the binary can apply schema
-// changes without shipping the .sql files alongside it.
+// changes without shipping the .sql files alongside it. Migrations are split by
+// engine (migrations/postgres, and later mysql/sqlite); the runner selects the
+// per-engine subtree (see migrate.go).
 //
-//go:embed migrations/*.sql
+//go:embed migrations/postgres/*.sql
 var MigrationsFS embed.FS

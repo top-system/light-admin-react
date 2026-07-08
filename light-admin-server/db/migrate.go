@@ -11,7 +11,7 @@ import (
 // newMigrator builds a golang-migrate instance from the embedded migrations and
 // a pgx5:// database URL (see lib.DatabaseConfig.PgxURL).
 func newMigrator(pgxURL string) (*migrate.Migrate, error) {
-	src, err := iofs.New(MigrationsFS, "migrations")
+	src, err := iofs.New(MigrationsFS, "migrations/postgres")
 	if err != nil {
 		return nil, err
 	}
