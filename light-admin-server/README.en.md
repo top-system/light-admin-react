@@ -8,7 +8,7 @@
   </p>
 
   <p>
-    RBAC Admin Scaffolding built with Echo + GORM + Casbin + Uber-FX
+    RBAC Admin Scaffolding built with Echo + sqlc + Casbin + Uber-FX
   </p>
 
   <p>
@@ -18,7 +18,7 @@
   <p>
     <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go" alt="Go Version" />
     <img src="https://img.shields.io/badge/Echo-4.11+-00ADD8?style=flat-square" alt="Echo Version" />
-    <img src="https://img.shields.io/badge/GORM-1.25+-red?style=flat-square" alt="GORM Version" />
+    <img src="https://img.shields.io/badge/sqlc-1.31+-red?style=flat-square" alt="sqlc Version" />
     <img src="https://img.shields.io/badge/Casbin-2.77+-brightgreen?style=flat-square" alt="Casbin Version" />
     <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License" />
   </p>

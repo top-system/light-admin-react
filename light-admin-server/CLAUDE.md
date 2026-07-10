@@ -76,7 +76,7 @@ Middlewares execute in this order (configured in `api/middlewares/`):
 
 ### Database
 
-GORM supports MySQL, PostgreSQL, and SQLite (configured via `config.Database.Engine`). Database initialization logic with driver-specific setup is in `lib/db.go`. Table prefix is configurable (`config.Database.TablePrefix`). Models live in `models/system/` and `models/platform/`. Base model types (DateTime, UUID, JSONB) are in `models/database/`.
+The data layer is sqlc-generated and engine-neutral: business code depends only on `db/store.Store` + `lib.TxManager`, and `config.Database.Engine` selects PostgreSQL (pgx/v5), MySQL (go-sql-driver, 8.0.13+) or SQLite (modernc, bundled) at startup via `lib/datalayer.go`. Queries and migrations exist in three dialects under `db/queries/<engine>` and `db/migrations/<engine>`; `tools/gen-store` regenerates the neutral interface and per-engine adapters (`make sqlc` + `make gen-store`, see AGENTS.md §3). Table prefix is configurable (`config.Database.TablePrefix`). Domain models live in `models/system/` and `models/platform/`.
 
 ### Configuration
 

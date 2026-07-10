@@ -37,8 +37,8 @@ sqlc:
 	@sqlc generate
 
 # gen-store regenerates the engine-neutral data layer (db/store interface +
-# neutral models) and the per-engine adapters (db/pgstore) from the sqlc output.
-# Run after every `make sqlc`.
+# neutral models) and the per-engine adapters (db/pgstore, db/mysqlstore,
+# db/sqlitestore) from the sqlc output. Run after every `make sqlc`.
 gen-store:
 	@go run ./tools/gen-store
 

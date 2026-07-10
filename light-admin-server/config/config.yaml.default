@@ -59,7 +59,9 @@ Cache:
 #   KeyPrefix: app
 
 # Database configuration
-# Engine: mysql, sqlite, or postgres
+# Engine: mysql (8.0.13+), sqlite (bundled), or postgres (13+)
+# One binary serves all three engines; switching means changing Engine and
+# re-running `migrate` + `setup` (no cross-engine data migration).
 Database:
   Engine: mysql
   Name: clean
@@ -68,7 +70,9 @@ Database:
   Username: root
   Password: sqlpass
   TablePrefix: t
-  Parameters: charset=utf8mb4&parseTime=True&loc=Local&allowNativePasswords=true&timeout=5s
+  # charset=utf8mb4, parseTime=true and loc=Asia/Shanghai are always pinned in
+  # the DSN; entries here are appended after them (duplicates override).
+  Parameters: allowNativePasswords=true&timeout=5s
   MaxLifetime: 7200
   MaxOpenConns: 150
   MaxIdleConns: 50

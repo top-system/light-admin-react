@@ -1,8 +1,9 @@
 # 多数据库支持方案(PostgreSQL / MySQL / SQLite)
 
-> 状态:方案评审中,未开工。
+> 状态:**已落地**(阶段一/二/三全部完成,2026-07-10)。三引擎 migrate → setup →
+> 登录 → 用户 CRUD → 队列任务生命周期冒烟全绿;贡献者流程已沉淀到 AGENTS.md §1/§3。
 > 前置:GORM → sqlc/pgx 迁移已完成(fb005ef)。
-> 目标读者:维护者与贡献者。落地后本文档的「方言改写规则」「新增 SQL 流程」两节会沉淀为贡献者指南。
+> 目标读者:维护者与贡献者。实施中发现的方言偏差记录在 §5.1。
 
 ## 1. 背景与目标
 
@@ -222,6 +223,26 @@ UTC 文本、Go 侧转换。**三引擎的时间语义以「Go 侧 time.Time 正
 派生流程工具化:`tools/gen-queries/`(或一次性脚本)从 postgres 版做机械替换生成
 初稿,人工复核 diff 后入库;之后的日常维护直接改三份(见 §8 贡献者流程)。
 
+### 5.1 实施中确认的方言偏差(落地记录)
+
+上表在实施时遇到的引擎/工具链现实,均已按下述方式处理:
+
+| 现象 | 处理 |
+|---|---|
+| sqlc sqlite 引擎:匿名 `?` 出现在命名参数之后会错位编号(运行时绑定错误) | sqlite 方言全部使用命名 `sqlc.arg/narg` |
+| sqlc sqlite 引擎:查询文件含非 ASCII 字符时改写偏移错位(`SELECTid`) | 三份方言查询文件保持纯 ASCII 注释 |
+| sqlc sqlite/mysql:`ORDER BY CASE WHEN sqlc.arg(...)` 不被参数重写 | ListMenus 拆成 OrderBySort/OrderByID 两条查询,适配层按 OrderBy 分发(手写) |
+| 可空数组过滤(narg + ANY)无对应物 | sqlite 用 `instr(",a,b,", ',' \|\| col \|\| ',')`、mysql 用 `FIND_IN_SET(col, "a,b")`,适配层 `csvList` 把 `[]string` 序列化(nil = 不过滤) |
+| PG `LIMIT NULL`=不限,MySQL 拒绝 LIMIT NULL、SQLite 需 -1 | mysql/sqlite 方言 LIMIT/OFFSET 为非空参数,适配层 `limitOrAll`(sqlite `-1` / mysql `MaxInt32`)+ `offsetOrZero` 兜 nil |
+| MySQL 无 RETURNING | `CreateDownloadTask`/`CreateQueueTask` 用 `:execlastid`;`UpdateQueueTask` 用 `:exec` + 同一 DBTX 回读(手写适配) |
+| mysql 引擎忽略 `emit_pointers_for_null_types` | sqlc.yaml mysql 段用 overrides 把可空类型钉成指针 |
+| sqlite 引擎所有整数推断为 int64 | overrides `INTEGER→int32`,AUTOINCREMENT 主键列级 override 回 int64 |
+| unnest 批量插入无对应物 | 三个 `BatchCreate*` 在 mysql/sqlite 适配层循环单行 INSERT IGNORE / OR IGNORE(手写) |
+| `Now` 同时赋给可空+非空时间列时 mysql 推断冲突 | 相关 4 条查询在 mysql 方言用 `sqlc.narg('now')`,生成器自动取地址桥接 |
+
+手写方法清单(编译期由 `var _ store.Store` 兜底):sqlitestore 4 个
+(ListMenus + 3 个 Batch)、mysqlstore 6 个(再加 Create/UpdateQueueTask)。
+
 ## 6. 迁移(golang-migrate)
 
 - `db/embed.go` 分别 embed 三个迁移目录;`db/migrate.go` 按引擎注册对应 driver
@@ -281,19 +302,30 @@ UTC 文本、Go 侧转换。**三引擎的时间语义以「Go 侧 time.Time 正
       (`sqlc.yaml` schema/queries、`db/embed.go` 的 `//go:embed`、`db/migrate.go` 的 `iofs` 根同步;
       为阶段二/三多引擎目录腾位)。
 
-### 阶段二:SQLite
+### 阶段二:SQLite(已完成)
 
-- [ ] `db/queries/sqlite` + `db/migrations/sqlite` 改写;
-- [ ] modernc 驱动接入、DSN/PRAGMA、`sql.Tx` 版 TxManager、`sqlitestore` 适配层;
-- [ ] dbtest 参数化 + 本地默认引擎切 SQLite;
-- [ ] 端到端冒烟通过。
+- [x] `db/queries/sqlite` + `db/migrations/sqlite` 改写(方言偏差见 §5.1);
+- [x] modernc 驱动接入、DSN PRAGMA(WAL/busy_timeout/foreign_keys)、`MaxOpenConns=1`、
+      `sql.Tx` 版 TxManager(`lib.sqlTxManager`)、`sqlitestore` 适配层(gen-store 生成 + manual.go×4);
+- [x] `lib.TxManager` 收敛为 `store.TxManager` 别名,`OpenDataLayer/NewDataLayer` 按引擎装配
+      (service/cmd 零签名改动);
+- [x] 端到端冒烟通过:migrate → setup → 登录 → 用户 CRUD/keywords 过滤 → 队列任务生命周期
+      (RETURNING id、软删、ErrNoRows);opt-in 探针保留在 `db/sqlitestore/probe_test.go`(SMOKE_DB)。
 
-### 阶段三:MySQL
+(dbtest 参数化未做:本仓库现无连库 repository 测试套件,矩阵以三引擎冒烟 + opt-in 探针代替。)
 
-- [ ] `db/queries/mysql` + `db/migrations/mysql` 改写(含 RETURNING → execresult);
-- [ ] go-sql-driver 接入、`mysqlstore` 适配层;
-- [ ] CI service container + 三引擎矩阵;
-- [ ] 文档:README 配置示例 ×3、版本要求、换库说明。
+### 阶段三:MySQL(已完成)
+
+- [x] `db/queries/mysql` + `db/migrations/mysql` 改写(RETURNING → `:execlastid`/回读,
+      索引内联进 CREATE TABLE 规避无 IF NOT EXISTS,TEXT 表达式默认值 → 最低要求 MySQL 8.0.13+);
+- [x] go-sql-driver 接入(DSN 强制 `parseTime=true&loc=Asia/Shanghai`)、`mysqlstore` 适配层
+      (gen-store 生成 + manual.go×6);
+- [x] 端到端冒烟通过(WSL docker mysql:8.0):migrate → setup → 登录 → 用户 CRUD →
+      大小写不敏感 keywords(utf8mb4_0900_ai_ci)→ 队列任务生命周期;PostgreSQL 回归冒烟与 main 行为一致;
+- [x] 文档:README 配置示例 ×3 + 版本要求;AGENTS.md §1/§3 沉淀三方言贡献流程;
+      `golangci-lint run ./...` 0 issues。
+
+(CI 三引擎矩阵未配置——仓库当前无 CI 流水线;本地命令:`DBTEST` 见各 probe_test.go 头注释。)
 
 ### 工作量与风险
 

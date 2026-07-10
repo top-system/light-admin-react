@@ -15,34 +15,31 @@ work around it. When something is ambiguous, analyze and ask; do not guess.
 |----------------|---------------------------------|-------|
 | HTTP framework | **Echo** (`labstack/echo/v4`)   | Not Gin. Do not introduce a second web framework. |
 | DI             | **Uber Fx**                     | No global singletons for services/repos. |
-| Database       | **PostgreSQL only**             | MySQL and SQLite are being removed. |
-| DB driver      | **pgx/v5 + pgxpool**            | No `database/sql` in application code. |
-| Data layer     | **sqlc** (generated)            | The single source of DB access. |
-| Migrations     | **golang-migrate**              | `db/migrations/*.sql`. |
-| Logging        | **zap** (`lib.Logger`)          | Never `fmt.Println` for logs. |
+| Database       | **PostgreSQL / MySQL / SQLite** | Selected by `config.Database.Engine`; one binary serves all three. |
+| DB drivers     | pgx/v5, go-sql-driver, modernc  | Confined to `lib/datalayer.go` and the `db/*store` adapters. |
+| Data layer     | **sqlc** + `db/store` façade    | Business code depends only on `store.Store`; per-engine sqlc output stays behind the generated adapters. |
+| Migrations     | **golang-migrate**              | `db/migrations/{postgres,mysql,sqlite}/*.sql`, same version numbers in all three. |
+| Logging        | **slog** (`lib.Logger` façade)  | Never `fmt.Println` for logs. |
 | Auth/RBAC      | JWT + **Casbin**                | Preserve existing behavior. |
 | Config         | Viper, `config/config.yaml`     | One config source. |
 
-### Transition state (important)
+### Multi-engine invariant (important)
 
-The project is migrating **module by module** from GORM to sqlc. During the
-transition, **both** access layers coexist against the **same PostgreSQL**
-database:
-
-- **Migrated modules** (currently: `user`, `user_role`) use `*sqlc.Queries` +
-  `lib.TxManager`.
-- **Not-yet-migrated modules** still use GORM (`lib.Database`).
-
-Migration order: `Auth → User → Role → Dept → Menu → Dict → Tenant → Config →
-Monitor → Log → Job`. Migrate one module at a time; each step must
-`go build ./...` and `go test ./...` clean before moving on.
+Every SQL statement exists in **three dialects** (`db/queries/postgres` is the
+reference; `mysql`/`sqlite` are derived per docs/multi-database-plan.md §5).
+The engine-neutral surface is generated: `tools/gen-store` reads the sqlc
+output and emits `db/store` (interface + neutral structs) plus one adapter per
+engine (`db/pgstore`, `db/mysqlstore`, `db/sqlitestore`). Methods an engine
+cannot express live in that adapter's hand-written `manual.go`; the generated
+`var _ store.Store = (*Store)(nil)` turns a forgotten dialect into a compile
+error.
 
 ---
 
 ## 2. Layering (strict)
 
 ```
-route → controller → service → repository → (sqlc | GORM)
+route → controller → service → repository → store.Store (engine-neutral)
 ```
 
 Dependencies point **downward only**. Never upward, never sideways within a layer.
@@ -51,7 +48,7 @@ Dependencies point **downward only**. Never upward, never sideways within a laye
 - **May:** bind/validate HTTP input, read JWT claims/context, call **one or more
   services**, build the `echox.Response`.
 - **Must NOT:** contain SQL, business logic, transaction control, cache access,
-  or touch a repository/`*sqlc.Queries`/`gorm.DB` directly.
+  or touch a repository/`store.Store` directly.
 
 ### Service
 - **Owns:** business logic, transactions, caching, permissions, events.
@@ -62,9 +59,11 @@ Dependencies point **downward only**. Never upward, never sideways within a laye
   cyclic dependencies and hidden transaction nesting.)
 
 ### Repository
-- **Owns:** persistence only. For migrated modules this means **calling
-  `sqlc.Querier` methods and mapping rows ↔ domain models** — nothing else.
-- **Must NOT:** contain business logic, cache access, or hand-written SQL strings.
+- **Owns:** persistence only: **calling `store.Store` methods and mapping rows
+  ↔ domain models** — nothing else.
+- **Must NOT:** contain business logic, cache access, hand-written SQL strings,
+  or import any database driver / generated sqlc package (depguard enforces
+  this).
 - **Repository must NOT call another Repository.** Cross-entity reads/writes are
   composed in the **service** (inside a `TxManager` transaction when atomic).
 
@@ -76,37 +75,48 @@ responsibility is in the wrong layer.
 
 ## 3. SQL & sqlc rules
 
-- **All SQL lives in `db/queries/*.sql`** and is compiled by `sqlc generate`.
-  There must be **zero** SQL string literals (`SELECT`/`INSERT`/`UPDATE`/`DELETE`)
-  in `.go` files.
+- **All SQL lives in `db/queries/{postgres,mysql,sqlite}/*.sql`** and is
+  compiled by `sqlc generate`. There must be **zero** SQL string literals
+  (`SELECT`/`INSERT`/`UPDATE`/`DELETE`) in `.go` files.
+- **Adding or changing a query touches all three dialect files** (postgres is
+  the source; derive mysql/sqlite per docs/multi-database-plan.md §5), then:
+  `make sqlc` → `make gen-store` → `go build ./...`. If an engine cannot
+  express the statement, implement the method in that adapter's `manual.go` —
+  the compiler enforces completeness.
 - **No `SELECT *` semantics in Go** — sqlc expands columns explicitly; keep it so.
 - **`ORDER BY` / `LIMIT` / `OFFSET` must be injection-safe.** Never interpolate a
   column name or direction from user input into SQL. Use fixed `ORDER BY` clauses
   or a whitelist mapped inside the query; pass limit/offset as bound parameters.
 - **Dynamic filters** use the nullable-argument pattern
-  (`sqlc.narg('x')::type IS NULL OR col = sqlc.narg('x')`) so one prepared
-  statement serves all filter combinations while staying fully parameterized.
-- After editing any `.sql`, run `make sqlc` and commit the regenerated
-  `db/sqlc/*` alongside it. Never hand-edit generated files.
-- Schema changes go through a **new migration** in `db/migrations` (paired
-  `*.up.sql` / `*.down.sql`). Migrations are the schema source of truth for both
-  the DB and sqlc.
+  (`sqlc.narg('x') IS NULL OR col = sqlc.narg('x')`; postgres adds `::type`
+  hints) so one prepared statement serves all filter combinations while staying
+  fully parameterized. In the mysql/sqlite dialects keep every parameter a
+  *named* `sqlc.arg`/`sqlc.narg` (except mysql `LIMIT ? OFFSET ?`).
+- **Time comes from Go**: pass `sqlc.arg('now')`; never `NOW()` /
+  `CURRENT_TIMESTAMP` inside queries.
+- Never hand-edit generated packages (`db/pg`, `db/mysqlgen`, `db/sqlitegen`,
+  or the generated `store.go` files).
+- Schema changes go through a **new migration** written in all three
+  `db/migrations/<engine>` directories with the **same version number and file
+  name** (paired `*.up.sql` / `*.down.sql`), following the type map in
+  docs/multi-database-plan.md §4. Migrations are the schema source of truth for
+  both the DB and sqlc.
 
 ## 4. Transactions
 
-- Use `lib.TxManager.RunInTx(ctx, func(q *sqlc.Queries) error { ... })`.
+- Use `lib.TxManager.RunInTx(ctx, func(q store.Store) error { ... })`
+  (`lib.TxManager` = `store.TxManager`; the engine picks pgx or database/sql
+  underneath).
 - Inside the callback, bind each repository to the transaction with
   `repo.WithTx(q)` so every statement runs on the same transaction.
-- **Do not** use `gorm.Transaction()` or pass `*gorm.DB` handles for any
-  sqlc-backed module. The per-request GORM transaction middleware is legacy and
-  is removed from a module when that module is migrated.
 
 ## 5. Errors
 
 - Wrap/inspect with `errors.Is` / `errors.As`.
-- Map `pgx.ErrNoRows` → domain `errors.DatabaseRecordNotFound`; wrap other DB
-  errors with `errors.DatabaseInternalError`.
-- Do not reference `gorm.ErrRecordNotFound` in new/migrated code.
+- The adapters translate each driver's not-found sentinel to `store.ErrNoRows`;
+  map that → domain `errors.DatabaseRecordNotFound` and wrap other DB errors
+  with `errors.DatabaseInternalError`. Never reference `pgx.ErrNoRows` /
+  `sql.ErrNoRows` in business code.
 
 ## 6. Multi-tenancy
 
@@ -126,7 +136,7 @@ responsibility is in the wrong layer.
   exceeded. No God services/controllers.
 - Every exported symbol has a GoDoc comment.
 - New repository and service logic ships with unit tests (mock the
-  `sqlc.Querier` interface — see `api/system/repository/user_repository_test.go`).
+  `store.Store` interface — see `api/system/repository/user_repository_test.go`).
 - `go fmt`, `go vet`, `golangci-lint`, `go test`, `go build` must all pass in CI.
 
 ## 9. Directory map
@@ -135,11 +145,14 @@ responsibility is in the wrong layer.
 cmd/            CLI entrypoints (runserver, migrate, setup)
 api/<module>/   route / controller / service / repository per domain
 db/
-  migrations/   golang-migrate *.sql (schema source of truth)
-  queries/      sqlc query definitions
-  sqlc/         generated code (DO NOT EDIT)
-lib/            infra providers (config, logger, db, pgx pool, queries, txmanager, cache)
+  migrations/   golang-migrate *.sql per engine (postgres/mysql/sqlite)
+  queries/      sqlc query definitions per engine (postgres is the reference)
+  pg/ mysqlgen/ sqlitegen/   sqlc output per engine (DO NOT EDIT)
+  store/        engine-neutral Store interface + structs (generated)
+  pgstore/ mysqlstore/ sqlitestore/  adapters (generated store.go + manual.go/helpers.go)
+lib/            infra providers (config, logger, datalayer, cache, ...)
 models/         domain models & DTOs
+tools/gen-store/  generator for db/store + the adapters
 pkg/            reusable, framework-agnostic packages
 ```
 

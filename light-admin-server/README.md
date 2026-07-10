@@ -8,7 +8,7 @@
   </p>
 
   <p>
-    基于 Echo + GORM + Casbin + Uber-FX 构建的 RBAC 权限管理脚手架
+    基于 Echo + sqlc + Casbin + Uber-FX 构建的 RBAC 权限管理脚手架
   </p>
 
   <p>
@@ -18,7 +18,7 @@
   <p>
     <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go" alt="Go Version" />
     <img src="https://img.shields.io/badge/Echo-4.11+-00ADD8?style=flat-square" alt="Echo Version" />
-    <img src="https://img.shields.io/badge/GORM-1.25+-red?style=flat-square" alt="GORM Version" />
+    <img src="https://img.shields.io/badge/sqlc-1.31+-red?style=flat-square" alt="sqlc Version" />
     <img src="https://img.shields.io/badge/Casbin-2.77+-brightgreen?style=flat-square" alt="Casbin Version" />
     <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License" />
   </p>
@@ -176,6 +176,7 @@ Cache:
 ### MySQL + Redis 配置
 
 ```yaml
+# 要求 MySQL 8.0.13+（迁移使用表达式默认值）
 Database:
   Engine: mysql
   Host: 127.0.0.1
@@ -190,6 +191,22 @@ Cache:
   Port: 6379
   Password: ""
 ```
+
+### PostgreSQL 配置
+
+```yaml
+# 要求 PostgreSQL 13+
+Database:
+  Engine: postgres
+  Host: 127.0.0.1
+  Port: 5432
+  Name: light_admin
+  Username: postgres
+  Password: your_password
+```
+
+> 三种引擎共享同一套业务代码与 API:切换引擎只需改 `Database.Engine` 并重新
+> `migrate` + `setup`(跨库不迁移数据)。SQLite 内嵌零依赖,适合本地开发与轻量部署。
 
 ### 扩展功能配置
 
