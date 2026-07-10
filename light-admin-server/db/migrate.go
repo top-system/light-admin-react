@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/mysql"  // registers the "mysql" database driver
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5" // registers the "pgx5" database driver
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite" // registers the "sqlite" database driver (modernc)
 	"github.com/golang-migrate/migrate/v4/source/iofs"

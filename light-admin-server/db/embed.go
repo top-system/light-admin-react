@@ -10,5 +10,5 @@ import "embed"
 // engine (migrations/postgres, migrations/sqlite, migrations/mysql); the runner
 // selects the per-engine subtree (see migrate.go).
 //
-//go:embed migrations/postgres/*.sql migrations/sqlite/*.sql
+//go:embed migrations/postgres/*.sql migrations/sqlite/*.sql migrations/mysql/*.sql
 var MigrationsFS embed.FS

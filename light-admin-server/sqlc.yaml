@@ -55,3 +55,50 @@ sql:
             go_type: "int64"
           - column: "sys_download_tasks.id"
             go_type: "int64"
+  - engine: "mysql"
+    schema: "db/migrations/mysql"
+    queries: "db/queries/mysql"
+    gen:
+      go:
+        package: "mysqlgen"
+        out: "db/mysqlgen"
+        emit_interface: true
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true
+        emit_exact_table_names: false
+        emit_json_tags: false
+        # The mysql engine ignores emit_pointers_for_null_types (sql.Null*
+        # everywhere); pin nullable columns/params to pointers so the generated
+        # types line up with db/pg and the neutral store structs.
+        overrides:
+          - db_type: "datetime"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "varchar"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+          - db_type: "char"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+          - db_type: "text"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+          - db_type: "int"
+            nullable: true
+            go_type:
+              type: "int32"
+              pointer: true
+          - db_type: "bigint"
+            nullable: true
+            go_type:
+              type: "int64"
+              pointer: true

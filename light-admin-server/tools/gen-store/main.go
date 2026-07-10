@@ -347,6 +347,20 @@ func adapterMethod(spec engineSpec, ref, eng *enginePkg, m method, engFn *ast.Fu
 			continue
 		}
 
+		// Scalar on the reference side wrapped into an engine-only param struct
+		// (a named arg reused across several placeholders makes sqlc's mysql
+		// engine emit a struct where postgres has a plain parameter).
+		if engIsIdent && !mirrored[engID.Name] {
+			if ts, found := eng.types[engID.Name]; found {
+				conv, err := scalarWrapConversion(spec, ts, engID.Name, name, refType, mirrored, helpers)
+				if err != nil {
+					return "", nil, err
+				}
+				callArgs = append(callArgs, conv)
+				continue
+			}
+		}
+
 		// Scalar conversion.
 		expr, err := fieldConversion(name, name, refType, engType, helpers)
 		if err != nil {
@@ -411,6 +425,36 @@ func sameStruct(refTS, engTS *ast.TypeSpec, mirrored map[string]bool) bool {
 	return typeString(refTS.Type, mirrored, "") == typeString(engTS.Type, mirrored, "")
 }
 
+// scalarWrapConversion renders an engine-only param struct literal populated
+// from a single scalar store parameter. Every field must carry the parameter's
+// own name (e.g. param `keywords` -> field Keywords), which is exactly what
+// sqlc emits when one named arg backs several placeholders.
+func scalarWrapConversion(spec engineSpec, ts *ast.TypeSpec, typeName, paramName, refType string, mirrored map[string]bool, helpers map[string]bool) (string, error) {
+	st, ok := ts.Type.(*ast.StructType)
+	if !ok {
+		return "", fmt.Errorf("engine param %s is not a struct", typeName)
+	}
+	exported := strings.ToUpper(paramName[:1]) + paramName[1:]
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s.%s{\n", spec.genPkg, typeName)
+	for _, f := range st.Fields.List {
+		engType := typeString(f.Type, mirrored, "")
+		for _, n := range f.Names {
+			if n.Name != exported {
+				return "", fmt.Errorf("engine struct %s has field %s not backed by param %s", typeName, n.Name, paramName)
+			}
+			expr, err := fieldConversion(n.Name, paramName, refType, engType, helpers)
+			if err != nil {
+				return "", fmt.Errorf("%s.%s: %w", typeName, n.Name, err)
+			}
+			fmt.Fprintf(&b, "\t\t%s: %s,\n", n.Name, expr)
+		}
+	}
+	b.WriteString("\t}")
+	return b.String(), nil
+}
+
 // structConversion renders an engine param struct literal populated from the
 // store struct `argName`, converting each field by the rules in
 // fieldConversion. Every engine field must have a same-named store field.
@@ -461,17 +505,18 @@ func fieldConversion(fieldName, src, refType, engType string, helpers map[string
 		return src, nil
 	}
 	switch {
-	case engType == "interface{}" && refType == "[]string":
+	case (engType == "interface{}" || engType == "*string") && refType == "[]string":
 		// Nullable list filter: the engine query tests membership against a
 		// csv-serialized form (see the adapter's helpers.go).
 		helpers["csvList"] = true
 		return "csvList(" + src + ")", nil
 	case engType == "interface{}" && !strings.HasPrefix(refType, "[]"):
 		return src, nil
-	case engType == "int64" && refType == "*int32" && fieldName == "Limit":
+	case (engType == "int64" || engType == "int32") && refType == "*int32" && fieldName == "Limit":
+		// nil = no limit; the per-engine helper supplies the "all rows" sentinel.
 		helpers["limitOrAll"] = true
 		return "limitOrAll(" + src + ")", nil
-	case engType == "int64" && refType == "*int32" && fieldName == "Offset":
+	case (engType == "int64" || engType == "int32") && refType == "*int32" && fieldName == "Offset":
 		helpers["offsetOrZero"] = true
 		return "offsetOrZero(" + src + ")", nil
 	case engType == "*time.Time" && refType == "time.Time":

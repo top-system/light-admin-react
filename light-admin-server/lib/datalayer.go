@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql" // registers the "mysql" database/sql driver
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/fx"
 	_ "modernc.org/sqlite" // registers the "sqlite" database/sql driver (pure Go, no CGO)
 
+	"github.com/top-system/light-admin/db/mysqlstore"
 	"github.com/top-system/light-admin/db/pgstore"
 	"github.com/top-system/light-admin/db/sqlitestore"
 	"github.com/top-system/light-admin/db/store"
@@ -70,8 +72,23 @@ func OpenDataLayer(config Config, logger Logger) (*DataLayer, error) {
 			close: func() { _ = handle.Close() },
 		}, nil
 
+	case "mysql":
+		handle, err := openMySQL(config, logger)
+		if err != nil {
+			return nil, err
+		}
+		return &DataLayer{
+			Store: mysqlstore.New(handle),
+			TxManager: sqlTxManager{
+				db:       handle,
+				newStore: func(tx *sql.Tx) store.Store { return mysqlstore.New(tx) },
+				logger:   logger,
+			},
+			close: func() { _ = handle.Close() },
+		}, nil
+
 	default:
-		return nil, fmt.Errorf("unsupported Database.Engine %q (postgres, sqlite)", config.Database.Engine)
+		return nil, fmt.Errorf("unsupported Database.Engine %q (postgres, mysql, sqlite)", config.Database.Engine)
 	}
 }
 
@@ -156,6 +173,37 @@ func openSQLite(config Config, logger Logger) (*sql.DB, error) {
 	}
 
 	logger.Info(fmt.Sprintf("sqlite database opened (%s)", path))
+	return handle, nil
+}
+
+// openMySQL opens the MySQL database via go-sql-driver. The DSN pins
+// parseTime and the Asia/Shanghai location (see DatabaseConfig.MySQLDSN) so
+// DATETIME columns scan into time.Time with the same semantics as the
+// PostgreSQL session time zone.
+func openMySQL(config Config, logger Logger) (*sql.DB, error) {
+	handle, err := sql.Open("mysql", config.Database.MySQLDSN())
+	if err != nil {
+		return nil, fmt.Errorf("opening mysql: %w", err)
+	}
+	if n := config.Database.MaxOpenConns; n > 0 {
+		handle.SetMaxOpenConns(n)
+	}
+	if n := config.Database.MaxIdleConns; n > 0 {
+		handle.SetMaxIdleConns(n)
+	}
+	if n := config.Database.MaxLifetime; n > 0 {
+		handle.SetConnMaxLifetime(time.Duration(n) * time.Second)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := handle.PingContext(ctx); err != nil {
+		_ = handle.Close()
+		return nil, fmt.Errorf("pinging mysql: %w", err)
+	}
+
+	logger.Info(fmt.Sprintf("mysql connection established (%s:%d/%s)",
+		config.Database.Host, config.Database.Port, config.Database.Name))
 	return handle, nil
 }
 
