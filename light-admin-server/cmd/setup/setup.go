@@ -1,18 +1,15 @@
 package setup
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
 	memberrepo "github.com/top-system/light-admin/api/member/repository"
 	"github.com/top-system/light-admin/api/system/repository"
 	"github.com/top-system/light-admin/api/system/service"
-	"github.com/top-system/light-admin/db/pgstore"
 	"github.com/top-system/light-admin/lib"
 	"github.com/top-system/light-admin/models/dto"
 	"github.com/top-system/light-admin/models/system"
@@ -44,17 +41,15 @@ var StartCmd = &cobra.Command{
 		config := lib.NewConfig()
 		logger := lib.NewLogger(config)
 
-		// pgx pool + engine-neutral store for the repositories.
-		pool, err := pgxpool.New(context.Background(), config.Database.PgxDSN())
+		// Engine-neutral store + TxManager over the configured database.
+		dl, err := lib.OpenDataLayer(config, logger)
 		if err != nil {
-			logger.Error(fmt.Sprintf("failed to create pgx pool: %v", err))
+			logger.Error(fmt.Sprintf("failed to open the data layer: %v", err))
 			os.Exit(1)
 		}
-		defer pool.Close()
-		queries := pgstore.New(pool)
-
-		// TxManager for services that compose sqlc repositories in a transaction.
-		txManager := lib.NewTxManager(lib.PgxPool{Pool: pool}, logger)
+		defer dl.Close()
+		queries := dl.Store
+		txManager := dl.TxManager
 
 		// 初始化 repositories
 		menuRepo := repository.NewMenuRepository(queries, logger)

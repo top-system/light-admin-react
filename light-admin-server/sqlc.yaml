@@ -28,3 +28,30 @@ sql:
               import: "time"
               type: "Time"
               pointer: true
+  - engine: "sqlite"
+    schema: "db/migrations/sqlite"
+    queries: "db/queries/sqlite"
+    gen:
+      go:
+        package: "sqlitegen"
+        out: "db/sqlitegen"
+        emit_interface: true
+        emit_pointers_for_null_types: true
+        emit_empty_slices: true
+        emit_exact_table_names: false
+        emit_json_tags: false
+        # SQLite stores every integer as int64; converge the 4-byte columns onto
+        # int32 to match the engine-neutral store structs (postgres INTEGER).
+        # The AUTOINCREMENT rowid PKs stay int64 via column-scoped overrides.
+        overrides:
+          - db_type: "INTEGER"
+            go_type: "int32"
+          - db_type: "INTEGER"
+            nullable: true
+            go_type:
+              type: "int32"
+              pointer: true
+          - column: "sys_tasks.id"
+            go_type: "int64"
+          - column: "sys_download_tasks.id"
+            go_type: "int64"

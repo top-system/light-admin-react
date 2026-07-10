@@ -7,9 +7,7 @@ var Module = fx.Options(
 	fx.Provide(NewHttpHandler),
 	fx.Provide(NewConfig),
 	fx.Provide(NewLogger),
-	fx.Provide(NewPgxPool),             // PostgreSQL pgxpool for the data layer
-	fx.Provide(NewStore),               // pool-bound engine-neutral store.Store
-	fx.Provide(NewTxManager),           // transaction manager (implements store.TxManager)
+	fx.Provide(NewDataLayer),           // engine-neutral store.Store + TxManager (postgres/sqlite)
 	fx.Provide(NewQueueTaskRepository), // store-backed queue.TaskRepository (injected into pkg/queue)
 	fx.Provide(NewCache),
 	fx.Provide(NewCaptcha),

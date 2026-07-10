@@ -35,8 +35,11 @@ var StartCmd = &cobra.Command{
 		logger := lib.NewLogger(config)
 
 		// golang-migrate owns the sqlc-managed tables (t_user, t_user_role, ...).
+		// The engine picks the migration dialect directory; the URL scheme picks
+		// the migrate driver.
+		engine, url := config.Database.EngineName(), config.Database.MigrateURL()
 		if down {
-			if err := db.Down(config.Database.PgxURL()); err != nil {
+			if err := db.Down(engine, url); err != nil {
 				logger.Error(fmt.Sprintf("Error rolling back migration: %v", err))
 				os.Exit(1)
 			}
@@ -44,7 +47,7 @@ var StartCmd = &cobra.Command{
 			return
 		}
 
-		if err := db.Up(config.Database.PgxURL()); err != nil {
+		if err := db.Up(engine, url); err != nil {
 			logger.Error(fmt.Sprintf("Error applying golang-migrate migrations: %v", err))
 			os.Exit(1)
 		}

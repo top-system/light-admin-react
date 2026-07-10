@@ -165,6 +165,19 @@ func (a *DatabaseConfig) IsPostgreSQL() bool {
 	return a.Engine == "postgres"
 }
 
+// EngineName returns the normalized engine name ("postgres", "mysql" or
+// "sqlite") used to select the data-layer adapter and migration directory.
+func (a *DatabaseConfig) EngineName() string {
+	switch {
+	case a.IsPostgreSQL():
+		return "postgres"
+	case a.IsSQLite():
+		return "sqlite"
+	default:
+		return "mysql"
+	}
+}
+
 // CacheConfig cache configuration
 // Type: memory, redis
 type CacheConfig struct {
@@ -223,6 +236,54 @@ func (a *DatabaseConfig) PgxURL() string {
 		RawQuery: "sslmode=disable",
 	}
 	return u.String()
+}
+
+// SQLitePath returns the SQLite database file path. For the sqlite engine the
+// Name field holds the file path (e.g. "data/light-admin.db").
+func (a *DatabaseConfig) SQLitePath() string {
+	return a.Name
+}
+
+// SQLiteDSN returns the modernc.org/sqlite DSN for database/sql. The pinned
+// pragmas follow docs/multi-database-plan.md §2.3: WAL for readers-don't-block-
+// writers, a 5s busy timeout instead of immediate SQLITE_BUSY, and enforced
+// foreign keys.
+func (a *DatabaseConfig) SQLiteDSN() string {
+	return "file:" + a.SQLitePath() +
+		"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)"
+}
+
+// MySQLDSN returns the go-sql-driver/mysql DSN. parseTime and the pinned
+// Asia/Shanghai location are required for DATETIME columns to scan into
+// time.Time with the same semantics as the PostgreSQL session time zone.
+// Extra user parameters from the config are appended verbatim.
+func (a *DatabaseConfig) MySQLDSN() string {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Asia%%2FShanghai",
+		a.Username, a.Password, a.Host, a.Port, a.Name)
+	if a.Parameters != "" {
+		dsn += "&" + a.Parameters
+	}
+	return dsn
+}
+
+// MigrateURL returns the golang-migrate database URL for the configured
+// engine; the URL scheme selects the registered migrate driver.
+func (a *DatabaseConfig) MigrateURL() string {
+	switch a.EngineName() {
+	case "postgres":
+		return a.PgxURL()
+	case "sqlite":
+		return "sqlite://" + a.SQLitePath()
+	default:
+		u := url.URL{
+			Scheme:   "mysql",
+			User:     url.UserPassword(a.Username, a.Password),
+			Host:     fmt.Sprintf("tcp(%s:%d)", a.Host, a.Port),
+			Path:     "/" + a.Name,
+			RawQuery: "charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai",
+		}
+		return u.String()
+	}
 }
 
 func (a *HttpConfig) ListenAddr() string {
