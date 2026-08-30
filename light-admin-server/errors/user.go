@@ -7,10 +7,12 @@ var (
 	UserInvalidPassword  = New("invalid user password")
 	UserIsDisable        = New("user is disabled")
 	UserPasswordRequired = New("user password is required")
-	UserInvalidUsername   = New("invalid username")
+	UserInvalidUsername  = New("invalid username")
 	UserAlreadyExists    = New("user already exists")
 	UserNoPermission     = New("user no permission")
 	UserCannotUpdate     = New("super admin cannot update profile")
+	UserOldPasswordWrong = New("old password is incorrect")
+	UserPasswordSame     = New("new password must differ from old password")
 )
 
 func init() {

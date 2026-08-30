@@ -4,6 +4,7 @@
  */
 import { requestData, requestList } from './request';
 import type {
+  ChangePasswordRequest,
   CurrentUser,
   User,
   UserForm,
@@ -24,6 +25,11 @@ export function getProfile() {
 
 export function updateProfile(payload: UserProfileUpdate) {
   return requestData<void>('/users/profile', 'PUT', { data: payload });
+}
+
+/** 当前用户自助修改密码：需校验旧密码。 */
+export function changePassword(payload: ChangePasswordRequest) {
+  return requestData<void>('/users/password', 'PUT', { data: payload });
 }
 
 export function getUserOptions() {
@@ -52,8 +58,13 @@ export function deleteUser(id: string) {
   return requestData<void>(`/users/${id}`, 'DELETE');
 }
 
-export function resetUserPassword(id: string, password?: string) {
+/**
+ * 管理员重置指定用户密码。后端优先读 query `password`，同时兼容 JSON body，
+ * 两处都带上以适配新旧版本服务端。
+ */
+export function resetUserPassword(id: string, password: string) {
   return requestData<void>(`/users/${id}/password/reset`, 'PUT', {
-    data: password ? { password } : undefined,
+    params: { password },
+    data: { password },
   });
 }

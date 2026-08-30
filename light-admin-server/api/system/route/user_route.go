@@ -1,8 +1,8 @@
 package route
 
 import (
-	"github.com/top-system/light-admin/api/system/controller"
 	"github.com/top-system/light-admin/api/middlewares"
+	"github.com/top-system/light-admin/api/system/controller"
 	"github.com/top-system/light-admin/lib"
 )
 
@@ -32,10 +32,11 @@ func NewUserRoutes(
 func (a UserRoutes) Setup() {
 	api := a.handler.RouterV1.Group("/users")
 	{
-		api.GET("/me", a.userController.Me)                  // 获取当前用户信息，无需权限
-		api.GET("/profile", a.userController.Me)             // 兼容 /profile 路径
-		api.PUT("/profile", a.userController.UpdateProfile)  // 更新当前用户资料，无需权限
-		api.GET("/options", a.userController.GetOptions)     // 用户下拉选项，无需权限
+		api.GET("/me", a.userController.Me)                   // 获取当前用户信息，无需权限
+		api.GET("/profile", a.userController.Me)              // 兼容 /profile 路径
+		api.PUT("/profile", a.userController.UpdateProfile)   // 更新当前用户资料，无需权限
+		api.PUT("/password", a.userController.ChangePassword) // 当前用户自助修改密码，无需权限
+		api.GET("/options", a.userController.GetOptions)      // 用户下拉选项，无需权限
 		api.GET("", a.userController.Query, a.permMiddleware.RequirePerm("sys:user:query"))
 		api.POST("", a.userController.Create, a.permMiddleware.RequirePerm("sys:user:add"))
 		api.GET("/:id/form", a.userController.GetForm, a.permMiddleware.RequirePerm("sys:user:query"))

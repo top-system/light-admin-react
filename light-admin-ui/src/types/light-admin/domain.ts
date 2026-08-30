@@ -42,6 +42,12 @@ export type UserProfileUpdate = Partial<
   Pick<CurrentUser, 'nickname' | 'avatar' | 'mobile' | 'email' | 'gender'>
 >;
 
+/** 当前用户自助修改密码（PUT /users/password） */
+export type ChangePasswordRequest = {
+  oldPassword: string;
+  newPassword: string;
+};
+
 export type UserOption = {
   value: string;
   label: string;

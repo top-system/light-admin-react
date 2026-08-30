@@ -107,6 +107,12 @@ type ProfileForm struct {
 	Email    string `json:"email"`
 }
 
+// ChangePasswordForm 用户自助修改密码表单
+type ChangePasswordForm struct {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
 // ToOptions 转换为下拉选项列表
 func (a Users) ToOptions() []*UserOption {
 	options := make([]*UserOption, len(a))

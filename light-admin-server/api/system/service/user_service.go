@@ -508,6 +508,40 @@ func (a UserService) ResetPassword(id string, password string) error {
 	return a.userRepository.UpdatePassword(id, hashedPassword)
 }
 
+// ChangePassword 用户自助修改密码：校验旧密码后写入新密码
+func (a UserService) ChangePassword(username string, form *system.ChangePasswordForm) error {
+	// 超级管理员密码来自配置文件，不支持在线修改
+	if a.IsSuperAdmin(username) {
+		return errors.UserCannotUpdate
+	}
+	if form.OldPassword == "" || form.NewPassword == "" {
+		return errors.UserPasswordRequired
+	}
+	if form.OldPassword == form.NewPassword {
+		return errors.UserPasswordSame
+	}
+
+	user, err := a.GetByUsername(username)
+	if err != nil {
+		return err
+	}
+
+	// 兼容 bcrypt 与旧版 SHA256 两种存量密码格式
+	if hash.IsBcryptHash(user.Password) {
+		if !hash.BcryptCheck(form.OldPassword, user.Password) {
+			return errors.UserOldPasswordWrong
+		}
+	} else if user.Password != hash.SHA256(form.OldPassword) {
+		return errors.UserOldPasswordWrong
+	}
+
+	hashedPassword, err := hash.BcryptHash(form.NewPassword)
+	if err != nil {
+		return err
+	}
+	return a.userRepository.UpdatePassword(user.ID, hashedPassword)
+}
+
 // GetUserForm 获取用户表单数据
 func (a UserService) GetUserForm(id string) (*system.UserForm, error) {
 	user, err := a.Get(id)

@@ -208,7 +208,7 @@ func (a UserController) Delete(ctx echo.Context) error {
 // @summary Reset User Password
 // @produce application/json
 // @param id path int true "user id"
-// @param password query string true "new password"
+// @param password query string false "new password (or JSON body {password})"
 // @success 200 {object} echox.Response "ok"
 // @failure 400 {object} echox.Response "bad request"
 // @failure 500 {object} echox.Response "internal error"
@@ -216,13 +216,52 @@ func (a UserController) Delete(ctx echo.Context) error {
 func (a UserController) ResetPassword(ctx echo.Context) error {
 	id := ctx.Param("id")
 
+	// 新密码优先取 query，其次兼容 JSON body {"password": "..."}
 	password := ctx.QueryParam("password")
+	if password == "" {
+		var body struct {
+			Password string `json:"password"`
+		}
+		if err := ctx.Bind(&body); err == nil {
+			password = body.Password
+		}
+	}
 	if password == "" {
 		return echox.Response{Code: http.StatusBadRequest, Message: errors.UserPasswordRequired}.JSON(ctx)
 	}
 
 	err := a.userService.ResetPassword(id, password)
 	if err != nil {
+		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
+	}
+
+	return echox.Response{Code: http.StatusOK}.JSON(ctx)
+}
+
+// @tags User
+// @summary Change Current User Password
+// @accept application/json
+// @produce application/json
+// @param data body system.ChangePasswordForm true "ChangePasswordForm"
+// @success 200 {object} echox.Response "ok"
+// @failure 400 {object} echox.Response "bad request"
+// @failure 401 {object} echox.Response "unauthorized"
+// @router /api/v1/users/password [put]
+func (a UserController) ChangePassword(ctx echo.Context) error {
+	claims, ok := ctx.Get(constants.CurrentUser).(*dto.JwtClaims)
+	if !ok || claims == nil {
+		return echox.Response{Code: http.StatusUnauthorized, Message: errors.AuthTokenInvalid}.JSON(ctx)
+	}
+
+	form := new(system.ChangePasswordForm)
+	if err := ctx.Bind(form); err != nil {
+		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
+	}
+	if form.OldPassword == "" || form.NewPassword == "" {
+		return echox.Response{Code: http.StatusBadRequest, Message: errors.UserPasswordRequired}.JSON(ctx)
+	}
+
+	if err := a.userService.ChangePassword(claims.Username, form); err != nil {
 		return echox.Response{Code: http.StatusBadRequest, Message: err}.JSON(ctx)
 	}
 

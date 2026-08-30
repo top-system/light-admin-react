@@ -1,11 +1,12 @@
 /**
  * System / User — list + CRUD page.
  *
- * Uses ProTable with ModalForm for create / edit, Popconfirm for delete +
- * password reset. Status / gender columns render via <DictTag>; role multi-
- * select + dept tree-select drive the edit form.
+ * Uses ProTable with ModalForm for create / edit and for password reset
+ * (admin enters a new password), Popconfirm for delete. Status / gender
+ * columns render via <DictTag>; role multi-select + dept tree-select drive
+ * the edit form.
  */
-import { PlusOutlined } from '@ant-design/icons';
+import { KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   type ActionType,
   ModalForm,
@@ -34,12 +35,15 @@ import type { User, UserForm, UserQuery } from '@/types/light-admin/domain';
 import { toProTableRequest } from '@/utils/response/adapter';
 
 type EditState = { mode: 'create' } | { mode: 'edit'; id: string };
+type ResetPwdState = { id: string; username: string };
+type ResetPwdForm = { password: string; confirmPassword: string };
 
 const UserPage: React.FC = () => {
   const actionRef = useRef<ActionType | undefined>(undefined);
   const { message } = App.useApp();
   const [edit, setEdit] = useState<EditState | null>(null);
   const [editInitial, setEditInitial] = useState<UserForm | undefined>();
+  const [resetPwd, setResetPwd] = useState<ResetPwdState | null>(null);
 
   const openCreate = () => {
     setEditInitial({ username: '', nickname: '', status: 1, gender: 0 });
@@ -77,9 +81,12 @@ const UserPage: React.FC = () => {
     actionRef.current?.reload();
   };
 
-  const handleResetPwd = async (id: string) => {
-    await resetUserPassword(id);
-    message.success('密码已重置');
+  const handleResetPwd = async (values: ResetPwdForm) => {
+    if (!resetPwd) return false;
+    await resetUserPassword(resetPwd.id, values.password);
+    message.success(`用户 ${resetPwd.username} 的密码已重置`);
+    setResetPwd(null);
+    return true;
   };
 
   const columns = useMemo<ProColumns<User>[]>(
@@ -128,12 +135,13 @@ const UserPage: React.FC = () => {
               <a onClick={() => void openEdit(row.id)}>编辑</a>
             </Auth>
             <Auth code="sys:user:reset-password">
-              <Popconfirm
-                title="重置为默认密码?"
-                onConfirm={() => handleResetPwd(row.id)}
+              <a
+                onClick={() =>
+                  setResetPwd({ id: row.id, username: row.username })
+                }
               >
-                <a>重置密码</a>
-              </Popconfirm>
+                重置密码
+              </a>
             </Auth>
             <Auth code="sys:user:delete">
               <Popconfirm
@@ -233,6 +241,50 @@ const UserPage: React.FC = () => {
             { value: 0, label: '禁用' },
           ]}
           initialValue={1}
+        />
+      </ModalForm>
+
+      <ModalForm<ResetPwdForm>
+        key={resetPwd ? `reset-${resetPwd.id}` : 'reset-closed'}
+        title={
+          <Space>
+            <KeyOutlined />
+            {`重置密码${resetPwd ? ` — ${resetPwd.username}` : ''}`}
+          </Space>
+        }
+        width={420}
+        open={resetPwd !== null}
+        onOpenChange={(open) => {
+          if (!open) setResetPwd(null);
+        }}
+        onFinish={handleResetPwd}
+        modalProps={{ destroyOnClose: true, maskClosable: false }}
+        submitter={{ searchConfig: { submitText: '确认重置' } }}
+      >
+        <ProFormText.Password
+          name="password"
+          label="新密码"
+          fieldProps={{ autoComplete: 'new-password' }}
+          rules={[
+            { required: true, message: '请输入新密码' },
+            { min: 6, message: '密码至少 6 位' },
+            { max: 64, message: '密码不能超过 64 位' },
+          ]}
+        />
+        <ProFormText.Password
+          name="confirmPassword"
+          label="确认密码"
+          dependencies={['password']}
+          fieldProps={{ autoComplete: 'new-password' }}
+          rules={[
+            { required: true, message: '请再次输入新密码' },
+            ({ getFieldValue }) => ({
+              validator: (_, value) =>
+                !value || value === getFieldValue('password')
+                  ? Promise.resolve()
+                  : Promise.reject(new Error('两次输入的密码不一致')),
+            }),
+          ]}
         />
       </ModalForm>
     </PageContainer>

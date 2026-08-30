@@ -81,7 +81,7 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
       void loginOut();
       return;
     }
-    if (key === 'center' || key === 'settings') {
+    if (key === 'profile' || key === 'center' || key === 'settings') {
       history.push('/profile');
     }
   };
@@ -101,14 +101,17 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({
     return loading;
   }
 
+  // “个人信息”始终可见：跳转 /profile 修改自己的资料、头像与密码。
+  // `menu` 打开时额外保留旧的个人中心 / 个人设置两个入口。
   const menuItems = [
+    { key: 'profile', icon: <UserOutlined />, label: '个人信息' },
     ...(menu
       ? [
           { key: 'center', icon: <UserOutlined />, label: '个人中心' },
           { key: 'settings', icon: <SettingOutlined />, label: '个人设置' },
-          { type: 'divider' as const },
         ]
       : []),
+    { type: 'divider' as const },
     { key: 'logout', icon: <LogoutOutlined />, label: '退出登录' },
   ];
 
