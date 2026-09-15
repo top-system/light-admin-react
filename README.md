@@ -127,8 +127,10 @@ OSS:
 
 ```bash
 go run . migrate --config=./config/config.yaml
-go run . setup --config=./config/config.yaml --menu=./config/menu.yaml
+go run . setup --config=./config/config.yaml --menu=./config/menu.yaml.default
 ```
+
+仓库提供的 `config/menu.yaml.default` 包含首页、系统管理和操作权限；重复初始化会复用已有菜单。已有自定义菜单时，继续通过 `--menu=./config/menu.yaml` 导入自己的文件。未指定 `--menu` 且本地 `config/menu.yaml` 不存在时，会自动使用默认模板。
 
 启动服务：
 

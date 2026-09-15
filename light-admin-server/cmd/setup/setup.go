@@ -69,6 +69,9 @@ var StartCmd = &cobra.Command{
 		)
 
 		// Step 1: 导入菜单数据
+		if menuFile == "config/menu.yaml" && !file.IsFile(menuFile) && file.IsFile("config/menu.yaml.default") {
+			menuFile = "config/menu.yaml.default"
+		}
 		if !file.IsFile(menuFile) {
 			logger.Error("menu file does not exist")
 			os.Exit(1)

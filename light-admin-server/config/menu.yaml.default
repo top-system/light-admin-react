@@ -1,0 +1,311 @@
+# Base menus and action permissions for a new installation.
+- name: 首页
+  type: 1
+  route_name: home
+  route_path: /home
+  component: home/index
+  icon: HomeOutlined
+  sort: 1
+- name: 系统管理
+  type: 2
+  route_name: system
+  route_path: /system
+  icon: SettingOutlined
+  redirect: /system/user
+  sort: 90
+  children:
+    - name: 用户管理
+      type: 1
+      route_name: user
+      route_path: /system/user
+      component: system/user/index
+      icon: UserOutlined
+      sort: 1
+      children:
+        - name: sys:user:query
+          type: 4
+          perm: sys:user:query
+          visible: 0
+          sort: 1
+        - name: sys:user:add
+          type: 4
+          perm: sys:user:add
+          visible: 0
+          sort: 2
+        - name: sys:user:edit
+          type: 4
+          perm: sys:user:edit
+          visible: 0
+          sort: 3
+        - name: sys:user:delete
+          type: 4
+          perm: sys:user:delete
+          visible: 0
+          sort: 4
+        - name: sys:user:reset-password
+          type: 4
+          perm: sys:user:reset-password
+          visible: 0
+          sort: 5
+    - name: 角色管理
+      type: 1
+      route_name: role
+      route_path: /system/role
+      component: system/role/index
+      icon: TeamOutlined
+      sort: 2
+      children:
+        - name: sys:role:query
+          type: 4
+          perm: sys:role:query
+          visible: 0
+          sort: 1
+        - name: sys:role:add
+          type: 4
+          perm: sys:role:add
+          visible: 0
+          sort: 2
+        - name: sys:role:edit
+          type: 4
+          perm: sys:role:edit
+          visible: 0
+          sort: 3
+        - name: sys:role:delete
+          type: 4
+          perm: sys:role:delete
+          visible: 0
+          sort: 4
+    - name: 菜单管理
+      type: 1
+      route_name: menu
+      route_path: /system/menu
+      component: system/menu/index
+      icon: MenuOutlined
+      sort: 3
+      children:
+        - name: sys:menu:query
+          type: 4
+          perm: sys:menu:query
+          visible: 0
+          sort: 1
+        - name: sys:menu:add
+          type: 4
+          perm: sys:menu:add
+          visible: 0
+          sort: 2
+        - name: sys:menu:edit
+          type: 4
+          perm: sys:menu:edit
+          visible: 0
+          sort: 3
+        - name: sys:menu:delete
+          type: 4
+          perm: sys:menu:delete
+          visible: 0
+          sort: 4
+    - name: 部门管理
+      type: 1
+      route_name: dept
+      route_path: /system/dept
+      component: system/dept/index
+      icon: ApartmentOutlined
+      sort: 4
+      children:
+        - name: sys:dept:query
+          type: 4
+          perm: sys:dept:query
+          visible: 0
+          sort: 1
+        - name: sys:dept:add
+          type: 4
+          perm: sys:dept:add
+          visible: 0
+          sort: 2
+        - name: sys:dept:edit
+          type: 4
+          perm: sys:dept:edit
+          visible: 0
+          sort: 3
+        - name: sys:dept:delete
+          type: 4
+          perm: sys:dept:delete
+          visible: 0
+          sort: 4
+    - name: 字典管理
+      type: 1
+      route_name: dict
+      route_path: /system/dict
+      component: system/dict/index
+      icon: BookOutlined
+      sort: 5
+      children:
+        - name: sys:dict:query
+          type: 4
+          perm: sys:dict:query
+          visible: 0
+          sort: 1
+        - name: sys:dict:add
+          type: 4
+          perm: sys:dict:add
+          visible: 0
+          sort: 2
+        - name: sys:dict:edit
+          type: 4
+          perm: sys:dict:edit
+          visible: 0
+          sort: 3
+        - name: sys:dict:delete
+          type: 4
+          perm: sys:dict:delete
+          visible: 0
+          sort: 4
+        - name: sys:dict-item:query
+          type: 4
+          perm: sys:dict-item:query
+          visible: 0
+          sort: 5
+        - name: sys:dict-item:add
+          type: 4
+          perm: sys:dict-item:add
+          visible: 0
+          sort: 6
+        - name: sys:dict-item:edit
+          type: 4
+          perm: sys:dict-item:edit
+          visible: 0
+          sort: 7
+        - name: sys:dict-item:delete
+          type: 4
+          perm: sys:dict-item:delete
+          visible: 0
+          sort: 8
+    - name: 参数配置
+      type: 1
+      route_name: config
+      route_path: /system/config
+      component: system/config/index
+      icon: SettingOutlined
+      sort: 6
+      children:
+        - name: sys:config:query
+          type: 4
+          perm: sys:config:query
+          visible: 0
+          sort: 1
+        - name: sys:config:add
+          type: 4
+          perm: sys:config:add
+          visible: 0
+          sort: 2
+        - name: sys:config:update
+          type: 4
+          perm: sys:config:update
+          visible: 0
+          sort: 3
+        - name: sys:config:delete
+          type: 4
+          perm: sys:config:delete
+          visible: 0
+          sort: 4
+        - name: sys:config:refresh
+          type: 4
+          perm: sys:config:refresh
+          visible: 0
+          sort: 5
+    - name: 操作日志
+      type: 1
+      route_name: log
+      route_path: /system/log
+      component: system/log/index
+      icon: FileTextOutlined
+      sort: 7
+      children:
+        - name: sys:log:query
+          type: 4
+          perm: sys:log:query
+          visible: 0
+          sort: 1
+    - name: 通知公告
+      type: 1
+      route_name: notice
+      route_path: /system/notice
+      component: system/notice/index
+      icon: NotificationOutlined
+      sort: 8
+      children:
+        - name: sys:notice:query
+          type: 4
+          perm: sys:notice:query
+          visible: 0
+          sort: 1
+        - name: sys:notice:add
+          type: 4
+          perm: sys:notice:add
+          visible: 0
+          sort: 2
+        - name: sys:notice:edit
+          type: 4
+          perm: sys:notice:edit
+          visible: 0
+          sort: 3
+        - name: sys:notice:delete
+          type: 4
+          perm: sys:notice:delete
+          visible: 0
+          sort: 4
+        - name: sys:notice:publish
+          type: 4
+          perm: sys:notice:publish
+          visible: 0
+          sort: 5
+        - name: sys:notice:revoke
+          type: 4
+          perm: sys:notice:revoke
+          visible: 0
+          sort: 6
+    - name: 任务队列
+      type: 1
+      route_name: queue
+      route_path: /system/queue
+      component: system/queue/index
+      icon: OrderedListOutlined
+      sort: 9
+      children:
+        - name: sys:task:query
+          type: 4
+          perm: sys:task:query
+          visible: 0
+          sort: 1
+        - name: sys:task:delete
+          type: 4
+          perm: sys:task:delete
+          visible: 0
+          sort: 2
+    - name: 下载管理
+      type: 1
+      route_name: downloader
+      route_path: /system/downloader
+      component: system/downloader/index
+      icon: CloudDownloadOutlined
+      sort: 10
+      children:
+        - name: sys:download:query
+          type: 4
+          perm: sys:download:query
+          visible: 0
+          sort: 1
+        - name: sys:download:add
+          type: 4
+          perm: sys:download:add
+          visible: 0
+          sort: 2
+        - name: sys:download:edit
+          type: 4
+          perm: sys:download:edit
+          visible: 0
+          sort: 3
+        - name: sys:download:delete
+          type: 4
+          perm: sys:download:delete
+          visible: 0
+          sort: 4

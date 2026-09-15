@@ -187,7 +187,7 @@ func (a MenuController) Routes(ctx echo.Context) error {
 	}
 
 	// 检查是否是超级管理员
-	isSuperAdmin := claims.Username == "root" || claims.Username == "admin"
+	isSuperAdmin := a.userService.IsSuperAdmin(claims.Username)
 
 	// 使用 menuService.GetUserRoutes 获取正确格式的路由
 	routes, err := a.menuService.GetUserRoutes(roleIDs, isSuperAdmin)

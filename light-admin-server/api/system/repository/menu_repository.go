@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/top-system/light-admin/db/store"
@@ -278,7 +279,7 @@ func (f menuFilter) count() store.CountMenusParams {
 func toDomainMenu(r store.TMenu) *system.Menu {
 	return &system.Menu{
 		ID:         r.ID,
-		ParentID:   r.ParentID,
+		ParentID:   strings.TrimSpace(r.ParentID),
 		TreePath:   r.TreePath,
 		Name:       r.Name,
 		Type:       int(r.Type),

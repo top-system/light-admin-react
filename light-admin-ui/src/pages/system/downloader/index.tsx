@@ -219,7 +219,7 @@ const DownloadPage: React.FC = () => {
               <a onClick={() => handleSync(row.id)}>同步</a>
             </Auth>
             {row.status !== 'completed' && row.status !== 'canceled' && (
-              <Auth code="sys:download:cancel">
+              <Auth code="sys:download:edit">
                 <Popconfirm
                   title="取消该下载?"
                   onConfirm={() => handleCancel(row.id)}

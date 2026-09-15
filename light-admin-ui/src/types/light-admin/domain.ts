@@ -406,6 +406,13 @@ export type UserNotice = {
 
 export type RouteItem = {
   path: string;
+  meta?: {
+    title?: string;
+    icon?: string;
+    hidden?: boolean;
+    keepAlive?: boolean;
+    alwaysShow?: boolean;
+  };
   name?: string;
   component?: string;
   redirect?: string;

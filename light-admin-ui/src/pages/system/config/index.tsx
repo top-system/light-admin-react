@@ -84,7 +84,7 @@ const ConfigPage: React.FC = () => {
         width: 160,
         render: (_, row) => (
           <Space size="small">
-            <Auth code="sys:config:edit">
+            <Auth code="sys:config:update">
               <a onClick={() => void openEdit(row.id)}>编辑</a>
             </Auth>
             <Auth code="sys:config:delete">

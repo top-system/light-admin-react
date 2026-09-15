@@ -18,6 +18,15 @@ export type TransformResult = {
   routeButtons: RoutePermMap;
 };
 
+function resolvePath(
+  routePath: string | undefined,
+  parentPath: string,
+): string {
+  return routePath?.startsWith('/')
+    ? routePath
+    : `${parentPath.replace(/\/$/, '')}/${routePath ?? ''}`;
+}
+
 function walk(
   nodes: RouteItem[],
   parentPath: string,
@@ -26,8 +35,6 @@ function walk(
 ): MenuDataItem[] {
   const out: MenuDataItem[] = [];
   for (const node of nodes) {
-    if (!node.path && !node.redirect) continue;
-
     if (node.type === 'button') {
       const codes = node.perms ?? [];
       for (const code of codes) permissions.add(code);
@@ -37,18 +44,25 @@ function walk(
       }
       continue;
     }
+    if (!node.path && !node.redirect) continue;
 
     for (const code of node.perms ?? []) permissions.add(code);
 
-    const fullPath = node.path ?? parentPath;
+    const fullPath = resolvePath(node.path, parentPath);
+    // The Go API wraps standalone pages in a Layout with an index child.
+    // React already supplies that layout at the parent page path.
+    const standalone =
+      node.component === 'Layout' &&
+      node.children?.length === 1 &&
+      node.children[0].path === 'index';
     const item: MenuDataItem & { routes?: MenuDataItem[] } = {
       path: fullPath,
-      name: node.name,
-      icon: resolveIcon(node.icon),
-      hideInMenu: node.hideInMenu,
-      redirect: node.redirect,
+      name: node.meta?.title ?? node.name,
+      icon: resolveIcon(node.meta?.icon ?? node.icon),
+      hideInMenu: node.meta?.hidden ?? node.hideInMenu,
+      redirect: standalone ? undefined : node.redirect,
     };
-    if (node.children?.length) {
+    if (node.children?.length && !standalone) {
       const kids = walk(node.children, fullPath, permissions, routeButtons);
       (item as { routes?: MenuDataItem[] }).routes = kids;
       if (kids.length === 0 && node.type === 'dir') {
@@ -60,10 +74,12 @@ function walk(
   return out;
 }
 
-export function transformMenu(routes: RouteItem[]): TransformResult {
+export function transformMenu(
+  routes: RouteItem[] | null | undefined,
+): TransformResult {
   const permissions = new Set<string>();
   const routeButtons: RoutePermMap = {};
-  const menu = walk(routes, '/', permissions, routeButtons);
+  const menu = walk(routes ?? [], '/', permissions, routeButtons);
   return {
     menu,
     permissions: Array.from(permissions),
@@ -74,13 +90,14 @@ export function transformMenu(routes: RouteItem[]): TransformResult {
 /** Collect every non-button path present in the backend-returned tree. */
 export function collectAllowedPaths(routes: RouteItem[]): Set<string> {
   const out = new Set<string>();
-  const walkPaths = (nodes: RouteItem[]) => {
+  const walkPaths = (nodes: RouteItem[], parentPath: string) => {
     for (const n of nodes) {
       if (n.type === 'button') continue;
-      if (n.path) out.add(n.path);
-      if (n.children?.length) walkPaths(n.children);
+      const fullPath = resolvePath(n.path, parentPath);
+      if (n.path) out.add(fullPath);
+      if (n.children?.length) walkPaths(n.children, fullPath);
     }
   };
-  walkPaths(routes);
+  walkPaths(routes, '/');
   return out;
 }

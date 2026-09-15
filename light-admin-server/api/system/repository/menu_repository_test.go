@@ -94,3 +94,8 @@ func TestMenuRepository_Query_NilParentIDDisablesFilter(t *testing.T) {
 	require.NotNil(t, mq.lastListParams.Keywords)
 	assert.Equal(t, "%dash%", *mq.lastListParams.Keywords)
 }
+
+func TestMenuMappingTrimsPaddedRootParent(t *testing.T) {
+	menu := toDomainMenu(store.TMenu{ID: "fa000000000000000000000000000001", ParentID: "                                ", RoutePath: "/face-swap"})
+	require.Empty(t, menu.ParentID, "PostgreSQL CHAR(32) root parent must be the empty tree key")
+}
