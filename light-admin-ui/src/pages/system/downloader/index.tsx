@@ -11,7 +11,6 @@ import {
   type ProColumns,
   ProFormSelect,
   ProFormText,
-  ProTable,
 } from '@ant-design/pro-components';
 import {
   App,
@@ -25,7 +24,6 @@ import {
   Row,
   Space,
   Statistic,
-  Table,
   Tag,
 } from 'antd';
 import React, {
@@ -36,6 +34,7 @@ import React, {
   useState,
 } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable, ResizableTable } from '@/components/ResizableTable';
 import {
   cancelDownload,
   createDownload,
@@ -277,7 +276,7 @@ const DownloadPage: React.FC = () => {
         </Col>
       </Row>
 
-      <ProTable<DownloadRow>
+      <ResizableProTable<DownloadRow>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
@@ -350,7 +349,7 @@ const DownloadPage: React.FC = () => {
               {formatBytes(detail.downloaded)} / {formatBytes(detail.total)} ·{' '}
               {formatBytes(detail.downloadSpeed)}/s
             </div>
-            <Table
+            <ResizableTable
               size="small"
               rowKey="index"
               pagination={false}

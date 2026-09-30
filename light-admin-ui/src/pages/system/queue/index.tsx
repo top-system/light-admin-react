@@ -6,7 +6,6 @@ import {
   type ActionType,
   PageContainer,
   type ProColumns,
-  ProTable,
 } from '@ant-design/pro-components';
 import {
   App,
@@ -21,6 +20,7 @@ import {
 } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   deleteTask,
   getTask,
@@ -149,7 +149,7 @@ const TaskPage: React.FC = () => {
         </Col>
       </Row>
 
-      <ProTable<TaskRow>
+      <ResizableProTable<TaskRow>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

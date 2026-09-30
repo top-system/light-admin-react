@@ -15,12 +15,12 @@ import {
   ProFormSelect,
   ProFormText,
   ProFormTreeSelect,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Avatar, Button, Popconfirm, Space } from 'antd';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
 import DictTag from '@/components/business/DictTag';
+import { ResizableProTable } from '@/components/ResizableTable';
 import { getDeptOptions } from '@/services/light-admin/dept';
 import { getRoleOptions } from '@/services/light-admin/role';
 import {
@@ -160,7 +160,7 @@ const UserPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<User, UserQuery>
+      <ResizableProTable<User, UserQuery>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

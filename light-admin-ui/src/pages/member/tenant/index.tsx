@@ -11,11 +11,11 @@ import {
   type ProColumns,
   ProFormSelect,
   ProFormText,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Popconfirm, Space } from 'antd';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   createTenant,
   deleteTenant,
@@ -96,7 +96,10 @@ const TenantPage: React.FC = () => {
               <a onClick={() => openEdit(row)}>编辑</a>
             </Auth>
             <Auth code="member:tenant:delete">
-              <Popconfirm title="确认删除?" onConfirm={() => handleDelete(row.id)}>
+              <Popconfirm
+                title="确认删除?"
+                onConfirm={() => handleDelete(row.id)}
+              >
                 <a style={{ color: '#ff4d4f' }}>删除</a>
               </Popconfirm>
             </Auth>
@@ -109,7 +112,7 @@ const TenantPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<Tenant>
+      <ResizableProTable<Tenant>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
@@ -141,8 +144,16 @@ const TenantPage: React.FC = () => {
         onFinish={handleSubmit}
         modalProps={{ destroyOnClose: true, maskClosable: false }}
       >
-        <ProFormText name="code" label="租户编码" rules={[{ required: true }]} />
-        <ProFormText name="name" label="租户名称" rules={[{ required: true }]} />
+        <ProFormText
+          name="code"
+          label="租户编码"
+          rules={[{ required: true }]}
+        />
+        <ProFormText
+          name="name"
+          label="租户名称"
+          rules={[{ required: true }]}
+        />
         <ProFormSelect
           name="status"
           label="状态"

@@ -3,8 +3,9 @@
  * log. Lets you emit arbitrary frames to test server handlers.
  */
 import { PageContainer } from '@ant-design/pro-components';
-import { Badge, Button, Card, Input, Space, Table, Typography } from 'antd';
+import { Badge, Button, Card, Input, Space, Typography } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
+import { ResizableTable } from '@/components/ResizableTable';
 import { getWsClient, type WsFrame } from '@/utils/ws/client';
 
 const MAX_LOG = 50;
@@ -22,10 +23,18 @@ const WebSocketDemo: React.FC = () => {
   useEffect(() => {
     const client = getWsClient();
     if (!client) return;
-    const types = ['online-count', 'dict-change', 'notice', 'message', 'system'];
+    const types = [
+      'online-count',
+      'dict-change',
+      'notice',
+      'message',
+      'system',
+    ];
     for (const t of types) {
       const off = client.on(t, (frame) => {
-        setLog((prev) => [{ ...frame, _t: Date.now() }, ...prev].slice(0, MAX_LOG));
+        setLog((prev) =>
+          [{ ...frame, _t: Date.now() }, ...prev].slice(0, MAX_LOG),
+        );
       });
       offRefs.current.push(off);
     }
@@ -88,7 +97,7 @@ const WebSocketDemo: React.FC = () => {
       </Card>
 
       <Card title={`收到的帧(最多保留 ${MAX_LOG} 条)`}>
-        <Table
+        <ResizableTable
           size="small"
           rowKey="_t"
           pagination={false}

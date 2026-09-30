@@ -16,10 +16,10 @@ import {
   ProFormDigit,
   ProFormSelect,
   ProFormText,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Popconfirm, Space, Tag } from 'antd';
 import React, { useMemo, useRef, useState } from 'react';
+import { ResizableProTable } from '@/components/ResizableTable';
 
 type Row = {
   id: number;
@@ -61,7 +61,10 @@ async function fakeQuery(q: Query) {
   const pageSize = q.pageSize ?? 10;
   const filtered = DATA.filter((row) => matchQuery(row, q));
   const start = (pageNum - 1) * pageSize;
-  return { data: filtered.slice(start, start + pageSize), total: filtered.length };
+  return {
+    data: filtered.slice(start, start + pageSize),
+    total: filtered.length,
+  };
 }
 
 async function fakeCreate(data: Omit<Row, 'id'>) {
@@ -106,7 +109,11 @@ const CurdDemo: React.FC = () => {
 
   const handleSubmit = async (values: Omit<Row, 'id'>) => {
     if (!edit) return false;
-    const payload = { ...values, score: Number(values.score), status: Number(values.status) as 0 | 1 };
+    const payload = {
+      ...values,
+      score: Number(values.score),
+      status: Number(values.status) as 0 | 1,
+    };
     if (edit.mode === 'create') {
       await fakeCreate(payload);
       message.success('创建成功');
@@ -156,7 +163,10 @@ const CurdDemo: React.FC = () => {
         render: (_, row) => (
           <Space size="small">
             <a onClick={() => openEdit(row)}>编辑</a>
-            <Popconfirm title="确认删除?" onConfirm={() => handleDelete([row.id])}>
+            <Popconfirm
+              title="确认删除?"
+              onConfirm={() => handleDelete([row.id])}
+            >
               <a style={{ color: '#ff4d4f' }}>删除</a>
             </Popconfirm>
           </Space>
@@ -171,7 +181,7 @@ const CurdDemo: React.FC = () => {
       title="CRUD 模式示例"
       subTitle="ProTable + ModalForm 组合,适用于 90% 的后台增删改查页面"
     >
-      <ProTable<Row, Query>
+      <ResizableProTable<Row, Query>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

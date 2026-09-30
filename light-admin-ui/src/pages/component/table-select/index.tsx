@@ -5,17 +5,9 @@
  * for a normal Select.
  */
 import { PageContainer } from '@ant-design/pro-components';
-import {
-  Button,
-  Card,
-  Form,
-  Input,
-  Modal,
-  Space,
-  Table,
-  Typography,
-} from 'antd';
+import { Button, Card, Form, Input, Modal, Space, Typography } from 'antd';
 import React, { useState } from 'react';
+import { ResizableTable } from '@/components/ResizableTable';
 
 type Row = { id: number; name: string; org: string };
 
@@ -59,7 +51,7 @@ const RowPicker: React.FC<PickerProps> = ({ value, onChange }) => {
         onCancel={() => setOpen(false)}
         onOk={confirm}
       >
-        <Table<Row>
+        <ResizableTable<Row>
           rowKey="id"
           size="small"
           pagination={{ pageSize: 8 }}
@@ -94,11 +86,7 @@ const TableSelect: React.FC = () => {
           <Form.Item label="负责人" name="owner">
             <RowPicker />
           </Form.Item>
-          <Form.Item
-            shouldUpdate
-            label="当前取值"
-            style={{ marginBottom: 0 }}
-          >
+          <Form.Item shouldUpdate label="当前取值" style={{ marginBottom: 0 }}>
             {() => (
               <Typography.Paragraph copyable>
                 {JSON.stringify(form.getFieldValue('owner') ?? null)}

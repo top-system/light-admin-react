@@ -13,11 +13,11 @@ import {
   ProFormSelect,
   ProFormText,
   ProFormTextArea,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Drawer, Popconfirm, Space, Tag } from 'antd';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   createNotice,
   deleteNotices,
@@ -195,7 +195,7 @@ const NoticePage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<Notice>
+      <ResizableProTable<Notice>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

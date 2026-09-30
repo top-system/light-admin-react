@@ -17,11 +17,11 @@ import {
   ProFormSelect,
   ProFormText,
   ProFormTextArea,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Col, Popconfirm, Row, Space } from 'antd';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   createDict,
   createDictItem,
@@ -230,7 +230,7 @@ const DictPage: React.FC = () => {
     <PageContainer>
       <Row gutter={16}>
         <Col xs={24} md={10}>
-          <ProTable<Dict>
+          <ResizableProTable<Dict>
             actionRef={dictActionRef}
             rowKey="id"
             columns={dictColumns}
@@ -258,7 +258,7 @@ const DictPage: React.FC = () => {
           />
         </Col>
         <Col xs={24} md={14}>
-          <ProTable<DictItem>
+          <ResizableProTable<DictItem>
             actionRef={itemActionRef}
             rowKey="id"
             columns={itemColumns}

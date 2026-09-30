@@ -4,13 +4,10 @@
  * dropdown. Pattern:  primary actions always visible + overflow menu.
  */
 import { DownOutlined } from '@ant-design/icons';
-import {
-  PageContainer,
-  ProTable,
-  type ProColumns,
-} from '@ant-design/pro-components';
+import { PageContainer, type ProColumns } from '@ant-design/pro-components';
 import { Dropdown, Space } from 'antd';
 import React, { useMemo } from 'react';
+import { ResizableProTable } from '@/components/ResizableTable';
 
 type Row = { id: number; name: string; status: string };
 
@@ -82,7 +79,7 @@ const OperationColumn: React.FC = () => {
       title="自适应操作列"
       subTitle="前 N 个常用操作常驻,其余收进「更多」下拉,避免操作列过宽"
     >
-      <ProTable<Row>
+      <ResizableProTable<Row>
         rowKey="id"
         columns={columns}
         dataSource={DATA}

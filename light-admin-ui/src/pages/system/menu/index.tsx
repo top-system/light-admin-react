@@ -15,11 +15,11 @@ import {
   ProFormSelect,
   ProFormText,
   ProFormTreeSelect,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Popconfirm, Space } from 'antd';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   createMenu,
   deleteMenu,
@@ -146,7 +146,7 @@ const MenuPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<MenuNode>
+      <ResizableProTable<MenuNode>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

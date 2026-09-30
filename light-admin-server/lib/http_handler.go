@@ -85,7 +85,7 @@ func NewHttpHandler(logger Logger, config Config) HttpHandler {
 		if !ctx.Response().Committed {
 			// https://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html
 			if ctx.Request().Method == http.MethodHead {
-				err = ctx.NoContent(he.Code)
+				err = ctx.NoContent(code)
 			} else {
 				err = echox.Response{
 					Code:    code,

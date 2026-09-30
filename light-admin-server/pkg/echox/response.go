@@ -33,24 +33,22 @@ type PageInfo struct {
 
 // sends a JSON response with status code.
 func (a Response) JSON(ctx echo.Context) error {
+	var responseErr error
 	if a.Message == "" || a.Message == nil {
 		a.Message = http.StatusText(a.Code)
 	}
 
 	if err, ok := a.Message.(error); ok {
+		responseErr = err
 		if status := errors.HTTPStatusCode(err); status != 0 {
 			a.Code = status
 		}
 		a.Message = err.Error()
 	}
 
-	// 自动设置业务码：成功=00000，失败=A
+	// Derive a stable business code after resolving any domain HTTP status.
 	if a.BizCode == "" {
-		if a.Code == http.StatusOK {
-			a.BizCode = "00000"
-		} else {
-			a.BizCode = "A"
-		}
+		a.BizCode = errors.BusinessCode(responseErr, a.Code)
 	}
 
 	if a.Pretty {

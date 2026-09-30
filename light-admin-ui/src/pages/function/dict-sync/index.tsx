@@ -5,9 +5,10 @@
  *   - server-side `dict-change` ws frames automatically invalidate too
  */
 import { PageContainer } from '@ant-design/pro-components';
-import { Button, Card, Input, Space, Table, Typography } from 'antd';
+import { Button, Card, Input, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import DictSelect from '@/components/business/DictSelect';
+import { ResizableTable } from '@/components/ResizableTable';
 import type { DictItemOption } from '@/types/light-admin/domain';
 import {
   invalidateDict,
@@ -23,7 +24,9 @@ const DictSync: React.FC = () => {
   useEffect(() => {
     setItems(peekDictOptions(code));
     const off = subscribeDict(code, () => setItems(peekDictOptions(code)));
-    loadDictOptions(code).then((v) => setItems(v)).catch(() => setItems([]));
+    loadDictOptions(code)
+      .then((v) => setItems(v))
+      .catch(() => setItems([]));
     return off;
   }, [code]);
 
@@ -58,7 +61,11 @@ const DictSync: React.FC = () => {
       </Card>
 
       <Card title="DictSelect 实时绑定" style={{ marginBottom: 16 }}>
-        <DictSelect code={code} style={{ width: 240 }} placeholder="选一项看看" />
+        <DictSelect
+          code={code}
+          style={{ width: 240 }}
+          placeholder="选一项看看"
+        />
       </Card>
 
       <Card title={`当前缓存内容 — ${code}`}>
@@ -69,7 +76,7 @@ const DictSync: React.FC = () => {
               ? '(空,或该字典不存在)'
               : `共 ${items.length} 项`}
         </Typography.Paragraph>
-        <Table<DictItemOption>
+        <ResizableTable<DictItemOption>
           size="small"
           rowKey="value"
           pagination={false}

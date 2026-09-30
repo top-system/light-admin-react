@@ -12,11 +12,11 @@ import {
   ProFormSelect,
   ProFormText,
   ProFormTreeSelect,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Popconfirm, Space } from 'antd';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   createDept,
   deleteDepts,
@@ -122,7 +122,7 @@ const DeptPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<Dept>
+      <ResizableProTable<Dept>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

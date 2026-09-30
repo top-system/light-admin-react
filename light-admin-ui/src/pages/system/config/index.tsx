@@ -6,11 +6,11 @@ import {
   type ProColumns,
   ProFormText,
   ProFormTextArea,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Popconfirm, Space } from 'antd';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   createConfig,
   deleteConfig,
@@ -104,7 +104,7 @@ const ConfigPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<Config>
+      <ResizableProTable<Config>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

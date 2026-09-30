@@ -14,7 +14,6 @@ import {
   ProFormDigit,
   ProFormSelect,
   ProFormText,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Drawer, Popconfirm, Space, Tree } from 'antd';
 import type { DataNode } from 'antd/es/tree';
@@ -26,6 +25,7 @@ import React, {
   useState,
 } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import { listMenus } from '@/services/light-admin/menu';
 import {
   assignRoleMenus,
@@ -157,7 +157,7 @@ const RolePage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<Role>
+      <ResizableProTable<Role>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

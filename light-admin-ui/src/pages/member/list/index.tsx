@@ -9,11 +9,11 @@ import {
   PageContainer,
   type ProColumns,
   ProFormText,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Popconfirm, Space } from 'antd';
 import React, { useMemo, useRef, useState } from 'react';
 import Auth from '@/components/business/Auth';
+import { ResizableProTable } from '@/components/ResizableTable';
 import {
   queryMembers,
   resetMemberPassword,
@@ -88,7 +88,7 @@ const MemberListPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<MemberRow>
+      <ResizableProTable<MemberRow>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}

@@ -9,10 +9,10 @@ import {
   PageContainer,
   type ProColumns,
   ProFormText,
-  ProTable,
 } from '@ant-design/pro-components';
 import { App, Button, Popconfirm, Space } from 'antd';
 import React, { useRef, useState } from 'react';
+import { ResizableProTable } from '@/components/ResizableTable';
 
 type Row = { id: number; title: string; tag: string };
 
@@ -31,7 +31,7 @@ const CurdSingle: React.FC = () => {
 
   return (
     <PageContainer title="CRUD 单文件" subTitle="全部逻辑 <100 行内完成">
-      <ProTable<Row>
+      <ResizableProTable<Row>
         actionRef={actionRef}
         rowKey="id"
         search={false}
@@ -98,7 +98,11 @@ const CurdSingle: React.FC = () => {
           if (editing) {
             const idx = DATA.findIndex((r) => r.id === editing.id);
             if (idx >= 0) {
-              DATA[idx] = { id: editing.id, title: values.title, tag: values.tag };
+              DATA[idx] = {
+                id: editing.id,
+                title: values.title,
+                tag: values.tag,
+              };
             }
             message.success('已更新');
           } else {

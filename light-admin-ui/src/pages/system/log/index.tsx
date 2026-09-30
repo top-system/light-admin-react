@@ -2,10 +2,10 @@ import {
   type ActionType,
   PageContainer,
   type ProColumns,
-  ProTable,
 } from '@ant-design/pro-components';
 import { Descriptions, Drawer } from 'antd';
 import React, { useMemo, useRef, useState } from 'react';
+import { ResizableProTable } from '@/components/ResizableTable';
 import { queryLogs } from '@/services/light-admin/log';
 import type { LogRow } from '@/types/light-admin/domain';
 import { toProTableRequest } from '@/utils/response/adapter';
@@ -54,7 +54,7 @@ const LogPage: React.FC = () => {
 
   return (
     <PageContainer>
-      <ProTable<LogRow>
+      <ResizableProTable<LogRow>
         actionRef={actionRef}
         rowKey="id"
         columns={columns}
